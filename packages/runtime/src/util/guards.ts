@@ -6,15 +6,22 @@
  * @description Project file.
  */
 
-export function isObjectNonNull(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+export function isObjectNonNull(
+  value: unknown,
+): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
-export function isCallable(value: unknown): value is (...args: unknown[]) => unknown {
-  return typeof value === 'function';
+export function isCallable(
+  value: unknown,
+): value is (...args: unknown[]) => unknown {
+  return typeof value === "function";
 }
 
-export function hasOwn<T extends object>(obj: T, key: PropertyKey): key is keyof T {
+export function hasOwn<T extends object>(
+  obj: T,
+  key: PropertyKey,
+): key is keyof T {
   return Object.prototype.hasOwnProperty.call(obj, key);
 }
 

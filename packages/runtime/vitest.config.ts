@@ -6,12 +6,12 @@
  * @description Vitest configuration for the runtime package.
  */
 
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    environment: 'node',
-    include: ['tests/**/*.spec.ts'],
-    exclude: ['dist/**', 'docs/**'],
+    environment: "node",
+    include: ["tests/**/*.spec.ts"],
+    exclude: ["dist/**", "docs/**"],
   },
 });

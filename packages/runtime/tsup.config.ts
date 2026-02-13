@@ -6,13 +6,13 @@
  * @description tsup build configuration for the runtime package.
  */
 
-import { defineConfig } from 'tsup';
+import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/index.types.ts'],
-  format: ['esm'],
-  platform: 'node',
-  target: 'es2022',
+  entry: ["src/index.ts", "src/index.types.ts"],
+  format: ["esm"],
+  platform: "node",
+  target: "es2022",
   dts: true,
   sourcemap: true,
   clean: true,

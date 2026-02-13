@@ -19,28 +19,28 @@ This document defines normative rules for this repository.
 ## 2. Documentation rules
 
 - Prefer describing:
-    - intent (“why this exists”)
-    - behavior (“what it guarantees”)
-    - constraints (“preconditions / invariants”)
-    - edge cases (“what to expect on boundaries”)
-    - lifecycle/ownership (“who calls it / who owns data”)
+  - intent (“why this exists”)
+  - behavior (“what it guarantees”)
+  - constraints (“preconditions / invariants”)
+  - edge cases (“what to expect on boundaries”)
+  - lifecycle/ownership (“who calls it / who owns data”)
 - Avoid redundancy:
-    - do not restate types already expressed by TypeScript
-    - avoid auto-generated “noise docs” that add no intent
+  - do not restate types already expressed by TypeScript
+  - avoid auto-generated “noise docs” that add no intent
 - Optional tags (only if they add value beyond TS types):
-    - `@remarks` for important nuances
-    - `@example` for non-obvious usage
-    - `@deprecated` with migration guidance
-    - `@throws` when exceptions are part of the contract
-    - `@see` for linked specs/modules
+  - `@remarks` for important nuances
+  - `@example` for non-obvious usage
+  - `@deprecated` with migration guidance
+  - `@throws` when exceptions are part of the contract
+  - `@see` for linked specs/modules
 
 ## 3. Commenting rules
 
 - Prefer `/** ... */` for multi-line commentary blocks.
 - Place inline comments `//` comments on their own line above the statement when needed.
 - Use actionable tags:
-    - `// TODO:` for planned work
-    - `// FIXME:` for known issues that must be fixed
+  - `// TODO:` for planned work
+  - `// FIXME:` for known issues that must be fixed
 
 ## 4. Types Architecture Conventions
 
@@ -49,11 +49,13 @@ This document defines normative rules for this repository.
 Every module with **domain meaning** MUST define its types in a sibling `*.types.ts` file.
 
 A module has “domain meaning” if any of the following applies:
+
 - its concepts appear in docs/specs/contract text, or
 - it defines externally meaningful entities (not just helpers), or
 - its types are imported across the module’s domain boundary.
 
 **Domain boundary definition (SSoT):**
+
 - A “domain” is a top-level folder **under `src/`** (e.g., `src/targets/*`, `src/runs/*`).
 - Files directly under `src/` are treated as belonging to a single implicit “root” domain, but are discouraged.
 
@@ -65,21 +67,24 @@ This repository is shipped as a **starter pack**. It is valid that not every dom
 
 **Creation routine (required):**
 When implementing or evolving a module such that it has “domain meaning” (as defined above), you MUST, in the same change set:
-1) Create the colocated `*.types.ts` leaf file(s) as the single source of truth (SSoT).
-2) Move/define the canonical types there (no shadow shapes in value modules).
-3) Export only the intentional public surface via `index.types.ts` (curated, explicit; no wildcards).
-4) Ensure the type import graph stays acyclic (break cycles via narrow interfaces / shared primitives, never via value imports).
+
+1. Create the colocated `*.types.ts` leaf file(s) as the single source of truth (SSoT).
+2. Move/define the canonical types there (no shadow shapes in value modules).
+3. Export only the intentional public surface via `index.types.ts` (curated, explicit; no wildcards).
+4. Ensure the type import graph stays acyclic (break cycles via narrow interfaces / shared primitives, never via value imports).
 
 This routine is a **review requirement**. See **Chapter 5** for enforcement and review expectations.
 
 ### 4.2 Type-only discipline
 
 `*.types.ts` files MUST be type-only:
+
 - They MUST export only types (`type`, `interface`) and type-only constants (e.g., `as const` literal types) that do not require runtime evaluation.
 - They MUST NOT export runtime values (functions, classes, objects).
 - They MUST NOT import from value/implementation modules — even via `import type`.
 
 **Escape hatch (strict):**
+
 - Exception is allowed only if there is **no viable alternative due to third-party constraints** (e.g., a library exposes types only via a value/implementation module).
 - The rationale MUST be documented and a tracked ticket/issue MUST be created to remove the exception.
 - This escape hatch MUST NOT be used to resolve cycles.
@@ -95,13 +100,16 @@ Do not redefine shapes in multiple places.
 ### 4.4 Allowed imports between leaf type files
 
 Leaf `*.types.ts` MAY import from other leaf `*.types.ts` files **only if**:
+
 - it does not introduce cycles, and
 - the dependency direction remains intentional (prefer “downwards” dependencies).
 
 **Cycle-breaking rule (normative):**
+
 - Break cycles by introducing **narrow interfaces** (e.g., `*Context`, `*Ref`, `*Handle`) or by moving shared primitives into an existing **lowest-level leaf types file**; **never** by using imports from value/implementation modules.
 
 **Cycle detection (enforcement):**
+
 - Cycles in the **type import graph of `*.types.ts` files** (including transitive edges introduced via `index.types.ts`) MUST be caught **pre-merge** (e.g., enforced in CI) via an agreed mechanism (dedicated cycle check or an equivalent lint/build rule).
 
 ### 4.5 Public type surface (`index.types.ts`)
@@ -131,6 +139,7 @@ Changes to `index.types.ts` and `index.ts` are contract-sensitive and require ex
 ### 5.1 Language policy (mandatory)
 
 Use **en-US** for:
+
 - code identifiers
 - comments and JSDoc
 - documentation
@@ -139,6 +148,7 @@ Use **en-US** for:
 ### 5.2 Mandatory metadata headers (inside every file)
 
 Every generated/modified file must contain a complete metadata header with:
+
 - `location`
 - `version`
 - `maintainer`
@@ -148,17 +158,19 @@ Every generated/modified file must contain a complete metadata header with:
 Template patterns:
 
 **JS/TS (`.js`, `.mjs`, `.ts`)**
+
 ```ts
 /**
-    * @file <location>
-    * @version <version>
-    * @maintainer <maintainer>
-    * @scope <scope>
-    * @description <description>
-    */
+ * @file <location>
+ * @version <version>
+ * @maintainer <maintainer>
+ * @scope <scope>
+ * @description <description>
+ */
 ```
 
 **Markdown docs (`.md`)**
+
 ```yaml
 ---
 location: <location>
@@ -178,6 +190,7 @@ For machine-consumed YAML (workflows, lockfiles, orchestration YAML), metadata h
 Machine-generated artifacts and third-party/vendor artifacts are explicitly exempt from the metadata header rule.
 
 Examples (non-exhaustive):
+
 - `node_modules/**`
 - package-manager lockfiles (e.g., `pnpm-lock.yaml`)
 - build outputs (e.g., `dist/**`, `coverage/**`)
@@ -185,6 +198,7 @@ Examples (non-exhaustive):
 ### 5.3 Placeholder resolution
 
 All `<...>` placeholders must be resolved from:
+
 1. session context
 2. project context
 3. system context
@@ -205,6 +219,7 @@ Fallback behavior: emit literal if unresolved (and warn).
 ### 5.6 Update workflow (aggregate_full_file)
 
 When updating code files:
+
 1. Discuss required changes briefly in plain language.
 2. Review small snippets for clarity before approval.
 3. After approval, deliver the complete integrated file only.

@@ -16,7 +16,7 @@
  * - Keep this registry stable and curated.
  * - Do not encode policy here; policy belongs to the runtime semantics.
  */
-export type DiagnosticSeverity = 'info' | 'warn' | 'error';
+export type DiagnosticSeverity = "info" | "warn" | "error";
 
 export interface DiagnosticCodeSpec {
   /** Human-readable description for audits and tooling. */
@@ -35,4 +35,7 @@ export interface DiagnosticCodeSpec {
  *
  * Start empty and add codes intentionally (contract-sensitive).
  */
-export const DIAGNOSTIC_CODES = {} as const satisfies Record<string, DiagnosticCodeSpec>;
+export const DIAGNOSTIC_CODES = {} as const satisfies Record<
+  string,
+  DiagnosticCodeSpec
+>;

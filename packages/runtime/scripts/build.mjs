@@ -8,6 +8,6 @@
 
 // Optional build wrapper. Kept minimal intentionally.
 // Usage: node scripts/build.mjs
-import { execSync } from 'node:child_process';
+import { execSync } from "node:child_process";
 
-execSync('pnpm build', { stdio: 'inherit' });
+execSync("pnpm build", { stdio: "inherit" });

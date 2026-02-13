@@ -21,6 +21,6 @@
  */
 export function createRuntime(): never {
   throw new Error(
-    'createRuntime() is not implemented yet. Implement it according to the Runtime Spec.',
+    "createRuntime() is not implemented yet. Implement it according to the Runtime Spec.",
   );
 }

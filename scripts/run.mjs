@@ -78,7 +78,9 @@ function normalizeLines(text) {
 function parseActiveProjectsYaml(yamlText) {
   const lines = normalizeLines(yamlText);
 
-  let idx = lines.findIndex((l) => l.trim() === "active:" || l.trim().startsWith("active: "));
+  let idx = lines.findIndex(
+    (l) => l.trim() === "active:" || l.trim().startsWith("active: "),
+  );
   if (idx === -1) return [];
 
   const first = lines[idx].trim();
@@ -87,7 +89,7 @@ function parseActiveProjectsYaml(yamlText) {
     if (rest === "[]") return [];
     if (rest) {
       throw new Error(
-        `Unsupported YAML form near: "${first}". Use block list:\nactive:\n  - pkg`
+        `Unsupported YAML form near: "${first}". Use block list:\nactive:\n  - pkg`,
       );
     }
   }
@@ -100,7 +102,10 @@ function parseActiveProjectsYaml(yamlText) {
     if (!t.startsWith("-")) continue;
 
     let v = t.replace(/^-+/, "").trim();
-    v = v.replace(/^"(.*)"$/, "$1").replace(/^'(.*)'$/, "$1").trim();
+    v = v
+      .replace(/^"(.*)"$/, "$1")
+      .replace(/^'(.*)'$/, "$1")
+      .trim();
     if (v) out.push(v);
   }
   return out;
@@ -141,7 +146,12 @@ function parseProjectsYaml(yamlText) {
     }
 
     // new top-level key ends parsing
-    if (indentOf(line) === 0 && line.trim().endsWith(":") && line.trim() !== "projects:") break;
+    if (
+      indentOf(line) === 0 &&
+      line.trim().endsWith(":") &&
+      line.trim() !== "projects:"
+    )
+      break;
 
     // project block begins at indent 2:   "<name>":
     if (indentOf(line) === 2 && line.trim().endsWith(":")) {
@@ -385,12 +395,16 @@ async function cmdStatus() {
 
   for (const e of pidEntries) {
     const alive = e.pid ? isPidAlive(e.pid) : false;
-    console.log(`  - ${e.file}: ${e.pid ?? "?"} ${alive ? "(alive)" : "(dead)"}`);
+    console.log(
+      `  - ${e.file}: ${e.pid ?? "?"} ${alive ? "(alive)" : "(dead)"}`,
+    );
     // Cleanup dead PIDs to avoid drift.
     if (!alive) {
       try {
         fs.unlinkSync(e.full);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   }
 }
@@ -407,7 +421,9 @@ async function cmdStop() {
     if (!e.pid) continue;
     try {
       process.kill(e.pid, "SIGINT");
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   await new Promise((r) => setTimeout(r, 900));
@@ -417,7 +433,9 @@ async function cmdStop() {
     if (!e.pid) continue;
     try {
       if (isPidAlive(e.pid)) process.kill(e.pid, "SIGTERM");
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   await new Promise((r) => setTimeout(r, 400));
@@ -426,7 +444,9 @@ async function cmdStop() {
   for (const e of pidEntries) {
     try {
       fs.unlinkSync(e.full);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   console.log("Stopped all processes tracked by this CLI.");
@@ -436,7 +456,7 @@ async function cmdActive(taskName) {
   const active = getActiveProjects();
   if (active.length === 0) {
     throw new Error(
-      "No active projects. Activate at least one project in active-projects.base.yaml or active-projects.local.yaml."
+      "No active projects. Activate at least one project in active-projects.base.yaml or active-projects.local.yaml.",
     );
   }
 
@@ -452,11 +472,14 @@ async function cmdActive(taskName) {
     const resolved = resolveTaskCommand(project, taskName, registry);
     if (!resolved) {
       throw new Error(
-        `No task mapping for "${taskName}" in projects.*.yaml for project: ${project}`
+        `No task mapping for "${taskName}" in projects.*.yaml for project: ${project}`,
       );
     }
 
-    const child = spawnShellCommand(resolved.command, { cwd: resolved.cwd, label: project });
+    const child = spawnShellCommand(resolved.command, {
+      cwd: resolved.cwd,
+      label: project,
+    });
     writePid(project, child.pid);
 
     child.on("exit", () => clearPid(project));
@@ -477,10 +500,15 @@ async function cmdProject(project, taskName) {
   const registry = getProjectRegistry();
   const resolved = resolveTaskCommand(project, taskName, registry);
   if (!resolved) {
-    throw new Error(`No task mapping for "${taskName}" in projects.*.yaml for project: ${project}`);
+    throw new Error(
+      `No task mapping for "${taskName}" in projects.*.yaml for project: ${project}`,
+    );
   }
 
-  const child = spawnShellCommand(resolved.command, { cwd: resolved.cwd, label: project });
+  const child = spawnShellCommand(resolved.command, {
+    cwd: resolved.cwd,
+    label: project,
+  });
   writePid(project, child.pid);
 
   child.on("exit", () => clearPid(project));

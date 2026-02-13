@@ -51,7 +51,15 @@ Examples:
 }
 
 function parseArgs(argv) {
-  const args = { cwd: null, tool: "tsup", outDir: "dist", clean: false, watch: false, label: null, passthrough: [] };
+  const args = {
+    cwd: null,
+    tool: "tsup",
+    outDir: "dist",
+    clean: false,
+    watch: false,
+    label: null,
+    passthrough: [],
+  };
 
   const dd = argv.indexOf("--");
   const main = dd >= 0 ? argv.slice(0, dd) : argv;
@@ -79,11 +87,11 @@ function parseArgs(argv) {
 
 function runPnpmExec({ cwd, label }, bin, binArgs) {
   return new Promise((resolve, reject) => {
-    const child = spawn(
-      "pnpm",
-      ["-C", cwd, "exec", bin, ...binArgs],
-      { stdio: "inherit", shell: process.platform === "win32", env: process.env }
-    );
+    const child = spawn("pnpm", ["-C", cwd, "exec", bin, ...binArgs], {
+      stdio: "inherit",
+      shell: process.platform === "win32",
+      env: process.env,
+    });
 
     child.on("error", reject);
     child.on("exit", (code) => {
@@ -108,10 +116,16 @@ async function main() {
 
   if (cfg.clean) {
     // Clean is intentionally an explicit opt-in (avoids accidentally deleting the wrong directory).
-    await runPnpmExec({ cwd: cfg.cwd, label: `${label}:clean` }, "rimraf", [cfg.outDir]);
+    await runPnpmExec({ cwd: cfg.cwd, label: `${label}:clean` }, "rimraf", [
+      cfg.outDir,
+    ]);
   }
 
-  await runPnpmExec({ cwd: cfg.cwd, label }, cfg.tool, toolArgs(cfg.tool, cfg.watch, cfg.passthrough));
+  await runPnpmExec(
+    { cwd: cfg.cwd, label },
+    cfg.tool,
+    toolArgs(cfg.tool, cfg.watch, cfg.passthrough),
+  );
 }
 
 main().catch((err) => {

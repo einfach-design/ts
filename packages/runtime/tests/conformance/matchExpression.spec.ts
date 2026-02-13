@@ -6,10 +6,10 @@
  * @description Conformance and test utilities for the runtime package.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from "vitest";
 
-describe('matchExpression.spec.ts', () => {
-  it('placeholder', () => {
+describe("matchExpression.spec.ts", () => {
+  it("placeholder", () => {
     expect(true).toBe(true);
   });
 });
