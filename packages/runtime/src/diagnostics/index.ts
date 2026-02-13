@@ -6,5 +6,10 @@
  * @description Project file.
  */
 
-export { emitDiagnostic } from "./emit.js";
+export { emitDiagnostic, createDiagnosticCollector } from "./emit.js";
+export type {
+  RuntimeDiagnostic,
+  EmitDiagnosticOptions,
+  DiagnosticCollector,
+} from "./emit.js";
 export { DIAGNOSTIC_CODES } from "./codes.js";
