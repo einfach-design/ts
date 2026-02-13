@@ -1,0 +1,18 @@
+# location: projects.base.yaml
+# version: 0.15.0
+# maintainer: Axel Elstermann | einfach.design (e2d)
+# scope: Starter pack orchestration registry (root owns commands).
+# description: Project registry with explicit cwd + task command mapping. Packages do not need to provide scripts.
+
+projects:
+  "@einfach-design/runtime":
+    cwd: "packages/runtime"
+    tasks:
+      # Library dev loop: build on change
+      dev: "pnpm -C packages/runtime exec tsup --watch"
+      watch: "pnpm -C packages/runtime exec tsup --watch"
+      build: "node scripts/tasks/build.mjs --cwd packages/runtime --tool tsup --outDir dist --clean"
+      build:watch: "pnpm -C packages/runtime exec tsup --watch"
+
+      # Test loop: run continuously on change
+      test:watch: "pnpm -C packages/runtime exec vitest"

@@ -1,0 +1,79 @@
+# location: .github/workflows/runtime.yaml
+# version: 0.15.0
+# maintainer: Axel Elstermann | einfach.design (e2d)
+# scope: CI workflow for the runtime package.
+# description: CI workflow for the runtime package (lint/format/typecheck/test/build).
+
+name: runtime
+
+on:
+  push:
+    paths:
+      - ".github/workflows/runtime.yaml"
+      - "packages/runtime/**"
+      - "pnpm-lock.yaml"
+      - "package.json"
+      - "eslint.config.mjs"
+      - "pnpm-workspace.yaml"
+      - "tsup.config.ts"
+      - "tsconfig*.json"
+      - ".eslint*"
+      - ".prettier*"
+  pull_request:
+    paths:
+      - ".github/workflows/runtime.yaml"
+      - "packages/runtime/**"
+      - "pnpm-lock.yaml"
+      - "package.json"
+      - "eslint.config.mjs"
+      - "pnpm-workspace.yaml"
+      - "tsup.config.ts"
+      - "tsconfig*.json"
+      - ".eslint*"
+      - ".prettier*"
+  workflow_dispatch:
+
+concurrency:
+  group: runtime-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    name: runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Format (check)
+        run: pnpm format:check
+
+      - name: Lint (runtime)
+        run: pnpm -C packages/runtime lint
+
+      - name: Typecheck (runtime)
+        run: pnpm -C packages/runtime typecheck
+
+      - name: Test (runtime)
+        run: pnpm -C packages/runtime test
+
+      - name: Build (runtime)
+        run: pnpm -C packages/runtime build

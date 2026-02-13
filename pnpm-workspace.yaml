@@ -1,0 +1,11 @@
+# location: pnpm-workspace.yaml
+# version: 0.15.0
+# maintainer: Axel Elstermann | einfach.design (e2d)
+# scope: Starter pack workspace configuration.
+# description: pnpm workspace definition for this starter pack.
+
+packages:
+  - packages/*
+
+onlyBuiltDependencies:
+  - esbuild

@@ -1,0 +1,11 @@
+# location: active-projects.base.yaml
+# version: 0.15.0
+# maintainer: Axel Elstermann | einfach.design (e2d)
+# scope: Starter pack workspace configuration.
+# description: Committed active-project allowlist (SSoT) for simple on/off orchestration.
+
+# Repository-wide activation allowlist.
+# Only projects listed here are considered "active" by orchestration tooling.
+# Multiple entries are allowed.
+active:
+  - "@einfach-design/runtime"

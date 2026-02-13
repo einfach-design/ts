@@ -1,0 +1,48 @@
+{
+  "name": "@einfach-design/runtime",
+  "version": "0.11.3",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/index.types.d.ts"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
+  "scripts": {
+    "status": "node scripts/run.mjs status",
+    "stop": "node scripts/run.mjs stop",
+    "dev": "node scripts/run.mjs dev",
+    "watch": "node scripts/run.mjs watch",
+    "build": "tsup",
+    "clean": "rimraf dist",
+    "lint": "pnpm -w lint",
+    "lint:fix": "pnpm -w lint:fix",
+    "test": "vitest run",
+    "test:watch": "node scripts/run.mjs test:watch",
+    "test:conformance": "vitest run tests/conformance",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "pnpm -s clean && pnpm -s lint && pnpm -s typecheck && pnpm -s format:check && pnpm -s test && pnpm -s build",
+    "format": "pnpm -w format",
+    "format:check": "pnpm -w format:check",
+    "build:watch": "node scripts/run.mjs build:watch"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.2.3",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}
