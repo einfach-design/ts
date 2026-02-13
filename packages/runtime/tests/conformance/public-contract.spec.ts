@@ -14,8 +14,15 @@ describe("conformance: public contract (values)", () => {
     expect(typeof mod.createRuntime).toBe("function");
   });
 
-  it('createRuntime() throws a clear "not implemented" error (starter-pack stub)', async () => {
+  it("createRuntime() returns the wired runtime API", async () => {
     const { createRuntime } = await import("../../src/index.js");
-    expect(() => createRuntime()).toThrowError(/not implemented/i);
+    const run = createRuntime();
+
+    expect(typeof run.add).toBe("function");
+    expect(typeof run.impulse).toBe("function");
+    expect(typeof run.get).toBe("function");
+    expect(typeof run.set).toBe("function");
+    expect(typeof run.matchExpression).toBe("function");
+    expect(typeof run.onDiagnostic).toBe("function");
   });
 });
