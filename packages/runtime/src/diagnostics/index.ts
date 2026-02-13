@@ -6,5 +6,5 @@
  * @description Project file.
  */
 
-export { emitDiagnostic } from './emit';
-export { DIAGNOSTIC_CODES } from './codes';
+export { emitDiagnostic } from './emit.js';
+export { DIAGNOSTIC_CODES } from './codes.js';

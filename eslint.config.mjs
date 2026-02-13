@@ -42,7 +42,7 @@ const ADOPTED_RULES = Object.freeze({
   'prefer-rest-params': 'error',
   'prefer-spread': 'error',
   'no-useless-escape': 'error',
-  'default-params-last': 'error',
+  'default-param-last': 'error',
 });
 
 export default [
@@ -111,6 +111,16 @@ export default [
   {
     plugins: {
       import: importPlugin,
+    },
+    settings: {
+      'import/resolver': {
+        typescript: {
+          project: ['./tsconfig.json', './packages/*/tsconfig.json'],
+        },
+        node: {
+          extensions: ['.js', '.ts', '.d.ts'],
+        },
+      },
     },
     rules: {
       ...(importPlugin.configs?.recommended?.rules ?? {}),

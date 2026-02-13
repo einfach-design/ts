@@ -10,7 +10,7 @@ export function isObjectNonNull(value: unknown): value is Record<string, unknown
   return typeof value === 'object' && value !== null;
 }
 
-export function isCallable(value: unknown): value is (...args: any[]) => any {
+export function isCallable(value: unknown): value is (...args: unknown[]) => unknown {
   return typeof value === 'function';
 }
 
@@ -22,12 +22,17 @@ export function hasOwn<T extends object>(obj: T, key: PropertyKey): key is keyof
 export function deepEqual(a: unknown, b: unknown): boolean {
   if (Object.is(a, b)) return true;
   if (!isObjectNonNull(a) || !isObjectNonNull(b)) return false;
-  const aKeys = Object.keys(a);
-  const bKeys = Object.keys(b);
+
+  const aRec = a as Record<string, unknown>;
+  const bRec = b as Record<string, unknown>;
+
+  const aKeys = Object.keys(aRec);
+  const bKeys = Object.keys(bRec);
   if (aKeys.length !== bKeys.length) return false;
+
   for (const k of aKeys) {
-    if (!hasOwn(b, k)) return false;
-    if (!deepEqual((a as any)[k], (b as any)[k])) return false;
+    if (!hasOwn(bRec, k)) return false;
+    if (!deepEqual(aRec[k], bRec[k])) return false;
   }
   return true;
 }

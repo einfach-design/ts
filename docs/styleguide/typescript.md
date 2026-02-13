@@ -259,7 +259,7 @@ This project adopts the following Airbnb-origin rules as normative policy:
 - `prefer-rest-params`
 - `prefer-spread`
 - `no-useless-escape`
-- `default-params-last`
+- `default-param-last`
 
 ### 8.2 Airbnb chapter 3.5 (adapted)
 
@@ -276,7 +276,7 @@ This project adopts the following Airbnb-origin rules as normative policy:
 ### 8.4 Airbnb chapter 10 (adapted)
 
 - Prefer pure functions where feasible.
-- Default parameters must be last (`default-params-last`).
+- Default parameters must be last (`default-param-last`).
 - Avoid dynamic code execution (`eval`, `new Function`).
 
 ### 8.5 Airbnb chapter 14 (adapted)

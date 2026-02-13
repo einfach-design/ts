@@ -246,7 +246,7 @@ function getProjectRegistry() {
 // PID management
 // ------------------------------------------------------------
 function pidFileName(project) {
-  return `${project.replace(/[\/:@]/g, "_")}.pid`;
+  return `${project.replace(/[/:@]/g, "_")}.pid`;
 }
 
 function pidPath(project) {
@@ -390,7 +390,7 @@ async function cmdStatus() {
     if (!alive) {
       try {
         fs.unlinkSync(e.full);
-      } catch {}
+      } catch { /* ignore */ }
     }
   }
 }
@@ -407,7 +407,7 @@ async function cmdStop() {
     if (!e.pid) continue;
     try {
       process.kill(e.pid, "SIGINT");
-    } catch {}
+    } catch { /* ignore */ }
   }
 
   await new Promise((r) => setTimeout(r, 900));
@@ -417,7 +417,7 @@ async function cmdStop() {
     if (!e.pid) continue;
     try {
       if (isPidAlive(e.pid)) process.kill(e.pid, "SIGTERM");
-    } catch {}
+    } catch { /* ignore */ }
   }
 
   await new Promise((r) => setTimeout(r, 400));
@@ -426,7 +426,7 @@ async function cmdStop() {
   for (const e of pidEntries) {
     try {
       fs.unlinkSync(e.full);
-    } catch {}
+    } catch { /* ignore */ }
   }
 
   console.log("Stopped all processes tracked by this CLI.");

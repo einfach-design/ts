@@ -16,12 +16,13 @@
     "build:watch": "node scripts/run.mjs build:watch"
   },
   "devDependencies": {
-    "@eslint/js": "9.39.2",
     "@eslint/eslintrc": "3.3.3",
+    "@eslint/js": "9.39.2",
     "@typescript-eslint/eslint-plugin": "8.54.0",
     "@typescript-eslint/parser": "8.54.0",
     "eslint": "9.39.2",
     "eslint-config-prettier": "9.1.2",
+    "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "2.32.0",
     "globals": "14.0.0",
     "prettier": "3.8.1",

@@ -15,4 +15,4 @@
  *
  * Implementation details live in their own modules.
  */
-export { createRuntime } from './runtime';
+export { createRuntime } from './runtime.js';
