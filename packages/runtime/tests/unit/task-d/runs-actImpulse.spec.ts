@@ -173,20 +173,93 @@ describe("runs/backfillRun", () => {
       "x:live-instance:flags",
       "x:live-instance:signal",
       "y:same:signal",
-      "z:same:signal",
-      "z:same:flags",
       "x:live-instance:flags",
       "x:live-instance:signal",
     ]);
 
     expect(result).toEqual({
       iterations: 4,
-      attempts: 7,
+      attempts: 5,
       deployed: 3,
-      reEnqueued: 1,
+      reEnqueued: 0,
     });
 
-    expect(backfillQ.list.map((entry) => entry.id)).toEqual(["z"]);
-    expect(backfillQ.map).toEqual({ z: true });
+    expect(backfillQ.list).toEqual([]);
+    expect(backfillQ.map).toEqual({});
   });
+
+
+  it("skips unknown ids from snapshot queue and never re-enqueues them", () => {
+    const stale: Expr = {
+      id: "stale",
+      backfill: { signal: { debt: 1 }, flags: { debt: 0 } },
+    };
+    const live: Expr = {
+      id: "live",
+      backfill: { signal: { debt: 1 }, flags: { debt: 0 } },
+    };
+
+    const backfillQ = createBackfillQ<Expr>();
+    backfillQ.list.push(stale, live);
+    backfillQ.map.stale = true;
+    backfillQ.map.live = true;
+
+    const attempts: string[] = [];
+    const result = backfillRun({
+      backfillQ,
+      registeredById: new Map([["live", live]]),
+      attempt: (expr, gate) => {
+        attempts.push(`${expr.id}:${gate}`);
+        return { status: "deploy", pending: false };
+      },
+    });
+
+    expect(attempts).toEqual(["live:signal"]);
+    expect(result).toEqual({
+      iterations: 2,
+      attempts: 1,
+      deployed: 1,
+      reEnqueued: 0,
+    });
+    expect(backfillQ.list).toEqual([]);
+    expect(backfillQ.map).toEqual({});
+  });
+
+  it("supports optional maxIterations guardrail without changing default behavior", () => {
+    const loop: Expr = {
+      id: "loop",
+      backfill: { signal: { debt: 1 }, flags: { debt: 0 } },
+    };
+
+    const guardedQ = createBackfillQ<Expr>();
+    guardedQ.list.push(loop);
+    guardedQ.map.loop = true;
+
+    expect(() => {
+      backfillRun({
+        backfillQ: guardedQ,
+        registeredById: new Map([["loop", loop]]),
+        maxIterations: 2,
+        attempt: () => ({ status: "deploy", pending: true }),
+      });
+    }).toThrow("backfillRun exceeded maxIterations (2).");
+
+    const unguardedQ = createBackfillQ<Expr>();
+    unguardedQ.list.push(loop);
+    unguardedQ.map.loop = true;
+
+    const unguarded = backfillRun({
+      backfillQ: unguardedQ,
+      registeredById: new Map([["loop", loop]]),
+      attempt: () => ({ status: "deploy", pending: false }),
+    });
+
+    expect(unguarded).toEqual({
+      iterations: 1,
+      attempts: 1,
+      deployed: 1,
+      reEnqueued: 0,
+    });
+  });
+
 });

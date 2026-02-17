@@ -22,6 +22,7 @@ export type BackfillRunOptions<TExpression extends RegisteredExpression> =
   Readonly<{
     backfillQ: BackfillQ<TExpression>;
     registeredById: ReadonlyMap<string, TExpression>;
+    maxIterations?: number;
     attempt: (
       expression: TExpression,
       gate: RunGate,
@@ -76,8 +77,8 @@ export function backfillRun<TExpression extends RegisteredExpression>(
     };
   }
 
-  let workingQ = opts.backfillQ.list.slice();
-  const pendingForReenqueue = new Map<string, TExpression>();
+  const workingQ = opts.backfillQ.list.slice();
+  const pendingIds = new Set<string>();
 
   const reset = resetBackfillQ<TExpression>();
   opts.backfillQ.list = reset.list;
@@ -86,17 +87,28 @@ export function backfillRun<TExpression extends RegisteredExpression>(
   let iterations = 0;
   let attempts = 0;
   let deployed = 0;
+  let cursor = 0;
 
-  while (workingQ.length > 0) {
-    const queuedExpression = workingQ[0] as TExpression;
-    workingQ = workingQ.slice(1);
+  while (cursor < workingQ.length) {
+    if (opts.maxIterations !== undefined && iterations >= opts.maxIterations) {
+      throw new Error(
+        `backfillRun exceeded maxIterations (${opts.maxIterations}).`,
+      );
+    }
+
+    const queuedExpression = workingQ[cursor] as TExpression;
+    cursor += 1;
     iterations += 1;
 
-    const liveExpression =
-      opts.registeredById.get(queuedExpression.id) ?? queuedExpression;
+    const liveExpression = opts.registeredById.get(queuedExpression.id);
+
+    if (liveExpression === undefined) {
+      pendingIds.delete(queuedExpression.id);
+      continue;
+    }
 
     if (liveExpression.tombstone === true) {
-      pendingForReenqueue.delete(liveExpression.id);
+      pendingIds.delete(liveExpression.id);
       continue;
     }
 
@@ -108,9 +120,9 @@ export function backfillRun<TExpression extends RegisteredExpression>(
       deployed += 1;
       if (primaryResult.pending) {
         workingQ.push(liveExpression);
-        pendingForReenqueue.set(liveExpression.id, liveExpression);
+        pendingIds.add(liveExpression.id);
       } else {
-        pendingForReenqueue.delete(liveExpression.id);
+        pendingIds.delete(liveExpression.id);
       }
       continue;
     }
@@ -123,19 +135,24 @@ export function backfillRun<TExpression extends RegisteredExpression>(
       deployed += 1;
       if (secondaryResult.pending) {
         workingQ.push(liveExpression);
-        pendingForReenqueue.set(liveExpression.id, liveExpression);
+        pendingIds.add(liveExpression.id);
       } else {
-        pendingForReenqueue.delete(liveExpression.id);
+        pendingIds.delete(liveExpression.id);
       }
     } else if (secondaryResult.pending) {
-      pendingForReenqueue.set(liveExpression.id, liveExpression);
+      pendingIds.add(liveExpression.id);
     } else {
-      pendingForReenqueue.delete(liveExpression.id);
+      pendingIds.delete(liveExpression.id);
     }
   }
 
   let reEnqueued = 0;
-  for (const expression of pendingForReenqueue.values()) {
+  for (const id of pendingIds) {
+    const expression = opts.registeredById.get(id);
+    if (expression === undefined || expression.tombstone === true) {
+      continue;
+    }
+
     appendIfAbsent(opts.backfillQ, expression);
     reEnqueued += 1;
   }
