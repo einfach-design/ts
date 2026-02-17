@@ -110,7 +110,7 @@ export function createRuntime(): Runtime {
     get(key, opts) {
       return runtime.get(
         key as string | undefined,
-        opts as { as?: "snapshot" | "reference"; scope?: string } | undefined
+        opts as { as?: "snapshot" | "reference"; scope?: string } | undefined,
       );
     },
     matchExpression(opts) {
