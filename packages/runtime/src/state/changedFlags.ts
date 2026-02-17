@@ -7,11 +7,7 @@
  */
 
 import { createFlagsView, type Flag, type FlagsView } from "./flagsView.js";
-
-const hasOwn = <K extends PropertyKey>(
-  obj: object,
-  key: K,
-): obj is Record<K, true> => Object.prototype.hasOwnProperty.call(obj, key);
+import { hasOwn } from "../util/hasOwn.js";
 
 /**
  * Compute changed flags between prev/next, removeFlags/addFlags.

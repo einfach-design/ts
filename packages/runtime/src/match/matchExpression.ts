@@ -5,6 +5,7 @@
  * @scope Runtime package source code.
  * @description Project file.
  */
+import { hasOwn } from "../util/hasOwn.js";
 
 type FlagSpecValue = true | false | "*";
 
@@ -53,9 +54,6 @@ export type MatchExpressionInput = {
   changedFlags?: FlagsView | undefined;
 };
 
-const hasOwn = <T extends object>(obj: T, key: PropertyKey): boolean =>
-  Object.prototype.hasOwnProperty.call(obj, key);
-
 const clampThreshold = (value: number, specCount: number): number => {
   if (value < 0) {
     return 0;
@@ -82,9 +80,13 @@ const resolveThreshold = (
  */
 export function matchExpression(input: MatchExpressionInput): boolean {
   const resolvedSignalGate =
-    input.gate?.signal ?? input.defaults.gate.signal.value;
+    input.gate !== undefined && hasOwn(input.gate, "signal")
+      ? input.gate.signal
+      : input.defaults.gate.signal.value;
   const resolvedFlagsGate =
-    input.gate?.flags ?? input.defaults.gate.flags.value;
+    input.gate !== undefined && hasOwn(input.gate, "flags")
+      ? input.gate.flags
+      : input.defaults.gate.flags.value;
 
   const fallbackReference = input.fallbackReference;
   const reference = input.reference;
@@ -120,8 +122,15 @@ export function matchExpression(input: MatchExpressionInput): boolean {
   const flagsMap = resolvedFlags?.map ?? {};
   const changedFlagsMap = resolvedChangedFlags?.map ?? {};
 
+  const referenceCount = Object.keys(flagsMap).length;
+
   let matchCount = 0;
   let changedCount = 0;
+
+  if (specCount === 0) {
+    matchCount = referenceCount;
+    changedCount = Object.keys(changedFlagsMap).length;
+  }
 
   for (const spec of specs) {
     const isFlagSet = flagsMap[spec.flag] === true;
@@ -141,16 +150,30 @@ export function matchExpression(input: MatchExpressionInput): boolean {
   }
 
   const requiredFlags = input.expression.required?.flags;
-  const min = resolveThreshold(requiredFlags?.min, specCount, specCount);
+  const thresholdCount = specCount === 0 ? referenceCount : specCount;
+  const minRaw = requiredFlags?.min;
+  const min =
+    minRaw === undefined
+      ? thresholdCount
+      : Number.isFinite(minRaw)
+        ? specCount === 0
+          ? Math.max(0, minRaw)
+          : clampThreshold(minRaw, thresholdCount)
+        : thresholdCount;
 
   const max =
     requiredFlags?.max === undefined
       ? Number.POSITIVE_INFINITY
       : Number.isFinite(requiredFlags.max)
-        ? clampThreshold(requiredFlags.max, specCount)
+        ? clampThreshold(requiredFlags.max, thresholdCount)
         : Number.POSITIVE_INFINITY;
 
-  const changed = resolveThreshold(requiredFlags?.changed, 1, specCount);
+  const changedFallback = specCount === 0 ? 0 : 1;
+  const changed = resolveThreshold(
+    requiredFlags?.changed,
+    changedFallback,
+    thresholdCount,
+  );
 
   const changedGateSatisfied = changed === 0 || changedCount >= changed;
   const minMaxGateSatisfied =

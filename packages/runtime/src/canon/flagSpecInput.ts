@@ -5,6 +5,7 @@
  * @scope Runtime package source code.
  * @description Canonicalization for public flag-spec registration inputs.
  */
+import { hasOwn } from "../util/hasOwn.js";
 
 export type FlagSpecValue = true | false | "*";
 
@@ -19,9 +20,6 @@ export type FlagSpecInput =
   | Readonly<
       Record<string, FlagSpecValue | { flag?: string; value?: FlagSpecValue }>
     >;
-
-const hasOwn = <T extends object>(obj: T, key: PropertyKey): boolean =>
-  Object.prototype.hasOwnProperty.call(obj, key);
 
 const isFlagSpecValue = (value: unknown): value is FlagSpecValue =>
   value === true || value === false || value === "*";

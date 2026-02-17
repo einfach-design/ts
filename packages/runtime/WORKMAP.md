@@ -359,7 +359,7 @@ Wenn ein PR eines dieser Ziele anfasst, ist zusätzlich **`pnpm test:conformance
 - `src/runs/**`
 - `src/match/**`
 - `src/targets/**`
-- `src/runtime.ts`
+- `src/runtime/**`
 - `src/index.types.ts`
 
 Ein Task/PR gilt als Done, wenn:
