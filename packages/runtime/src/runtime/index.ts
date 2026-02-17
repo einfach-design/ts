@@ -15,6 +15,7 @@ import {
 import {
   matchExpression as runMatchExpression,
   type FlagSpec,
+  type MatchExpressionInput,
 } from "../match/matchExpression.js";
 import { actImpulse } from "../processing/actImpulse.js";
 import { backfillRun } from "../runs/backfillRun.js";
@@ -23,7 +24,7 @@ import { computeChangedFlags } from "../state/changedFlags.js";
 import { createFlagsView } from "../state/flagsView.js";
 import { registry } from "../state/registry.js";
 import { extendSeenSignals, projectSignal } from "../state/signals.js";
-import { dispatch } from "../targets/dispatch.js";
+import { dispatch, type DispatchInput } from "../targets/dispatch.js";
 import { hasOwn, isObject, toMatchFlagsView } from "./util.js";
 import { initRuntimeStore } from "./store.js";
 import {
@@ -107,12 +108,16 @@ export function createRuntime(): Runtime {
 
   const runtimeCore: RuntimeCore = {
     get(key, opts) {
-      return runtime.get(key, opts);
+      return runtime.get(
+        key as string | undefined,
+        opts as { as?: "snapshot" | "reference"; scope?: string } | undefined
+      );
     },
     matchExpression(opts) {
-      return runtime.matchExpression(opts);
+      return runtime.matchExpression(opts as MatchExpressionInput);
     },
   };
+
   const toCoreStoreView = (): Parameters<typeof coreRunImpl>[0]["store"] => ({
     flagsTruth: store.flagsTruth,
     defaults: store.defaults,
@@ -127,7 +132,7 @@ export function createRuntime(): Runtime {
   >[0]["matchExpression"] = (input) =>
     runMatchExpression({
       expression: toMatcherExpression(input.expression),
-      defaults: input.defaults,
+      defaults: input.defaults as MatchExpressionInput["defaults"],
       reference: input.reference,
     });
 
@@ -136,7 +141,9 @@ export function createRuntime(): Runtime {
       expression,
       store: toCoreStoreView(),
       runtimeCore,
-      dispatch,
+      dispatch: (x: unknown) => {
+        dispatch(x as DispatchInput);
+      },
       matchExpression: matchExpressionForCoreRun,
       toMatchFlagsView,
       createFlagsView,
