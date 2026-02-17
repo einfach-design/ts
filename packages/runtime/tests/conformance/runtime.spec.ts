@@ -34,7 +34,9 @@ describe("conformance/runtime", () => {
         ? (flags as Record<string, unknown>).list
         : undefined;
 
-    const list: string[] = Array.isArray(listValue) ? (listValue as string[]) : [];
+    const list: string[] = Array.isArray(listValue)
+      ? (listValue as string[])
+      : [];
     expect(list).not.toContain("y");
   });
 
@@ -54,18 +56,15 @@ describe("conformance/runtime", () => {
       targets: [
         (i: unknown, a: unknown, r: unknown) => {
           captured = {
-            i: (i && typeof i === "object" ? (i as Record<string, unknown>) : {}) as Record<
-              string,
-              unknown
-            >,
-            a: (a && typeof a === "object" ? (a as Record<string, unknown>) : {}) as Record<
-              string,
-              unknown
-            >,
-            r: (r && typeof r === "object" ? (r as Record<string, unknown>) : {}) as Record<
-              string,
-              unknown
-            >,
+            i: (i && typeof i === "object"
+              ? (i as Record<string, unknown>)
+              : {}) as Record<string, unknown>,
+            a: (a && typeof a === "object"
+              ? (a as Record<string, unknown>)
+              : {}) as Record<string, unknown>,
+            r: (r && typeof r === "object"
+              ? (r as Record<string, unknown>)
+              : {}) as Record<string, unknown>,
           };
         },
       ],

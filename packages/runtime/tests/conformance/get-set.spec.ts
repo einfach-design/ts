@@ -70,6 +70,8 @@ describe("conformance/get-set", () => {
     ).toThrow();
 
     // unknown keys must be rejected (should throw per spec)
-    expect(() => run.set({ totallyUnknownKey: 123 } as Record<string, unknown>)).toThrow();
+    expect(() =>
+      run.set({ totallyUnknownKey: 123 } as Record<string, unknown>),
+    ).toThrow();
   });
 });
