@@ -189,4 +189,95 @@ describe("runs/backfillRun", () => {
     expect(backfillQ.list.map((entry) => entry.id)).toEqual(["z"]);
     expect(backfillQ.map).toEqual({ z: true });
   });
+
+  it("dedupes duplicate ids in working snapshot and only deploys once per cycle", () => {
+    const queueRef: Expr = {
+      id: "dup",
+      marker: "queue",
+      backfill: { signal: { debt: 2 }, flags: { debt: 1 } },
+    };
+    const liveRef: Expr = {
+      id: "dup",
+      marker: "live",
+      backfill: { signal: { debt: 2 }, flags: { debt: 1 } },
+    };
+
+    const backfillQ = createBackfillQ<Expr>();
+    backfillQ.list.push(queueRef, queueRef);
+    backfillQ.map.dup = true;
+
+    const attempts: string[] = [];
+
+    const result = backfillRun({
+      backfillQ,
+      registeredById: new Map([["dup", liveRef]]),
+      attempt: (expr, gate) => {
+        attempts.push(`${expr.id}:${expr.marker}:${gate}`);
+        return { status: "deploy", pending: false };
+      },
+    });
+
+    expect(result).toEqual({
+      iterations: 1,
+      attempts: 1,
+      deployed: 1,
+      reEnqueued: 0,
+    });
+    expect(attempts).toEqual(["dup:live:signal"]);
+    expect(backfillQ.list).toEqual([]);
+    expect(backfillQ.map).toEqual({});
+  });
+
+  it("does not re-enqueue a tombstoned expression even if attempt marks pending", () => {
+    const queued: Expr = {
+      id: "gone",
+      backfill: { signal: { debt: 1 } },
+    };
+    const tombstonedLive: Expr = {
+      id: "gone",
+      tombstone: true,
+      backfill: { signal: { debt: 1 } },
+    };
+
+    const backfillQ = createBackfillQ<Expr>();
+    backfillQ.list.push(queued);
+    backfillQ.map.gone = true;
+
+    const result = backfillRun({
+      backfillQ,
+      registeredById: new Map([["gone", tombstonedLive]]),
+      attempt: () => {
+        throw new Error("attempt must not run for tombstoned entries");
+      },
+    });
+
+    expect(result).toEqual({
+      iterations: 1,
+      attempts: 0,
+      deployed: 0,
+      reEnqueued: 0,
+    });
+    expect(backfillQ.list).toEqual([]);
+    expect(backfillQ.map).toEqual({});
+  });
+
+  it("supports optional maxIterations guardrail without changing default behavior", () => {
+    const expr: Expr = {
+      id: "loop",
+      backfill: { signal: { debt: 1 }, flags: { debt: 0 } },
+    };
+
+    const backfillQ = createBackfillQ<Expr>();
+    backfillQ.list.push(expr);
+    backfillQ.map.loop = true;
+
+    expect(() =>
+      backfillRun({
+        backfillQ,
+        registeredById: new Map([["loop", expr]]),
+        maxIterations: 3,
+        attempt: () => ({ status: "deploy", pending: true }),
+      }),
+    ).toThrowError("backfillRun exceeded configured maxIterations (3).");
+  });
 });
