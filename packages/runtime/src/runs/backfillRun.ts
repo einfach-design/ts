@@ -26,6 +26,7 @@ export type BackfillRunOptions<TExpression extends RegisteredExpression> =
       expression: TExpression,
       gate: RunGate,
     ) => BackfillRunAttemptResult;
+    maxIterations?: number;
   }>;
 
 export type BackfillRunResult = Readonly<{
@@ -76,7 +77,17 @@ export function backfillRun<TExpression extends RegisteredExpression>(
     };
   }
 
-  let workingQ = opts.backfillQ.list.slice();
+  const workingQ: TExpression[] = [];
+  const queuedInWorking = new Set<string>();
+  for (const expression of opts.backfillQ.list) {
+    if (queuedInWorking.has(expression.id)) {
+      continue;
+    }
+
+    workingQ.push(expression);
+    queuedInWorking.add(expression.id);
+  }
+
   const pendingForReenqueue = new Map<string, TExpression>();
 
   const reset = resetBackfillQ<TExpression>();
@@ -87,9 +98,19 @@ export function backfillRun<TExpression extends RegisteredExpression>(
   let attempts = 0;
   let deployed = 0;
 
-  while (workingQ.length > 0) {
-    const queuedExpression = workingQ[0] as TExpression;
-    workingQ = workingQ.slice(1);
+  for (let index = 0; index < workingQ.length; index += 1) {
+    if (
+      opts.maxIterations !== undefined &&
+      Number.isFinite(opts.maxIterations) &&
+      iterations >= opts.maxIterations
+    ) {
+      throw new Error(
+        `backfillRun exceeded configured maxIterations (${opts.maxIterations}).`,
+      );
+    }
+
+    const queuedExpression = workingQ[index] as TExpression;
+    queuedInWorking.delete(queuedExpression.id);
     iterations += 1;
 
     const liveExpression =
@@ -107,7 +128,11 @@ export function backfillRun<TExpression extends RegisteredExpression>(
     if (primaryResult.status === "deploy") {
       deployed += 1;
       if (primaryResult.pending) {
-        workingQ.push(liveExpression);
+        if (!queuedInWorking.has(liveExpression.id)) {
+          workingQ.push(liveExpression);
+          queuedInWorking.add(liveExpression.id);
+        }
+
         pendingForReenqueue.set(liveExpression.id, liveExpression);
       } else {
         pendingForReenqueue.delete(liveExpression.id);
@@ -122,7 +147,11 @@ export function backfillRun<TExpression extends RegisteredExpression>(
     if (secondaryResult.status === "deploy") {
       deployed += 1;
       if (secondaryResult.pending) {
-        workingQ.push(liveExpression);
+        if (!queuedInWorking.has(liveExpression.id)) {
+          workingQ.push(liveExpression);
+          queuedInWorking.add(liveExpression.id);
+        }
+
         pendingForReenqueue.set(liveExpression.id, liveExpression);
       } else {
         pendingForReenqueue.delete(liveExpression.id);
