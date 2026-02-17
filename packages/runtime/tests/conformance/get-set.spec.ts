@@ -18,7 +18,7 @@ import { createRuntime } from "../../src/index.js";
 describe("conformance/get-set", () => {
   it("A1 — get(unknown) must throw (Spec §4.1)", () => {
     const run = createRuntime();
-    expect(() => run.get("unknown-key" as any)).toThrow();
+    expect(() => run.get("unknown-key" as string | undefined)).toThrow();
   });
 
   it.todo(
@@ -38,22 +38,24 @@ describe("conformance/get-set", () => {
     // baseline flags
     run.set({
       flags: { list: ["a"], map: { a: true } },
-    } as any);
+    } as Record<string, unknown>);
 
     // update flags truth without explicitly setting changedFlags
     run.set({
       flags: { list: ["a", "b"], map: { a: true, b: true } },
-    } as any);
+    } as Record<string, unknown>);
 
-    const changed = run.get("changedFlags" as any) as any;
+    const changed = run.get("changedFlags" as string | undefined) as unknown;
 
     // Spec expectation: changedFlags must NOT be auto-diffed when only flagsTruth is patched.
     // Fail if "b" appears implicitly.
     const changedList: string[] =
-      changed &&
-      typeof changed === "object" &&
-      Array.isArray((changed as any).list)
-        ? (changed as any).list
+      changed && typeof changed === "object"
+        ? (() => {
+            const changedObj = changed as Record<string, unknown>;
+            const list = changedObj.list;
+            return Array.isArray(list) ? (list as string[]) : [];
+          })()
         : [];
 
     expect(changedList).not.toContain("b");
@@ -64,10 +66,10 @@ describe("conformance/get-set", () => {
 
     // forbidden queue mutation (should throw per spec)
     expect(() =>
-      run.set({ impulseQ: { q: { entries: [] } } } as any),
+      run.set({ impulseQ: { q: { entries: [] } } } as Record<string, unknown>),
     ).toThrow();
 
     // unknown keys must be rejected (should throw per spec)
-    expect(() => run.set({ totallyUnknownKey: 123 } as any)).toThrow();
+    expect(() => run.set({ totallyUnknownKey: 123 } as Record<string, unknown>)).toThrow();
   });
 });

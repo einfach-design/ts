@@ -18,8 +18,8 @@ export type RuntimeOccurrence = Readonly<{
 }>;
 
 export type RuntimeCore = Readonly<{
-  get: (...args: any[]) => any;
-  matchExpression: (...args: any[]) => any;
+  get: (...args: unknown[]) => unknown;
+  matchExpression: (...args: unknown[]) => unknown;
 }>;
 
 export type RegisteredExpression = {
@@ -42,7 +42,7 @@ export const coreRun = (args: {
     signal?: string;
     flagsTruth: FlagsView;
     changedFlags?: FlagsView;
-    defaults: any;
+    defaults: unknown;
   };
   toMatchFlagsView: (
     v: FlagsView | undefined,
@@ -50,14 +50,14 @@ export const coreRun = (args: {
   createFlagsView: (list: readonly string[]) => FlagsView;
   matchExpression: (input: {
     expression: RegisteredExpression;
-    defaults: any;
+    defaults: unknown;
     reference: {
       signal?: string;
       flags?: { map: Record<string, true>; list?: string[] };
       changedFlags?: { map: Record<string, true>; list?: string[] };
     };
   }) => boolean;
-  dispatch: (x: any) => void;
+  dispatch: (x: unknown) => void;
   runtimeCore: RuntimeCore;
 }): {
   status: "deploy" | "reject";

@@ -19,40 +19,73 @@ describe("conformance/runtime", () => {
     const run = createRuntime();
 
     // establish a base flag
-    run.set({ addFlags: ["x"] } as any);
+    run.set({ addFlags: ["x"] } as Record<string, unknown>);
 
     // add and remove the same flag in the same impulse => remove wins => absent
-    run.impulse({ addFlags: ["y"], removeFlags: ["y"] } as any);
+    run.impulse({
+      addFlags: ["y"],
+      removeFlags: ["y"],
+    } as Record<string, unknown>);
 
-    const flags = run.get("flags" as any) as any;
-    const list: string[] = Array.isArray(flags?.list) ? flags.list : [];
+    const flags = run.get("flags" as string | undefined) as unknown;
+
+    const listValue =
+      flags && typeof flags === "object"
+        ? (flags as Record<string, unknown>).list
+        : undefined;
+
+    const list: string[] = Array.isArray(listValue) ? (listValue as string[]) : [];
     expect(list).not.toContain("y");
   });
 
   it("E1 — targets receive (i, a, r) with usable i-fields (Spec §10)", () => {
     const run = createRuntime();
 
-    let captured: any = undefined;
+    let captured:
+      | {
+          i: Record<string, unknown>;
+          a: Record<string, unknown>;
+          r: Record<string, unknown>;
+        }
+      | undefined;
 
     run.add({
       id: "expr:e1",
       targets: [
-        (i: any, a: any, r: any) => {
-          captured = { i, a, r };
+        (i: unknown, a: unknown, r: unknown) => {
+          captured = {
+            i: (i && typeof i === "object" ? (i as Record<string, unknown>) : {}) as Record<
+              string,
+              unknown
+            >,
+            a: (a && typeof a === "object" ? (a as Record<string, unknown>) : {}) as Record<
+              string,
+              unknown
+            >,
+            r: (r && typeof r === "object" ? (r as Record<string, unknown>) : {}) as Record<
+              string,
+              unknown
+            >,
+          };
         },
       ],
-    } as any);
+    });
 
-    run.impulse({ addFlags: ["alpha"] } as any);
+    run.impulse({ addFlags: ["alpha"] } as Record<string, unknown>);
 
     expect(captured).toBeTruthy();
-    expect(captured.a?.id).toBe("expr:e1");
-    expect(typeof captured.r?.get).toBe("function");
-    expect(typeof captured.r?.matchExpression).toBe("function");
-    expect(captured.i?.flags).toBeTruthy();
+
+    const cap = captured as NonNullable<typeof captured>;
+
+    expect(cap.a.id).toBe("expr:e1");
+    expect(typeof cap.r.get).toBe("function");
+    expect(typeof cap.r.matchExpression).toBe("function");
+    expect(cap.i.flags).toBeTruthy();
+
     // signal is optional; if present it must match runtime signal
-    if (captured.i?.signal !== undefined) {
-      expect(typeof captured.i.signal).toBe("string");
+    const sig = cap.i.signal;
+    if (sig !== undefined) {
+      expect(typeof sig).toBe("string");
     }
   });
 });
