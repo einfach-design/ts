@@ -5,6 +5,7 @@
  * @scope Runtime package source code.
  * @description Defaults storage/resolution helpers.
  */
+import { hasOwn } from "../util/hasOwn.js";
 
 export type Scope = "applied" | "pending" | "pendingOnly";
 
@@ -67,9 +68,6 @@ export type ResolveDefaultsInput = Readonly<{
   impulseOverrides?: SetDefaults;
   callOverrides?: SetDefaults;
 }>;
-
-const hasOwn = (value: object, key: PropertyKey): boolean =>
-  Object.prototype.hasOwnProperty.call(value, key);
 
 const isRecord = (value: unknown): value is Record<PropertyKey, unknown> =>
   typeof value === "object" && value !== null;

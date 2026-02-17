@@ -32,7 +32,7 @@ description: Runtime documentation (specification and implementation notes).
 
 ### Core
 
-- `runtime.ts`: `createRunTime()` + public API (`add`, `impulse`, `get`, `set`, `matchExpression`, `onDiagnostic`)
+- `runtime/index.ts`: `createRunTime()` + public API (`add`, `impulse`, `get`, `set`, `matchExpression`, `onDiagnostic`)
 - `processing/drain.ts`: enqueue, drain-loop, abort semantics
 - `processing/actImpulse.ts`: Occurrence-Erzeugung, `i`-Construction, Sequencing
 - `runs/registeredRun.ts`: deterministische Iteration über `registeredQ` Snapshot; Debt-Entry + backfill-enqueue

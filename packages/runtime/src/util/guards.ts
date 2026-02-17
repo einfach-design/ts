@@ -3,8 +3,10 @@
  * @version 0.11.3
  * @maintainer Axel Elstermann | einfach.design (e2d)
  * @scope Runtime package source code.
- * @description Project file.
+ * @description Small runtime type guards and utilities.
  */
+
+import { hasOwn } from "./hasOwn.js";
 
 export function isObjectNonNull(
   value: unknown,
@@ -18,20 +20,16 @@ export function isCallable(
   return typeof value === "function";
 }
 
-export function hasOwn<T extends object>(
-  obj: T,
-  key: PropertyKey,
-): key is keyof T {
-  return Object.prototype.hasOwnProperty.call(obj, key);
-}
+// Re-export for backwards-compatible import paths (many modules import from util/guards.js).
+export { hasOwn };
 
 // Placeholder deepEqual; replace with spec-appropriate semantics if needed.
 export function deepEqual(a: unknown, b: unknown): boolean {
   if (Object.is(a, b)) return true;
   if (!isObjectNonNull(a) || !isObjectNonNull(b)) return false;
 
-  const aRec = a as Record<string, unknown>;
-  const bRec = b as Record<string, unknown>;
+  const aRec: Record<string, unknown> = a;
+  const bRec: Record<string, unknown> = b;
 
   const aKeys = Object.keys(aRec);
   const bKeys = Object.keys(bRec);

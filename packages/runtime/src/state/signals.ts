@@ -5,6 +5,7 @@
  * @scope Runtime package source code.
  * @description Signal state helpers (seenSignals + scalar signal projection).
  */
+import { hasOwn } from "../util/hasOwn.js";
 
 export type Signal = string;
 
@@ -24,9 +25,6 @@ export type SignalsState = Readonly<{
   signal: Signal | undefined;
   seenSignals: SeenSignals;
 }>;
-
-const hasOwn = (value: object, key: PropertyKey): boolean =>
-  Object.prototype.hasOwnProperty.call(value, key);
 
 function cloneSeenSignals(input: SeenSignals | undefined): {
   list: Signal[];
