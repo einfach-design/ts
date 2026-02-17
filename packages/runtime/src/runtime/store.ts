@@ -1,6 +1,10 @@
 import { type ImpulseQEntryCanonical } from "../canon/impulseEntry.js";
 import { trim } from "../processing/trim.js";
-import { createBackfillQ, type BackfillExpression, type BackfillQ } from "../state/backfillQ.js";
+import {
+  createBackfillQ,
+  type BackfillExpression,
+  type BackfillQ,
+} from "../state/backfillQ.js";
 import { globalDefaults, type Defaults } from "../state/defaults.js";
 import { createFlagsView, type FlagsView } from "../state/flagsView.js";
 import { type SeenSignals } from "../state/signals.js";

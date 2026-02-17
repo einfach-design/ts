@@ -4,7 +4,7 @@
  * @maintainer Axel Elstermann | einfach.design (e2d)
  * @scope Runtime package test code.
  * @description Conformance and test utilities for the runtime package.
- * 
+ *
  * P0 Conformance: backfill semantics (high-level)
  *
  * Spec/Impl refs:
@@ -42,7 +42,10 @@ describe("conformance/backfill", () => {
     expect(calls.length).toBeGreaterThanOrEqual(1);
   });
 
-  it.todo("E2 — debt accounting is observable (proxy or explicit API) (Impl §10)", () => {
-    // TODO(Impl §10): When debt metrics are exposed publicly, assert precise debt deltas.
-  });
+  it.todo(
+    "E2 — debt accounting is observable (proxy or explicit API) (Impl §10)",
+    () => {
+      // TODO(Impl §10): When debt metrics are exposed publicly, assert precise debt deltas.
+    },
+  );
 });

@@ -25,8 +25,9 @@ export function runMatchExpression(
   input: MatchExpressionWrapperInput,
 ): boolean {
   return store.withRuntimeStack(() => {
-    const runtimeReference: NonNullable<MatchExpressionEngineInput["reference"]> =
-      {};
+    const runtimeReference: NonNullable<
+      MatchExpressionEngineInput["reference"]
+    > = {};
 
     if (store.signal !== undefined) runtimeReference.signal = store.signal;
     const flags = toMatchFlagsView(store.flagsTruth);
@@ -40,7 +41,8 @@ export function runMatchExpression(
     // Provide runtime-derived values via fallbackReference.
     const engine = deps.runMatchExpression ?? matchExpression;
 
-    return engine({...(input as Omit<MatchExpressionEngineInput, "defaults" | "reference">),
+    return engine({
+      ...(input as Omit<MatchExpressionEngineInput, "defaults" | "reference">),
       defaults: mergedDefaults,
       reference: input.reference ?? runtimeReference,
       fallbackReference: runtimeReference,

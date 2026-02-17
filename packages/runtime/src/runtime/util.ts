@@ -45,4 +45,11 @@ function measureEntryBytes(entry: ImpulseQEntryCanonical): number {
   return JSON.stringify(entry).length;
 }
 
-export { hasOwn, isObject, toMatchFlagsView, snapshot, readonlyReference, measureEntryBytes };
+export {
+  hasOwn,
+  isObject,
+  toMatchFlagsView,
+  snapshot,
+  readonlyReference,
+  measureEntryBytes,
+};

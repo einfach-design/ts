@@ -4,7 +4,7 @@
  * @maintainer Axel Elstermann | einfach.design (e2d)
  * @scope Runtime package test code.
  * @description Conformance and test utilities for the runtime package.
- * 
+ *
  * P0 Conformance: runtime semantics (runs + delta rules)
  *
  * Spec refs:

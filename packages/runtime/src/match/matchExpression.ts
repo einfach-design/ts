@@ -169,7 +169,11 @@ export function matchExpression(input: MatchExpressionInput): boolean {
         : Number.POSITIVE_INFINITY;
 
   const changedFallback = specCount === 0 ? 0 : 1;
-  const changed = resolveThreshold(requiredFlags?.changed, changedFallback, thresholdCount);
+  const changed = resolveThreshold(
+    requiredFlags?.changed,
+    changedFallback,
+    thresholdCount,
+  );
 
   const changedGateSatisfied = changed === 0 || changedCount >= changed;
   const minMaxGateSatisfied =

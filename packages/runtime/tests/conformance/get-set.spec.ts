@@ -4,7 +4,7 @@
  * @maintainer Axel Elstermann | einfach.design (e2d)
  * @scope Runtime package test code.
  * @description Conformance and test utilities for the runtime package.
- * 
+ *
  * P0 Conformance: get/set behaviors
  *
  * Spec refs:
@@ -50,7 +50,9 @@ describe("conformance/get-set", () => {
     // Spec expectation: changedFlags must NOT be auto-diffed when only flagsTruth is patched.
     // Fail if "b" appears implicitly.
     const changedList: string[] =
-      changed && typeof changed === "object" && Array.isArray((changed as any).list)
+      changed &&
+      typeof changed === "object" &&
+      Array.isArray((changed as any).list)
         ? (changed as any).list
         : [];
 
@@ -61,7 +63,9 @@ describe("conformance/get-set", () => {
     const run = createRuntime();
 
     // forbidden queue mutation (should throw per spec)
-    expect(() => run.set({ impulseQ: { q: { entries: [] } } } as any)).toThrow();
+    expect(() =>
+      run.set({ impulseQ: { q: { entries: [] } } } as any),
+    ).toThrow();
 
     // unknown keys must be rejected (should throw per spec)
     expect(() => run.set({ totallyUnknownKey: 123 } as any)).toThrow();

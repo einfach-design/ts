@@ -7,35 +7,37 @@
  */
 
 import { type FlagSpecInput } from "../canon/flagSpecInput.js";
-import {
-  type ImpulseQEntryCanonical,
-} from "../canon/impulseEntry.js";
+import { type ImpulseQEntryCanonical } from "../canon/impulseEntry.js";
 import {
   createDiagnosticCollector,
   type RuntimeDiagnostic,
 } from "../diagnostics/index.js";
-import { matchExpression as runMatchExpression, type FlagSpec } from "../match/matchExpression.js";
+import {
+  matchExpression as runMatchExpression,
+  type FlagSpec,
+} from "../match/matchExpression.js";
 import { actImpulse } from "../processing/actImpulse.js";
 import { backfillRun } from "../runs/backfillRun.js";
 import { registeredRun } from "../runs/registeredRun.js";
 import { computeChangedFlags } from "../state/changedFlags.js";
 import { createFlagsView } from "../state/flagsView.js";
 import { registry } from "../state/registry.js";
-import {
-  extendSeenSignals,
-  projectSignal,
-} from "../state/signals.js";
+import { extendSeenSignals, projectSignal } from "../state/signals.js";
 import { dispatch } from "../targets/dispatch.js";
 import { hasOwn, isObject, toMatchFlagsView } from "./util.js";
 import { initRuntimeStore } from "./store.js";
-import { coreRun as coreRunImpl, type RegisteredExpression, type RuntimeCore, type RuntimeTarget } from "../runs/coreRun.js";
+import {
+  coreRun as coreRunImpl,
+  type RegisteredExpression,
+  type RuntimeCore,
+  type RuntimeTarget,
+} from "../runs/coreRun.js";
 import { runAdd } from "./api/add.js";
 import { runGet } from "./api/get.js";
 import { runImpulse } from "./api/impulse.js";
 import { runMatchExpression as runMatchExpressionApi } from "./api/matchExpression.js";
 import { runOnDiagnostic } from "./api/onDiagnostic.js";
 import { runSet } from "./api/set.js";
-
 
 type Runtime = Readonly<{
   add: (opts: {
@@ -94,8 +96,6 @@ const toMatcherExpression = (
   return base;
 };
 
-
-
 /**
  * Creates a Runtime instance as defined by the Runtime Spec.
  */
@@ -105,8 +105,7 @@ export function createRuntime(): Runtime {
 
   const store = initRuntimeStore<RegisteredExpression>();
 
-
-    const runtimeCore: RuntimeCore = {
+  const runtimeCore: RuntimeCore = {
     get(key, opts) {
       return runtime.get(key, opts);
     },
@@ -123,9 +122,9 @@ export function createRuntime(): Runtime {
       : {}),
   });
 
-  const matchExpressionForCoreRun: Parameters<typeof coreRunImpl>[0]["matchExpression"] = (
-    input,
-  ) =>
+  const matchExpressionForCoreRun: Parameters<
+    typeof coreRunImpl
+  >[0]["matchExpression"] = (input) =>
     runMatchExpression({
       expression: toMatcherExpression(input.expression),
       defaults: input.defaults,
@@ -178,7 +177,10 @@ export function createRuntime(): Runtime {
       entry.removeFlags,
       entry.addFlags,
     );
-    store.seenFlags = createFlagsView([...store.seenFlags.list, ...store.flagsTruth.list]);
+    store.seenFlags = createFlagsView([
+      ...store.seenFlags.list,
+      ...store.flagsTruth.list,
+    ]);
 
     store.signal = projectSignal(entry.signals);
     store.seenSignals = extendSeenSignals(store.seenSignals, entry.signals);
@@ -233,38 +235,44 @@ export function createRuntime(): Runtime {
     });
   };
 
-  const deps = { expressionRegistry, diagnostics, processImpulseEntry, runMatchExpression };
+  const deps = {
+    expressionRegistry,
+    diagnostics,
+    processImpulseEntry,
+    runMatchExpression,
+  };
 
-    const runtime: Runtime = {
-      add(opts) {
-        const addDeps = {
-          expressionRegistry:
-            deps.expressionRegistry as unknown as Parameters<typeof runAdd>[1]["expressionRegistry"],
-        };
+  const runtime: Runtime = {
+    add(opts) {
+      const addDeps = {
+        expressionRegistry: deps.expressionRegistry as unknown as Parameters<
+          typeof runAdd
+        >[1]["expressionRegistry"],
+      };
 
-        return runAdd(store, addDeps, opts);
-      },
-  
-      impulse(opts) {
-        runImpulse(store, deps, opts);
-      },
-  
-      get(key, opts) {
-        return runGet(store, deps, key, opts);
-      },
-  
-      set(patch) {
-        runSet(store, deps, patch);
-      },
-  
-      matchExpression(input) {
-        return runMatchExpressionApi(store, deps, input);
-      },
-  
-      onDiagnostic(handler) {
-        return runOnDiagnostic(store, deps, handler);
-      },
-    };
+      return runAdd(store, addDeps, opts);
+    },
+
+    impulse(opts) {
+      runImpulse(store, deps, opts);
+    },
+
+    get(key, opts) {
+      return runGet(store, deps, key, opts);
+    },
+
+    set(patch) {
+      runSet(store, deps, patch);
+    },
+
+    matchExpression(input) {
+      return runMatchExpressionApi(store, deps, input);
+    },
+
+    onDiagnostic(handler) {
+      return runOnDiagnostic(store, deps, handler);
+    },
+  };
 
   return runtime;
 }

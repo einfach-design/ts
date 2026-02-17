@@ -59,8 +59,19 @@ export const coreRun = (args: {
   }) => boolean;
   dispatch: (x: any) => void;
   runtimeCore: RuntimeCore;
-}): { status: "deploy" | "reject"; debtDelta?: { signal?: number; flags?: number } } => {
-  const { expression, store, toMatchFlagsView, createFlagsView, matchExpression, dispatch, runtimeCore } = args;
+}): {
+  status: "deploy" | "reject";
+  debtDelta?: { signal?: number; flags?: number };
+} => {
+  const {
+    expression,
+    store,
+    toMatchFlagsView,
+    createFlagsView,
+    matchExpression,
+    dispatch,
+    runtimeCore,
+  } = args;
 
   const coreReference: {
     signal?: string;

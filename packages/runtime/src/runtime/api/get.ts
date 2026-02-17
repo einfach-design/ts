@@ -24,13 +24,22 @@ type RegisteredExpression = { id: string; tombstone?: true };
 
 export function runGet(
   store: RuntimeStore,
-  { expressionRegistry, diagnostics }: { expressionRegistry: RegistryStore<RegisteredExpression>; diagnostics: DiagnosticCollector },
+  {
+    expressionRegistry,
+    diagnostics,
+  }: {
+    expressionRegistry: RegistryStore<RegisteredExpression>;
+    diagnostics: DiagnosticCollector;
+  },
   key?: string,
   opts?: { as?: "snapshot" | "reference"; scope?: string },
 ): unknown {
   const resolvedKey = (key ?? "*") as string;
 
-  if (key !== undefined && !(allowedGetKeys as readonly string[]).includes(resolvedKey)) {
+  if (
+    key !== undefined &&
+    !(allowedGetKeys as readonly string[]).includes(resolvedKey)
+  ) {
     throw new Error("get.key.invalid");
   }
 
@@ -61,7 +70,8 @@ export function runGet(
       },
     };
 
-    const selected = valueByKey[resolvedKey as AllowedGetKey] ?? valueByKey["*"];
+    const selected =
+      valueByKey[resolvedKey as AllowedGetKey] ?? valueByKey["*"];
     if (as === "reference") {
       return readonlyReference(selected);
     }
