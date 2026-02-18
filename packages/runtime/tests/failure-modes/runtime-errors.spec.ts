@@ -17,6 +17,386 @@ import { createRuntime } from "../../src/index.js";
  * - §4.3 diagnostics listener failure routing
  */
 describe("failure-modes/runtime-errors", () => {
+  describe("outer phase: impulse/canon", () => {
+    it("validates report/swallow/throw/fn matrix for invalid input", () => {
+      const reportRun = createRuntime();
+      const reportDiagnostics: Array<{
+        code: string;
+        data?: Record<string, unknown>;
+      }> = [];
+
+      reportRun.onDiagnostic((diagnostic) => {
+        reportDiagnostics.push(diagnostic);
+      });
+
+      expect(() =>
+        reportRun.impulse({ signals: "bad", onError: "report" } as Record<
+          string,
+          unknown
+        >),
+      ).not.toThrow();
+      expect(reportDiagnostics).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "impulse.input.invalid",
+            data: expect.objectContaining({ phase: "impulse/canon" }),
+          }),
+        ]),
+      );
+
+      const swallowRun = createRuntime();
+      const swallowDiagnostics: Array<{ code: string }> = [];
+      swallowRun.onDiagnostic((diagnostic) => {
+        swallowDiagnostics.push(diagnostic);
+      });
+
+      expect(() =>
+        swallowRun.impulse({ signals: "bad", onError: "swallow" } as Record<
+          string,
+          unknown
+        >),
+      ).not.toThrow();
+      expect(swallowDiagnostics).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ code: "impulse.input.invalid" }),
+        ]),
+      );
+
+      const throwRun = createRuntime();
+      expect(() =>
+        throwRun.impulse({ signals: "bad", onError: "throw" } as Record<
+          string,
+          unknown
+        >),
+      ).toThrow("impulse.input.invalid");
+
+      const fnSeen: unknown[] = [];
+      const fnRun = createRuntime();
+      expect(() =>
+        fnRun.impulse({
+          signals: "bad",
+          onError: (error: unknown) => {
+            fnSeen.push(error);
+          },
+        } as Record<string, unknown>),
+      ).not.toThrow();
+      expect(fnSeen).toHaveLength(1);
+      expect(fnSeen[0]).toBeInstanceOf(Error);
+
+      const fnThrowRun = createRuntime();
+      expect(() =>
+        fnThrowRun.impulse({
+          signals: "bad",
+          onError: () => {
+            throw new Error("from-onError-fn");
+          },
+        } as Record<string, unknown>),
+      ).toThrow("from-onError-fn");
+    });
+  });
+
+  describe("outer phase: impulse/drain", () => {
+    it("validates report/swallow/throw/fn matrix for drain-flow failures", () => {
+      const seedMalformedPendingEntry = () => {
+        const run = createRuntime();
+        const hydration = run.get(undefined, { as: "snapshot" }) as {
+          impulseQ: {
+            q: {
+              entries: Array<Record<string, unknown>>;
+              cursor: number;
+            };
+          };
+        } & Record<string, unknown>;
+
+        hydration.impulseQ.q.entries = [
+          {
+            signals: [],
+            removeFlags: [],
+            addFlags: null,
+          },
+        ];
+        hydration.impulseQ.q.cursor = 0;
+        run.set(hydration);
+        return run;
+      };
+
+      const reportRun = seedMalformedPendingEntry();
+      const reportDiagnostics: Array<{
+        code: string;
+        data?: Record<string, unknown>;
+      }> = [];
+      reportRun.onDiagnostic((diagnostic) => {
+        reportDiagnostics.push(diagnostic);
+      });
+
+      expect(() =>
+        reportRun.impulse({ addFlags: ["a"], onError: "report" }),
+      ).not.toThrow();
+      expect(reportDiagnostics).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "impulse.input.invalid",
+            data: expect.objectContaining({ phase: "impulse/drain" }),
+          }),
+        ]),
+      );
+
+      const swallowRun = seedMalformedPendingEntry();
+      const swallowDiagnostics: Array<{ code: string; data?: unknown }> = [];
+      swallowRun.onDiagnostic((diagnostic) => {
+        swallowDiagnostics.push(diagnostic);
+      });
+
+      expect(() =>
+        swallowRun.impulse({ addFlags: ["a"], onError: "swallow" }),
+      ).not.toThrow();
+      expect(swallowDiagnostics).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "impulse.input.invalid",
+            data: expect.objectContaining({ phase: "impulse/drain" }),
+          }),
+        ]),
+      );
+
+      const throwRun = seedMalformedPendingEntry();
+      expect(() =>
+        throwRun.impulse({ addFlags: ["a"], onError: "throw" }),
+      ).toThrow();
+
+      const fnSeen: unknown[] = [];
+      const fnRun = seedMalformedPendingEntry();
+      expect(() =>
+        fnRun.impulse({
+          addFlags: ["a"],
+          onError: (error: unknown) => {
+            fnSeen.push(error);
+          },
+        }),
+      ).not.toThrow();
+      expect(fnSeen).toHaveLength(1);
+
+      const fnThrowRun = seedMalformedPendingEntry();
+      expect(() =>
+        fnThrowRun.impulse({
+          addFlags: ["a"],
+          onError: () => {
+            throw new Error("drain-fn-throw");
+          },
+        }),
+      ).toThrow("drain-fn-throw");
+    });
+  });
+
+  describe("outer phase: trim/onTrim", () => {
+    it("validates report/swallow/throw/fn matrix for trim callback errors", () => {
+      const primeRuntime = () => {
+        const run = createRuntime();
+        run.impulse({ addFlags: ["seed"] });
+        return run;
+      };
+
+      const reportRun = primeRuntime();
+      const reportDiagnostics: Array<{
+        code: string;
+        data?: Record<string, unknown>;
+      }> = [];
+      reportRun.onDiagnostic((diagnostic) => {
+        reportDiagnostics.push(diagnostic);
+      });
+
+      expect(() =>
+        reportRun.set({
+          impulseQ: {
+            config: {
+              onError: "report",
+              retain: 0,
+              onTrim: () => {
+                throw new Error("trim-report");
+              },
+            },
+          },
+        }),
+      ).not.toThrow();
+      expect(reportDiagnostics).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "runtime.onError.report",
+            data: expect.objectContaining({ phase: "trim/onTrim" }),
+          }),
+        ]),
+      );
+
+      const swallowRun = primeRuntime();
+      const swallowDiagnostics: Array<{ code: string; data?: unknown }> = [];
+      swallowRun.onDiagnostic((diagnostic) => {
+        swallowDiagnostics.push(diagnostic);
+      });
+
+      expect(() =>
+        swallowRun.set({
+          impulseQ: {
+            config: {
+              onError: "swallow",
+              retain: 0,
+              onTrim: () => {
+                throw new Error("trim-swallow");
+              },
+            },
+          },
+        }),
+      ).not.toThrow();
+      expect(swallowDiagnostics).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "runtime.onError.report",
+            data: expect.objectContaining({ phase: "trim/onTrim" }),
+          }),
+        ]),
+      );
+
+      const throwRun = primeRuntime();
+      expect(() =>
+        throwRun.set({
+          impulseQ: {
+            config: {
+              onError: "throw",
+              retain: 0,
+              onTrim: () => {
+                throw new Error("trim-throw");
+              },
+            },
+          },
+        }),
+      ).toThrow("trim-throw");
+
+      const fnSeen: unknown[] = [];
+      const fnRun = primeRuntime();
+      expect(() =>
+        fnRun.set({
+          impulseQ: {
+            config: {
+              onError: (error: unknown) => {
+                fnSeen.push(error);
+              },
+              retain: 0,
+              onTrim: () => {
+                throw new Error("trim-fn");
+              },
+            },
+          },
+        }),
+      ).not.toThrow();
+      expect(fnSeen).toHaveLength(1);
+
+      const fnThrowRun = primeRuntime();
+      expect(() =>
+        fnThrowRun.set({
+          impulseQ: {
+            config: {
+              onError: () => {
+                throw new Error("trim-fn-throw-through");
+              },
+              retain: 0,
+              onTrim: () => {
+                throw new Error("trim-fn-throw-source");
+              },
+            },
+          },
+        }),
+      ).toThrow("trim-fn-throw-through");
+    });
+  });
+
+  describe("outer phase: diagnostic/listener", () => {
+    it("validates report/swallow/throw/fn matrix for listener failures", () => {
+      const setupWithThrowingListener = () => {
+        const run = createRuntime();
+        run.onDiagnostic((diagnostic) => {
+          if (diagnostic.code === "get.key.invalid") {
+            throw new Error("listener-boom");
+          }
+        });
+        return run;
+      };
+
+      const reportRun = setupWithThrowingListener();
+      reportRun.set({ impulseQ: { config: { onError: "report" } } });
+      const reportDiagnostics: Array<{
+        code: string;
+        data?: Record<string, unknown>;
+      }> = [];
+      reportRun.onDiagnostic((diagnostic) => {
+        reportDiagnostics.push(diagnostic);
+      });
+      expect(() => reportRun.get("definitely.invalid.key")).toThrow(
+        "get.key.invalid",
+      );
+      expect(reportDiagnostics).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "runtime.onError.report",
+            data: expect.objectContaining({ phase: "diagnostic/listener" }),
+          }),
+        ]),
+      );
+
+      const swallowRun = setupWithThrowingListener();
+      swallowRun.set({ impulseQ: { config: { onError: "swallow" } } });
+      const swallowDiagnostics: Array<{ code: string; data?: unknown }> = [];
+      swallowRun.onDiagnostic((diagnostic) => {
+        swallowDiagnostics.push(diagnostic);
+      });
+      expect(() => swallowRun.get("definitely.invalid.key")).toThrow(
+        "get.key.invalid",
+      );
+      expect(swallowDiagnostics).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "runtime.onError.report",
+            data: expect.objectContaining({ phase: "diagnostic/listener" }),
+          }),
+        ]),
+      );
+
+      const throwRun = setupWithThrowingListener();
+      throwRun.set({ impulseQ: { config: { onError: "throw" } } });
+      expect(() => throwRun.get("definitely.invalid.key")).toThrow(
+        "listener-boom",
+      );
+
+      const fnSeen: unknown[] = [];
+      const fnRun = setupWithThrowingListener();
+      fnRun.set({
+        impulseQ: {
+          config: {
+            onError: (error: unknown) => {
+              fnSeen.push(error);
+            },
+          },
+        },
+      });
+      expect(() => fnRun.get("definitely.invalid.key")).toThrow(
+        "get.key.invalid",
+      );
+      expect(fnSeen).toHaveLength(1);
+
+      const fnThrowRun = setupWithThrowingListener();
+      fnThrowRun.set({
+        impulseQ: {
+          config: {
+            onError: () => {
+              throw new Error("listener-fn-throw-through");
+            },
+          },
+        },
+      });
+      expect(() => fnThrowRun.get("definitely.invalid.key")).toThrow(
+        "listener-fn-throw-through",
+      );
+    });
+  });
+
   it("reports target phase via diagnostics when dispatch fails (Spec §8.1, §8.2)", () => {
     const run = createRuntime();
     const phases: string[] = [];
