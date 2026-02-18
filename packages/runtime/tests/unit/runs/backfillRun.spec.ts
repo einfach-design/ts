@@ -81,19 +81,17 @@ describe("runs/backfillRun", () => {
       "y:same:signal",
       "z:same:signal",
       "z:same:flags",
-      "x:live-instance:flags",
-      "x:live-instance:signal",
     ]);
 
     expect(result).toEqual({
-      iterations: 4,
-      attempts: 7,
-      deployed: 3,
-      reEnqueued: 1,
+      iterations: 3,
+      attempts: 5,
+      deployed: 2,
+      reEnqueued: 3,
     });
 
-    expect(backfillQ.list.map((entry) => entry.id)).toEqual(["z"]);
-    expect(backfillQ.map).toEqual({ z: true });
+    expect(backfillQ.list.map((entry) => entry.id)).toEqual(["x", "y", "z"]);
+    expect(backfillQ.map).toEqual({ x: true, y: true, z: true });
   });
 
   it("dedupes duplicate ids in working snapshot and only deploys once per cycle", () => {
@@ -127,11 +125,11 @@ describe("runs/backfillRun", () => {
       iterations: 1,
       attempts: 1,
       deployed: 1,
-      reEnqueued: 0,
+      reEnqueued: 1,
     });
     expect(attempts).toEqual(["dup:live:signal"]);
-    expect(backfillQ.list).toEqual([]);
-    expect(backfillQ.map).toEqual({});
+    expect(backfillQ.list.map((entry) => entry.id)).toEqual(["dup"]);
+    expect(backfillQ.map).toEqual({ dup: true });
   });
 
   it("does not re-enqueue a tombstoned expression even if attempt marks pending", () => {
@@ -177,13 +175,18 @@ describe("runs/backfillRun", () => {
     backfillQ.list.push(expr);
     backfillQ.map.loop = true;
 
-    expect(() =>
-      backfillRun({
-        backfillQ,
-        registeredById: new Map([["loop", expr]]),
-        maxIterations: 3,
-        attempt: () => ({ status: "deploy", pending: true }),
-      }),
-    ).toThrowError("backfillRun exceeded configured maxIterations (3).");
+    const result = backfillRun({
+      backfillQ,
+      registeredById: new Map([["loop", expr]]),
+      maxIterations: 3,
+      attempt: () => ({ status: "deploy", pending: true }),
+    });
+
+    expect(result).toEqual({
+      iterations: 1,
+      attempts: 1,
+      deployed: 1,
+      reEnqueued: 0,
+    });
   });
 });

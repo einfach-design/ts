@@ -20,11 +20,11 @@ export type RuntimeOccurrence = Readonly<{
   removeFlags: readonly string[];
   expression: Readonly<{
     id: string;
-    backfillSignalRuns: number;
-    backfillFlagsRuns: number;
-    backfillRuns: number;
+    backfillSignalRuns?: number;
+    backfillFlagsRuns?: number;
+    backfillRuns?: number;
     actBackfillGate?: "signal" | "flags";
-    inBackfillQ?: boolean;
+    inBackfillQ: boolean;
   }>;
   payload?: unknown;
 }>;
@@ -72,6 +72,7 @@ export const coreRun = (args: {
   store: {
     signal?: string;
     flagsTruth: FlagsView;
+    referenceFlags: FlagsView;
     changedFlags?: FlagsView;
     addFlags: readonly string[];
     removeFlags: readonly string[];
@@ -83,8 +84,8 @@ export const coreRun = (args: {
     expressionTelemetryById: ReadonlyMap<
       string,
       {
-        backfillSignalRuns: number;
-        backfillFlagsRuns: number;
+        backfillSignalRuns?: number;
+        backfillFlagsRuns?: number;
         inBackfillQ?: boolean;
       }
     >;
@@ -97,6 +98,10 @@ export const coreRun = (args: {
   matchExpression: (input: {
     expression: RegisteredExpression;
     defaults: unknown;
+    gate?: {
+      signal?: boolean;
+      flags?: boolean;
+    };
     reference: {
       signal?: string;
       flags?: { map: Record<string, true>; list?: string[] };
@@ -105,6 +110,10 @@ export const coreRun = (args: {
   }) => boolean;
   dispatch: (x: unknown) => { attempted: number };
   occurrenceKind?: "registered" | "backfill";
+  gate?: {
+    signal?: boolean;
+    flags?: boolean;
+  };
   runtimeCore: RuntimeCore;
   onLimitReached?: (expression: { id: string }) => void;
   onRunsLimitReached?: (expression: { id: string; max: number }) => void;
@@ -123,6 +132,7 @@ export const coreRun = (args: {
     onLimitReached,
     onRunsLimitReached,
     occurrenceKind = "registered",
+    gate,
   } = args;
 
   const coreReference: {
@@ -131,22 +141,32 @@ export const coreRun = (args: {
     changedFlags?: { map: Record<string, true>; list?: string[] };
   } = {};
 
-  if (store.signal !== undefined) {
+  if (store.signal !== undefined && gate?.signal !== false) {
     coreReference.signal = store.signal;
   }
 
-  const coreFlagsView = toMatchFlagsView(store.flagsTruth);
+  const coreFlagsView =
+    gate?.flags === false ? undefined : toMatchFlagsView(store.referenceFlags);
   if (coreFlagsView !== undefined) {
     coreReference.flags = coreFlagsView;
   }
 
-  const coreChangedFlagsView = toMatchFlagsView(store.changedFlags);
+  const coreChangedFlagsView =
+    gate?.flags === false ? undefined : toMatchFlagsView(store.changedFlags);
   if (coreChangedFlagsView !== undefined) {
     coreReference.changedFlags = coreChangedFlagsView;
   }
 
+  const expressionForMatch: RegisteredExpression =
+    gate?.signal === false
+      ? (({
+          signal: _signal,
+          ...rest
+        }: RegisteredExpression): RegisteredExpression => rest)(expression)
+      : expression;
+
   const matched = matchExpression({
-    expression,
+    expression: expressionForMatch,
     defaults: store.defaults,
     reference: coreReference,
   });
@@ -155,39 +175,39 @@ export const coreRun = (args: {
     return { status: "reject", debtDelta: { signal: 1, flags: 1 } };
   }
 
-  const expressionTelemetry = store.expressionTelemetryById.get(
-    expression.id,
-  ) ?? {
-    backfillSignalRuns: 0,
-    backfillFlagsRuns: 0,
-  };
+  const expressionTelemetry = store.expressionTelemetryById.get(expression.id);
+
+  const backfillSignalRuns = expressionTelemetry?.backfillSignalRuns;
+  const backfillFlagsRuns = expressionTelemetry?.backfillFlagsRuns;
+  const backfillRuns =
+    backfillSignalRuns !== undefined && backfillFlagsRuns !== undefined
+      ? backfillSignalRuns + backfillFlagsRuns
+      : undefined;
 
   const inBackfillQ =
     occurrenceKind === "registered"
-      ? (expressionTelemetry.inBackfillQ ?? false)
-      : expressionTelemetry.inBackfillQ;
+      ? (expressionTelemetry?.inBackfillQ ?? false)
+      : (expressionTelemetry?.inBackfillQ ?? false);
 
   const actualExpression: RuntimeOccurrence = {
     seq: store.occurrenceSeq,
     id: store.occurrenceId,
     q: occurrenceKind,
     ...(store.signal !== undefined ? { signal: store.signal } : {}),
-    flags: store.flagsTruth,
+    flags: store.referenceFlags,
     changedFlags: store.changedFlags ?? createFlagsView([]),
     addFlags: store.addFlags,
     removeFlags: store.removeFlags,
     expression: Object.freeze({
       id: expression.id,
-      backfillSignalRuns: expressionTelemetry.backfillSignalRuns,
-      backfillFlagsRuns: expressionTelemetry.backfillFlagsRuns,
-      backfillRuns:
-        expressionTelemetry.backfillSignalRuns +
-        expressionTelemetry.backfillFlagsRuns,
+      ...(backfillSignalRuns !== undefined ? { backfillSignalRuns } : {}),
+      ...(backfillFlagsRuns !== undefined ? { backfillFlagsRuns } : {}),
+      ...(backfillRuns !== undefined ? { backfillRuns } : {}),
       ...(occurrenceKind === "backfill" &&
       store.currentBackfillGate !== undefined
         ? { actBackfillGate: store.currentBackfillGate }
         : {}),
-      ...(inBackfillQ !== undefined ? { inBackfillQ } : {}),
+      inBackfillQ,
     }),
     ...(store.occurrenceHasPayload ? { payload: store.payload } : {}),
   };

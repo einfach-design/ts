@@ -8,11 +8,11 @@ type ContextShape = {
   signal?: string;
   expression: {
     id: string;
-    backfillSignalRuns: number;
-    backfillFlagsRuns: number;
-    backfillRuns: number;
+    backfillSignalRuns?: number;
+    backfillFlagsRuns?: number;
+    backfillRuns?: number;
     actBackfillGate?: "signal" | "flags";
-    inBackfillQ?: boolean;
+    inBackfillQ: boolean;
   };
 };
 
@@ -22,6 +22,7 @@ describe("conformance/impulse-context", () => {
     const producerCalls: ContextShape[] = [];
     const e1Calls: ContextShape[] = [];
     const e2Calls: ContextShape[] = [];
+    const plainCalls: ContextShape[] = [];
 
     run.add({
       id: "expr:producer",
@@ -63,9 +64,19 @@ describe("conformance/impulse-context", () => {
       ],
     });
 
+    run.add({
+      id: "expr:plain",
+      signals: ["seed", "other"],
+      targets: [
+        (i) => {
+          plainCalls.push(i as ContextShape);
+        },
+      ],
+    });
+
     run.impulse({ signals: ["seed", "other"] });
 
-    const allCalls = [...producerCalls, ...e1Calls, ...e2Calls];
+    const allCalls = [...producerCalls, ...e1Calls, ...e2Calls, ...plainCalls];
     expect(allCalls.length).toBeGreaterThan(0);
 
     const seqs = allCalls.map((call) => call.seq);
@@ -98,9 +109,19 @@ describe("conformance/impulse-context", () => {
     expect(allCalls.some((call) => call.q === "registered")).toBe(true);
 
     for (const call of allCalls) {
-      expect(call.expression.backfillRuns).toBe(
-        call.expression.backfillSignalRuns + call.expression.backfillFlagsRuns,
-      );
+      if (
+        call.expression.backfillSignalRuns !== undefined &&
+        call.expression.backfillFlagsRuns !== undefined
+      ) {
+        expect(call.expression.backfillRuns).toBe(
+          call.expression.backfillSignalRuns +
+            call.expression.backfillFlagsRuns,
+        );
+      } else {
+        expect(call.expression.backfillSignalRuns).toBeUndefined();
+        expect(call.expression.backfillFlagsRuns).toBeUndefined();
+        expect(call.expression.backfillRuns).toBeUndefined();
+      }
 
       if (call.q === "registered" && call.expression.id === "expr:producer") {
         expect(typeof call.expression.inBackfillQ).toBe("boolean");
@@ -109,6 +130,14 @@ describe("conformance/impulse-context", () => {
       if (call.q === "backfill" && call.expression.id === "expr:producer") {
         expect(["signal", "flags"]).toContain(call.expression.actBackfillGate);
       }
+    }
+
+    expect(plainCalls.length).toBeGreaterThan(0);
+    for (const call of plainCalls) {
+      expect(call.expression.backfillSignalRuns).toBeUndefined();
+      expect(call.expression.backfillFlagsRuns).toBeUndefined();
+      expect(call.expression.backfillRuns).toBeUndefined();
+      expect(call.expression.inBackfillQ).toBe(false);
     }
   });
 });

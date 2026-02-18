@@ -151,13 +151,16 @@ export function createRuntime(): Runtime {
   };
 
   type ExpressionTelemetry = {
-    backfillSignalRuns: number;
-    backfillFlagsRuns: number;
+    backfillSignalRuns?: number;
+    backfillFlagsRuns?: number;
     inBackfillQ?: boolean;
   };
 
   type RunOccurrenceContext = {
     signal?: string;
+    referenceFlags: Parameters<
+      typeof coreRunImpl
+    >[0]["store"]["referenceFlags"];
     changedFlags: Parameters<typeof coreRunImpl>[0]["store"]["changedFlags"];
     addFlags: readonly string[];
     removeFlags: readonly string[];
@@ -172,6 +175,7 @@ export function createRuntime(): Runtime {
   let nextOccurrenceSeq = 0;
 
   let runOccurrenceContext: RunOccurrenceContext = {
+    referenceFlags: createFlagsView([]),
     changedFlags: undefined,
     addFlags: [],
     removeFlags: [],
@@ -183,6 +187,7 @@ export function createRuntime(): Runtime {
 
   const toCoreStoreView = (): Parameters<typeof coreRunImpl>[0]["store"] => ({
     flagsTruth: store.flagsTruth,
+    referenceFlags: runOccurrenceContext.referenceFlags,
     defaults: store.defaults,
     ...(runOccurrenceContext.signal !== undefined
       ? { signal: runOccurrenceContext.signal }
@@ -267,6 +272,7 @@ export function createRuntime(): Runtime {
     expression: RegisteredExpression,
     occurrenceKind: "registered" | "backfill" = "registered",
     backfillGate?: "signal" | "flags",
+    gate?: { signal?: boolean; flags?: boolean },
   ) => {
     const previousGate = runOccurrenceContext.currentBackfillGate;
     if (backfillGate !== undefined) {
@@ -287,6 +293,7 @@ export function createRuntime(): Runtime {
         onLimitReached: exitExpressionOnLimit,
         onRunsLimitReached: reportRunsLimitReached,
         occurrenceKind,
+        ...(gate !== undefined ? { gate } : {}),
       });
     } finally {
       if (previousGate !== undefined) {
@@ -300,8 +307,41 @@ export function createRuntime(): Runtime {
   const coreRun = (expression: RegisteredExpression) =>
     runCoreExpression(expression, "registered");
 
+  const isBackfillRelevant = (
+    telemetry: ExpressionTelemetry | undefined,
+  ): boolean =>
+    telemetry?.backfillSignalRuns !== undefined &&
+    telemetry.backfillFlagsRuns !== undefined;
+
+  const ensureBackfillTelemetry = (
+    telemetryById: Map<string, ExpressionTelemetry>,
+    expressionId: string,
+  ): ExpressionTelemetry => {
+    const existing = telemetryById.get(expressionId);
+    if (
+      existing !== undefined &&
+      existing.backfillSignalRuns !== undefined &&
+      existing.backfillFlagsRuns !== undefined
+    ) {
+      return existing;
+    }
+
+    const next: ExpressionTelemetry = {
+      backfillSignalRuns: 0,
+      backfillFlagsRuns: 0,
+    };
+    telemetryById.set(expressionId, next);
+    return next;
+  };
+
+  const expressionHasDebt = (expression: RegisteredExpression): boolean =>
+    (expression.backfill?.signal?.debt ?? 0) > 0 ||
+    (expression.backfill?.flags?.debt ?? 0) > 0;
+
   const processImpulseEntry = (entry: ImpulseQEntryCanonical): void => {
     const before = store.flagsTruth;
+    const referenceFlags =
+      entry.useFixedFlags !== false ? entry.useFixedFlags : before;
     const nextMap: Record<string, true> = { ...before.map };
 
     const removeSet = new Set(entry.removeFlags);
@@ -336,6 +376,8 @@ export function createRuntime(): Runtime {
       return;
     }
 
+    const impulseTelemetryById = new Map<string, ExpressionTelemetry>();
+
     const toOccurrenceContext = (
       occurrence: ActOccurrence,
     ): RunOccurrenceContext => {
@@ -344,6 +386,7 @@ export function createRuntime(): Runtime {
         ...(occurrence.signal !== undefined
           ? { signal: occurrence.signal }
           : {}),
+        referenceFlags,
         changedFlags: store.changedFlags,
         addFlags: entry.addFlags,
         removeFlags: entry.removeFlags,
@@ -356,7 +399,7 @@ export function createRuntime(): Runtime {
           : {}),
         occurrenceSeq: nextOccurrenceSeq,
         occurrenceId: `occ:${nextOccurrenceSeq}`,
-        expressionTelemetryById: new Map(),
+        expressionTelemetryById: impulseTelemetryById,
       };
     };
 
@@ -383,33 +426,52 @@ export function createRuntime(): Runtime {
             backfillQ: store.backfillQ,
             registeredById: expressionRegistry.registeredById,
             attempt(expression, gate) {
-              const current = runOccurrenceContext.expressionTelemetryById.get(
-                expression.id,
-              ) ?? { backfillSignalRuns: 0, backfillFlagsRuns: 0 };
+              if (expressionHasDebt(expression)) {
+                ensureBackfillTelemetry(
+                  runOccurrenceContext.expressionTelemetryById,
+                  expression.id,
+                );
+              }
 
-              const result = runCoreExpression(expression, "backfill", gate);
+              const result = runCoreExpression(
+                expression,
+                "backfill",
+                gate,
+                gate === "signal" ? { flags: false } : { signal: false },
+              );
               if (result.status === "deploy") {
+                const current = ensureBackfillTelemetry(
+                  runOccurrenceContext.expressionTelemetryById,
+                  expression.id,
+                );
                 runOccurrenceContext.expressionTelemetryById.set(
                   expression.id,
                   {
                     ...current,
                     ...(gate === "signal"
-                      ? { backfillSignalRuns: current.backfillSignalRuns + 1 }
-                      : { backfillFlagsRuns: current.backfillFlagsRuns + 1 }),
+                      ? {
+                          backfillSignalRuns:
+                            (current.backfillSignalRuns ?? 0) + 1,
+                        }
+                      : {
+                          backfillFlagsRuns:
+                            (current.backfillFlagsRuns ?? 0) + 1,
+                        }),
                   },
                 );
               }
 
               return {
                 status: result.status,
-                pending: false,
+                pending: expressionHasDebt(expression),
               };
             },
             onLimitReached: exitExpressionOnLimit,
             onEnqueue: (expressionId) => {
-              const current = runOccurrenceContext.expressionTelemetryById.get(
+              const current = ensureBackfillTelemetry(
+                runOccurrenceContext.expressionTelemetryById,
                 expressionId,
-              ) ?? { backfillSignalRuns: 0, backfillFlagsRuns: 0 };
+              );
               runOccurrenceContext.expressionTelemetryById.set(expressionId, {
                 ...current,
                 inBackfillQ: true,
@@ -424,11 +486,24 @@ export function createRuntime(): Runtime {
             expressionId,
             telemetry,
           ] of runOccurrenceContext.expressionTelemetryById.entries()) {
+            if (!isBackfillRelevant(telemetry)) {
+              continue;
+            }
+
             if (telemetry.inBackfillQ === undefined) {
               runOccurrenceContext.expressionTelemetryById.set(expressionId, {
                 ...telemetry,
                 inBackfillQ: false,
               });
+            }
+          }
+
+          for (const expression of store.backfillQ.list) {
+            if (expressionHasDebt(expression)) {
+              ensureBackfillTelemetry(
+                runOccurrenceContext.expressionTelemetryById,
+                expression.id,
+              );
             }
           }
 
@@ -447,7 +522,9 @@ export function createRuntime(): Runtime {
                 reference.signal = runOccurrenceContext.signal;
               }
 
-              const flagsView = toMatchFlagsView(store.flagsTruth);
+              const flagsView = toMatchFlagsView(
+                runOccurrenceContext.referenceFlags,
+              );
               if (flagsView !== undefined) {
                 reference.flags = flagsView;
               }
@@ -467,9 +544,10 @@ export function createRuntime(): Runtime {
             },
             coreRun,
             onEnqueue: (expressionId) => {
-              const current = runOccurrenceContext.expressionTelemetryById.get(
+              const current = ensureBackfillTelemetry(
+                runOccurrenceContext.expressionTelemetryById,
                 expressionId,
-              ) ?? { backfillSignalRuns: 0, backfillFlagsRuns: 0 };
+              );
               runOccurrenceContext.expressionTelemetryById.set(expressionId, {
                 ...current,
                 inBackfillQ: true,
