@@ -5,9 +5,14 @@ import {
   type BackfillExpression,
   type BackfillQ,
 } from "../state/backfillQ.js";
+import { computeChangedFlags } from "../state/changedFlags.js";
 import { globalDefaults, type Defaults } from "../state/defaults.js";
 import { createFlagsView, type FlagsView } from "../state/flagsView.js";
-import { type SeenSignals } from "../state/signals.js";
+import {
+  extendSeenSignals,
+  projectSignal,
+  type SeenSignals,
+} from "../state/signals.js";
 import { measureEntryBytes } from "./util.js";
 
 type ImpulseQOnTrim = (info: {
@@ -22,6 +27,14 @@ export type RuntimeOnError =
   | ((error: unknown) => void);
 
 type ImpulseQOnError = RuntimeOnError;
+
+type ScopeProjectionBaseline = {
+  flags: FlagsView;
+  changedFlags: FlagsView | undefined;
+  seenFlags: FlagsView;
+  signal: string | undefined;
+  seenSignals: SeenSignals;
+};
 
 export type RuntimeStore<
   TExpression extends BackfillExpression = BackfillExpression,
@@ -45,6 +58,12 @@ export type RuntimeStore<
       onError: ImpulseQOnError | undefined;
     };
   };
+
+  scopeProjectionBaseline: ScopeProjectionBaseline;
+  applyTrimmedAppliedEntriesToScopeBaseline: (
+    entries: readonly ImpulseQEntryCanonical[],
+  ) => void;
+  resetScopeProjectionBaseline: () => void;
 
   draining: boolean;
   trimPendingMaxBytes: boolean;
@@ -84,6 +103,65 @@ export function initRuntimeStore<
     },
   };
 
+  let scopeProjectionBaseline: ScopeProjectionBaseline = {
+    flags: createFlagsView([]),
+    changedFlags: undefined,
+    seenFlags: createFlagsView([]),
+    signal: undefined,
+    seenSignals: { list: [], map: {} },
+  };
+
+  const applyTrimmedAppliedEntriesToScopeBaseline = (
+    entries: readonly ImpulseQEntryCanonical[],
+  ): void => {
+    for (const entry of entries) {
+      const nextMap: Record<string, true> = {
+        ...scopeProjectionBaseline.flags.map,
+      };
+      const removeSet = new Set(entry.removeFlags);
+
+      for (const flag of entry.removeFlags) {
+        delete nextMap[flag];
+      }
+
+      for (const flag of entry.addFlags) {
+        if (removeSet.has(flag)) continue;
+        nextMap[flag] = true;
+      }
+
+      const nextFlags = createFlagsView(Object.keys(nextMap));
+
+      scopeProjectionBaseline = {
+        flags: nextFlags,
+        changedFlags: computeChangedFlags(
+          scopeProjectionBaseline.flags,
+          nextFlags,
+          entry.removeFlags,
+          entry.addFlags,
+        ),
+        seenFlags: createFlagsView([
+          ...scopeProjectionBaseline.seenFlags.list,
+          ...nextFlags.list,
+        ]),
+        signal: projectSignal(entry.signals),
+        seenSignals: extendSeenSignals(
+          scopeProjectionBaseline.seenSignals,
+          entry.signals,
+        ),
+      };
+    }
+  };
+
+  const resetScopeProjectionBaseline = (): void => {
+    scopeProjectionBaseline = {
+      flags: createFlagsView([]),
+      changedFlags: undefined,
+      seenFlags: createFlagsView([]),
+      signal: undefined,
+      seenSignals: { list: [], map: {} },
+    };
+  };
+
   let draining = false;
   let trimPendingMaxBytes = false;
   let runtimeStackDepth = 0;
@@ -95,15 +173,25 @@ export function initRuntimeStore<
     } finally {
       runtimeStackDepth -= 1;
       if (runtimeStackDepth === 0 && trimPendingMaxBytes) {
+        const prevEntries = impulseQ.q.entries;
+        const prevCursor = impulseQ.q.cursor;
         const trimmed = trim({
-          entries: impulseQ.q.entries,
-          cursor: impulseQ.q.cursor,
+          entries: prevEntries,
+          cursor: prevCursor,
           retain: impulseQ.config.retain,
           maxBytes: impulseQ.config.maxBytes,
           runtimeStackActive: false,
           trimPendingMaxBytes,
           measureBytes: measureEntryBytes,
         });
+
+        const removedCount = Math.max(0, prevCursor - trimmed.cursor);
+        if (removedCount > 0) {
+          applyTrimmedAppliedEntriesToScopeBaseline(
+            prevEntries.slice(0, removedCount),
+          );
+        }
+
         impulseQ.q.entries = [...trimmed.entries];
         impulseQ.q.cursor = trimmed.cursor;
         trimPendingMaxBytes = trimmed.trimPendingMaxBytes;
@@ -162,6 +250,16 @@ export function initRuntimeStore<
     },
 
     impulseQ,
+
+    get scopeProjectionBaseline() {
+      return scopeProjectionBaseline;
+    },
+    set scopeProjectionBaseline(value) {
+      scopeProjectionBaseline = value;
+    },
+
+    applyTrimmedAppliedEntriesToScopeBaseline,
+    resetScopeProjectionBaseline,
 
     get draining() {
       return draining;
