@@ -142,18 +142,21 @@ describe("conformance/runtime", () => {
     expect(seen).toEqual(["impulse.input.invalid"]);
   });
 
-  it("run.onError modes: report and swallow do not throw", () => {
+  it("run.onError=swallow handles target/listener/trim phase errors", () => {
     const run = createRuntime();
-    const seen: string[] = [];
 
-    run.onDiagnostic((diagnostic) => {
-      seen.push(diagnostic.code);
+    run.onDiagnostic(() => {
+      throw new Error("listener boom");
     });
 
     run.set({
+      onError: "swallow",
       impulseQ: {
         config: {
-          onError: "report",
+          onError: "swallow",
+          onTrim: () => {
+            throw new Error("trim boom");
+          },
         },
       },
     });
@@ -167,18 +170,98 @@ describe("conformance/runtime", () => {
       ],
     });
 
-    run.impulse({ addFlags: ["x"] });
+    expect(() => run.impulse({ addFlags: ["x"] })).not.toThrow();
+    expect(() =>
+      run.set({ impulseQ: { config: { retain: 0, maxBytes: 1 } } }),
+    ).not.toThrow();
+  });
 
-    expect(seen).toContain("dispatch.error");
+  it("run.onError=throw propagates target/listener/trim phase errors", () => {
+    const runTarget = createRuntime();
+
+    runTarget.set({ onError: "throw" });
+    runTarget.add({
+      id: "expr:throw-target",
+      targets: [
+        () => {
+          throw new Error("target throw");
+        },
+      ],
+    });
+
+    expect(() => runTarget.impulse({ addFlags: ["x"] })).toThrow(
+      "target throw",
+    );
+
+    const runListener = createRuntime();
+
+    runListener.set({ onError: "throw" });
+    runListener.onDiagnostic(() => {
+      throw new Error("listener throw");
+    });
+
+    expect(() => runListener.impulse({ signals: "bad" })).toThrow(
+      "listener throw",
+    );
+
+    const runTrim = createRuntime();
+
+    runTrim.set({
+      impulseQ: {
+        config: {
+          onError: "throw",
+          onTrim: () => {
+            throw new Error("trim throw");
+          },
+        },
+      },
+    });
+    runTrim.impulse({ addFlags: ["trim-seed"] });
+
+    expect(() =>
+      runTrim.set({ impulseQ: { config: { retain: 0, maxBytes: 1 } } }),
+    ).toThrow("trim throw");
+  });
+
+  it("run.onError=report emits phase specific diagnostics", () => {
+    const run = createRuntime();
+    const seen: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      seen.push(diagnostic.code);
+    });
+
+    run.set({ onError: "report" });
+    run.add({
+      id: "expr:report-target",
+      targets: [
+        () => {
+          throw new Error("target report");
+        },
+      ],
+    });
+    run.impulse({ addFlags: ["target"] });
+
+    run.onDiagnostic(() => {
+      throw new Error("listener report");
+    });
+    run.impulse({ signals: "bad" });
 
     run.set({
       impulseQ: {
         config: {
-          onError: "swallow",
+          onError: "report",
+          onTrim: () => {
+            throw new Error("trim report");
+          },
         },
       },
     });
+    run.impulse({ addFlags: ["trim"] });
+    run.set({ impulseQ: { config: { retain: 0, maxBytes: 1 } } });
 
-    expect(() => run.impulse({ addFlags: ["y"] })).not.toThrow();
+    expect(seen).toContain("target.error");
+    expect(seen).toContain("diagnostic.listener.error");
+    expect(seen).toContain("trim.onTrim.error");
   });
 });

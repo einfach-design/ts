@@ -17,8 +17,13 @@ export interface EmitDiagnosticOptions<
   TDiagnostic extends RuntimeDiagnostic = RuntimeDiagnostic,
 > {
   readonly diagnostic: TDiagnostic;
-  readonly listeners?: ReadonlySet<(diagnostic: TDiagnostic) => void>;
+  readonly listeners?: Set<(diagnostic: TDiagnostic) => void>;
   readonly collector?: TDiagnostic[];
+  readonly onListenerError?: (info: {
+    error: unknown;
+    listener: (diagnostic: TDiagnostic) => void;
+    diagnostic: TDiagnostic;
+  }) => void;
 }
 
 export interface DiagnosticCollector<
@@ -28,6 +33,16 @@ export interface DiagnosticCollector<
   subscribe: (handler: (diagnostic: TDiagnostic) => void) => () => void;
   readonly list: () => readonly TDiagnostic[];
   clear: () => void;
+}
+
+export interface CreateDiagnosticCollectorOptions<
+  TDiagnostic extends RuntimeDiagnostic = RuntimeDiagnostic,
+> {
+  readonly onListenerError?: (info: {
+    error: unknown;
+    listener: (diagnostic: TDiagnostic) => void;
+    diagnostic: TDiagnostic;
+  }) => void;
 }
 
 /**
@@ -44,7 +59,12 @@ export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
 
   if (listeners) {
     for (const listener of listeners) {
-      listener(diagnostic);
+      try {
+        listener(diagnostic);
+      } catch (error) {
+        listeners.delete(listener);
+        options.onListenerError?.({ error, listener, diagnostic });
+      }
     }
   }
 
@@ -53,13 +73,22 @@ export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
 
 export function createDiagnosticCollector<
   TDiagnostic extends RuntimeDiagnostic = RuntimeDiagnostic,
->(): DiagnosticCollector<TDiagnostic> {
+>(
+  options?: CreateDiagnosticCollectorOptions<TDiagnostic>,
+): DiagnosticCollector<TDiagnostic> {
   const diagnostics: TDiagnostic[] = [];
   const listeners = new Set<(diagnostic: TDiagnostic) => void>();
 
   return {
     emit(diagnostic) {
-      return emitDiagnostic({ diagnostic, listeners, collector: diagnostics });
+      return emitDiagnostic({
+        diagnostic,
+        listeners,
+        collector: diagnostics,
+        ...(options?.onListenerError !== undefined
+          ? { onListenerError: options.onListenerError }
+          : {}),
+      });
     },
     subscribe(handler) {
       listeners.add(handler);

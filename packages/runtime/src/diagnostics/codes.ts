@@ -26,7 +26,7 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     shape: {},
   },
-  "dispatch.error": {
+  "target.error": {
     description: "Target dispatch failed and was reported.",
     severity: "error",
     shape: {
@@ -40,6 +40,23 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     shape: {
       phase: "string",
+    },
+  },
+  "diagnostic.listener.error": {
+    description:
+      "Diagnostic listener threw and was handled via onError policy.",
+    severity: "error",
+    shape: {
+      phase: "diagnostic/listener",
+    },
+  },
+  "trim.onTrim.error": {
+    description:
+      "Trim onTrim callback failed and was handled via onError policy.",
+    severity: "error",
+    shape: {
+      phase: "trim/onTrim",
+      reason: "retain|maxBytes",
     },
   },
 } as const satisfies Record<string, DiagnosticCodeSpec>;

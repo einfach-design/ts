@@ -25,6 +25,7 @@ describe("conformance/get-set", () => {
     const run = createRuntime();
 
     run.set({
+      onError: "report",
       defaults: run.get("defaults" as string | undefined, {
         as: "snapshot",
       }) as Record<string, unknown>,

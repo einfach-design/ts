@@ -11,6 +11,7 @@ import type { RegistryStore } from "../../state/registry.js";
 const allowedGetKeys = [
   "*",
   "defaults",
+  "onError",
   "flags",
   "changedFlags",
   "seenFlags",
@@ -144,6 +145,7 @@ export function runGet(
 
     const valueByKey: Record<AllowedGetKey, unknown> = {
       defaults: store.defaults,
+      onError: store.onError,
       flags: hasScopedProjection ? projectedFlagsState.flags : store.flagsTruth,
       changedFlags: hasScopedProjection
         ? projectedFlagsState.changedFlags
@@ -161,6 +163,7 @@ export function runGet(
       diagnostics: diagnostics.list(),
       "*": {
         defaults: store.defaults,
+        onError: store.onError,
         flags: store.flagsTruth,
         changedFlags: store.changedFlags,
         seenFlags: store.seenFlags,

@@ -32,6 +32,7 @@ import {
 } from "../targets/dispatch.js";
 import { hasOwn, isObject, toMatchFlagsView } from "./util.js";
 import { initRuntimeStore } from "./store.js";
+import { applyRuntimeOnError } from "./onError.js";
 import {
   coreRun as coreRunImpl,
   type RegisteredExpression,
@@ -109,9 +110,47 @@ const toMatcherExpression = (
  */
 export function createRuntime(): Runtime {
   const expressionRegistry = registry<RegisteredExpression>();
-  const diagnostics = createDiagnosticCollector<RuntimeDiagnostic>();
+  let store = initRuntimeStore<RegisteredExpression>();
+  const diagnostics = createDiagnosticCollector<RuntimeDiagnostic>({
+    onListenerError: ({ error }) => {
+      applyRuntimeOnError(
+        store.onError,
+        {
+          error,
+          code: "diagnostic.listener.error",
+          phase: "diagnostic/listener",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Diagnostic listener failed.",
+        },
+        (issue) => {
+          diagnostics.emit({
+            code: issue.code,
+            message: issue.message,
+            severity: "error",
+            data: {
+              phase: issue.phase,
+            },
+          });
+        },
+      );
+    },
+  });
 
-  const store = initRuntimeStore<RegisteredExpression>();
+  store = initRuntimeStore<RegisteredExpression>({
+    reportError: (issue) => {
+      diagnostics.emit({
+        code: issue.code,
+        message: issue.message,
+        severity: "error",
+        data: {
+          phase: issue.phase,
+          ...(issue.data !== undefined ? issue.data : {}),
+        },
+      });
+    },
+  });
 
   const runtimeCore: RuntimeCore = {
     get(key, opts) {
@@ -169,7 +208,7 @@ export function createRuntime(): Runtime {
 
   const reportDispatchIssue = (issue: DispatchError): void => {
     diagnostics.emit({
-      code: "dispatch.error",
+      code: "target.error",
       message: issue.error.message,
       severity: "error",
       data: {
@@ -188,9 +227,15 @@ export function createRuntime(): Runtime {
       store: toCoreStoreView(),
       runtimeCore,
       dispatch: (x: unknown) => {
+        const mode = store.onError;
         dispatch({
           ...(x as DispatchInput),
-          onError: "report" satisfies DispatchOnErrorMode,
+          onError:
+            typeof mode === "function"
+              ? (dispatchIssue) => {
+                  mode(dispatchIssue.error);
+                }
+              : (mode satisfies DispatchOnErrorMode),
           reportError: reportDispatchIssue,
         });
       },

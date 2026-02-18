@@ -14,8 +14,11 @@ import type { SeenSignals } from "../../state/signals.js";
 import { hasOwn, isObject, measureEntryBytes } from "../util.js";
 import type { RuntimeOnError, RuntimeStore } from "../store.js";
 import type { RegistryStore } from "../../state/registry.js";
+import { applyRuntimeOnError } from "../onError.js";
+import type { DiagnosticCollector } from "../../diagnostics/index.js";
 
 const hydrationRequiredKeys = [
+  "onError",
   "defaults",
   "flags",
   "changedFlags",
@@ -32,6 +35,7 @@ const allowedPatchKeys = [
   "addFlags",
   "removeFlags",
   "defaults",
+  "onError",
   "impulseQ",
 ] as const;
 
@@ -44,7 +48,11 @@ export function runSet(
   store: RuntimeStore,
   {
     expressionRegistry,
-  }: { expressionRegistry: RegistryStore<RegisteredExpression> },
+    diagnostics,
+  }: {
+    expressionRegistry: RegistryStore<RegisteredExpression>;
+    diagnostics: DiagnosticCollector;
+  },
   patch: Record<string, unknown>,
 ): void {
   store.withRuntimeStack(() => {
@@ -62,6 +70,7 @@ export function runSet(
       }
 
       const hydration = patch as {
+        onError?: RuntimeOnError;
         defaults: Defaults;
         flags: FlagsView;
         changedFlags?: FlagsView;
@@ -83,6 +92,7 @@ export function runSet(
         backfillQ: BackfillQSnapshot;
       };
 
+      store.onError = hydration.onError ?? "report";
       store.defaults = hydration.defaults;
       store.flagsTruth = hydration.flags;
       store.changedFlags = hydration.changedFlags;
@@ -182,6 +192,10 @@ export function runSet(
       );
     }
 
+    if (hasOwn(patch, "onError")) {
+      store.onError = patch.onError as RuntimeOnError;
+    }
+
     if (hasOwn(patch, "impulseQ")) {
       const impulsePatch = patch.impulseQ;
       if (!isObject(impulsePatch)) {
@@ -215,7 +229,7 @@ export function runSet(
             | undefined;
         }
 
-        const trimmed = trim({
+        const trimmed = trim<ImpulseQEntryCanonical>({
           entries: store.impulseQ.q.entries,
           cursor: store.impulseQ.q.cursor,
           retain: store.impulseQ.config.retain,
@@ -224,7 +238,44 @@ export function runSet(
           trimPendingMaxBytes: store.trimPendingMaxBytes,
           measureBytes: measureEntryBytes,
           ...(store.impulseQ.config.onTrim !== undefined
-            ? { onTrim: store.impulseQ.config.onTrim }
+            ? {
+                onTrim: (info: {
+                  entries: readonly ImpulseQEntryCanonical[];
+                  stats: { reason: "retain" | "maxBytes"; bytesFreed?: number };
+                }) => {
+                  try {
+                    store.impulseQ.config.onTrim?.(info);
+                  } catch (error) {
+                    applyRuntimeOnError(
+                      store.impulseQ.config.onError,
+                      {
+                        error,
+                        code: "trim.onTrim.error",
+                        phase: "trim/onTrim",
+                        message:
+                          error instanceof Error
+                            ? error.message
+                            : "Trim callback failed.",
+                        data: { reason: info.stats.reason },
+                      },
+                      () => {
+                        diagnostics.emit({
+                          code: "trim.onTrim.error",
+                          message:
+                            error instanceof Error
+                              ? error.message
+                              : "Trim callback failed.",
+                          severity: "error",
+                          data: {
+                            phase: "trim/onTrim",
+                            reason: info.stats.reason,
+                          },
+                        });
+                      },
+                    );
+                  }
+                },
+              }
             : {}),
         });
 

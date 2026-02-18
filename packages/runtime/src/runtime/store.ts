@@ -8,6 +8,7 @@ import {
 import { globalDefaults, type Defaults } from "../state/defaults.js";
 import { createFlagsView, type FlagsView } from "../state/flagsView.js";
 import { type SeenSignals } from "../state/signals.js";
+import { applyRuntimeOnError } from "./onError.js";
 import { measureEntryBytes } from "./util.js";
 
 type ImpulseQOnTrim = (info: {
@@ -26,6 +27,7 @@ type ImpulseQOnError = RuntimeOnError;
 export type RuntimeStore<
   TExpression extends BackfillExpression = BackfillExpression,
 > = {
+  onError: RuntimeOnError;
   defaults: Defaults;
   flagsTruth: FlagsView;
   changedFlags: FlagsView | undefined;
@@ -55,7 +57,16 @@ export type RuntimeStore<
 
 export function initRuntimeStore<
   TExpression extends BackfillExpression = BackfillExpression,
->(): RuntimeStore<TExpression> {
+>(opts?: {
+  reportError?: (issue: {
+    error: unknown;
+    code: string;
+    phase: string;
+    message: string;
+    data?: Record<string, unknown>;
+  }) => void;
+}): RuntimeStore<TExpression> {
+  let onError: RuntimeOnError = "report";
   let defaults: Defaults = globalDefaults;
   let flagsTruth: FlagsView = createFlagsView([]);
   let changedFlags: FlagsView | undefined;
@@ -95,7 +106,7 @@ export function initRuntimeStore<
     } finally {
       runtimeStackDepth -= 1;
       if (runtimeStackDepth === 0 && trimPendingMaxBytes) {
-        const trimmed = trim({
+        const trimmed = trim<ImpulseQEntryCanonical>({
           entries: impulseQ.q.entries,
           cursor: impulseQ.q.cursor,
           retain: impulseQ.config.retain,
@@ -103,6 +114,32 @@ export function initRuntimeStore<
           runtimeStackActive: false,
           trimPendingMaxBytes,
           measureBytes: measureEntryBytes,
+          ...(impulseQ.config.onTrim !== undefined
+            ? {
+                onTrim: (info: {
+                  entries: readonly ImpulseQEntryCanonical[];
+                  stats: { reason: "retain" | "maxBytes"; bytesFreed?: number };
+                }) => {
+                  try {
+                    impulseQ.config.onTrim?.(info);
+                  } catch (error) {
+                    applyRuntimeOnError(
+                      impulseQ.config.onError,
+                      {
+                        error,
+                        code: "trim.onTrim.error",
+                        phase: "trim/onTrim",
+                        message: "Trim callback failed.",
+                        data: { reason: info.stats.reason },
+                      },
+                      (issue) => {
+                        opts?.reportError?.(issue);
+                      },
+                    );
+                  }
+                },
+              }
+            : {}),
         });
         impulseQ.q.entries = [...trimmed.entries];
         impulseQ.q.cursor = trimmed.cursor;
@@ -112,6 +149,13 @@ export function initRuntimeStore<
   };
 
   const store: RuntimeStore<TExpression> = {
+    get onError() {
+      return onError;
+    },
+    set onError(value) {
+      onError = value;
+    },
+
     get defaults() {
       return defaults;
     },
