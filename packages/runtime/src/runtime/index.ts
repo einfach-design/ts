@@ -242,7 +242,10 @@ export function createRuntime(): Runtime {
     });
   };
 
-  const coreRun = (expression: RegisteredExpression) =>
+  const runCoreExpression = (
+    expression: RegisteredExpression,
+    occurrenceKind: "registered" | "backfill" = "registered",
+  ) =>
     coreRunImpl({
       expression,
       store: toCoreStoreView(),
@@ -253,7 +256,11 @@ export function createRuntime(): Runtime {
       createFlagsView,
       onLimitReached: exitExpressionOnLimit,
       onRunsLimitReached: reportRunsLimitReached,
+      occurrenceKind,
     });
+
+  const coreRun = (expression: RegisteredExpression) =>
+    runCoreExpression(expression, "registered");
 
   const processImpulseEntry = (entry: ImpulseQEntryCanonical): void => {
     const before = store.flagsTruth;
@@ -331,17 +338,7 @@ export function createRuntime(): Runtime {
             registeredById: expressionRegistry.registeredById,
             attempt(expression) {
               return {
-                status: coreRunImpl({
-                  expression,
-                  store: toCoreStoreView(),
-                  runtimeCore,
-                  dispatch: dispatchForCoreRun,
-                  matchExpression: matchExpressionForCoreRun,
-                  toMatchFlagsView,
-                  createFlagsView,
-                  onLimitReached: exitExpressionOnLimit,
-                  occurrenceKind: "backfill",
-                }).status,
+                status: runCoreExpression(expression, "backfill").status,
                 pending: false,
               };
             },

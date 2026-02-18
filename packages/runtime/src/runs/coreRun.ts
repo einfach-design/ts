@@ -35,6 +35,7 @@ export type RegisteredExpression = {
     flags?: { debt?: number; runs?: { used: number; max: number } };
   };
   runs?: { used: number; max: number };
+  runsLimitReported?: true;
   tombstone?: true;
 };
 
@@ -187,7 +188,11 @@ export const coreRun = (args: {
   if (expression.runs !== undefined && attempted > 0) {
     expression.runs.used += 1;
     if (expression.runs.used >= expression.runs.max) {
-      onRunsLimitReached?.({ id: expression.id, max: expression.runs.max });
+      if (expression.runsLimitReported !== true) {
+        expression.runsLimitReported = true;
+        onRunsLimitReached?.({ id: expression.id, max: expression.runs.max });
+      }
+
       if (onLimitReached !== undefined) {
         onLimitReached(expression);
       } else {
