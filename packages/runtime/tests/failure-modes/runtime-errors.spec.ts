@@ -703,4 +703,29 @@ describe("failure-modes/runtime-errors", () => {
       >),
     ).toThrow("listener-throw");
   });
+
+  it("reports runs.max.exceeded exactly once and blocks further deployments", () => {
+    const run = createRuntime();
+    const diagnostics: string[] = [];
+    const calls: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      diagnostics.push(diagnostic.code);
+    });
+
+    run.add({
+      id: "expr:limit-once",
+      runs: { max: 1 },
+      targets: [() => calls.push("hit")],
+    });
+
+    run.impulse({ addFlags: ["a"] });
+    run.impulse({ addFlags: ["b"] });
+    run.impulse({ addFlags: ["c"] });
+
+    expect(
+      diagnostics.filter((code) => code === "runs.max.exceeded"),
+    ).toHaveLength(1);
+    expect(calls).toEqual(["hit"]);
+  });
 });
