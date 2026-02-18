@@ -39,6 +39,7 @@ import { runImpulse } from "./api/impulse.js";
 import { runMatchExpression as runMatchExpressionApi } from "./api/matchExpression.js";
 import { runOnDiagnostic } from "./api/onDiagnostic.js";
 import { runSet } from "./api/set.js";
+import type { ActOccurrence } from "../processing/actImpulse.js";
 
 type Runtime = Readonly<{
   add: (opts: {
@@ -118,12 +119,36 @@ export function createRuntime(): Runtime {
     },
   };
 
+  type RunOccurrenceContext = {
+    signal?: string;
+    changedFlags: Parameters<typeof coreRunImpl>[0]["store"]["changedFlags"];
+    addFlags: readonly string[];
+    removeFlags: readonly string[];
+    occurrenceHasPayload: boolean;
+    payload?: unknown;
+  };
+
+  let runOccurrenceContext: RunOccurrenceContext = {
+    changedFlags: undefined,
+    addFlags: [],
+    removeFlags: [],
+    occurrenceHasPayload: false,
+  };
+
   const toCoreStoreView = (): Parameters<typeof coreRunImpl>[0]["store"] => ({
     flagsTruth: store.flagsTruth,
     defaults: store.defaults,
-    ...(store.signal !== undefined ? { signal: store.signal } : {}),
-    ...(store.changedFlags !== undefined
-      ? { changedFlags: store.changedFlags }
+    ...(runOccurrenceContext.signal !== undefined
+      ? { signal: runOccurrenceContext.signal }
+      : {}),
+    ...(runOccurrenceContext.changedFlags !== undefined
+      ? { changedFlags: runOccurrenceContext.changedFlags }
+      : {}),
+    addFlags: runOccurrenceContext.addFlags,
+    removeFlags: runOccurrenceContext.removeFlags,
+    occurrenceHasPayload: runOccurrenceContext.occurrenceHasPayload,
+    ...(runOccurrenceContext.occurrenceHasPayload
+      ? { payload: runOccurrenceContext.payload }
       : {}),
   });
 
@@ -198,45 +223,81 @@ export function createRuntime(): Runtime {
       return;
     }
 
+    const toOccurrenceContext = (
+      occurrence: ActOccurrence,
+    ): RunOccurrenceContext => ({
+      ...(occurrence.signal !== undefined ? { signal: occurrence.signal } : {}),
+      changedFlags: store.changedFlags,
+      addFlags: entry.addFlags,
+      removeFlags: entry.removeFlags,
+      occurrenceHasPayload: Object.prototype.hasOwnProperty.call(
+        occurrence,
+        "payload",
+      ),
+      ...(Object.prototype.hasOwnProperty.call(occurrence, "payload")
+        ? { payload: occurrence.payload }
+        : {}),
+    });
+
+    const withOccurrenceContext = (
+      occurrence: ActOccurrence,
+      runner: () => void,
+    ): void => {
+      const previous = runOccurrenceContext;
+      runOccurrenceContext = toOccurrenceContext(occurrence);
+
+      try {
+        runner();
+      } finally {
+        runOccurrenceContext = previous;
+      }
+    };
+
     actImpulse({
       entry,
       hasBackfill: store.backfillQ.list.length > 0,
-      runBackfill: () => {
-        runBackfill();
+      runBackfill: (occurrence) => {
+        withOccurrenceContext(occurrence, () => {
+          runBackfill();
+        });
       },
-      runRegistered: () => {
-        registeredRun({
-          registeredQ: expressionRegistry.registeredQ,
-          registeredById: expressionRegistry.registeredById,
-          backfillQ: store.backfillQ,
-          matchExpression: (expression) => {
-            const reference: {
-              signal?: string;
-              flags?: { map: Record<string, true>; list?: string[] };
-              changedFlags?: { map: Record<string, true>; list?: string[] };
-            } = {};
+      runRegistered: (occurrence) => {
+        withOccurrenceContext(occurrence, () => {
+          registeredRun({
+            registeredQ: expressionRegistry.registeredQ,
+            registeredById: expressionRegistry.registeredById,
+            backfillQ: store.backfillQ,
+            matchExpression: (expression) => {
+              const reference: {
+                signal?: string;
+                flags?: { map: Record<string, true>; list?: string[] };
+                changedFlags?: { map: Record<string, true>; list?: string[] };
+              } = {};
 
-            if (store.signal !== undefined) {
-              reference.signal = store.signal;
-            }
+              if (runOccurrenceContext.signal !== undefined) {
+                reference.signal = runOccurrenceContext.signal;
+              }
 
-            const flagsView = toMatchFlagsView(store.flagsTruth);
-            if (flagsView !== undefined) {
-              reference.flags = flagsView;
-            }
+              const flagsView = toMatchFlagsView(store.flagsTruth);
+              if (flagsView !== undefined) {
+                reference.flags = flagsView;
+              }
 
-            const changedFlagsView = toMatchFlagsView(store.changedFlags);
-            if (changedFlagsView !== undefined) {
-              reference.changedFlags = changedFlagsView;
-            }
+              const changedFlagsView = toMatchFlagsView(
+                runOccurrenceContext.changedFlags,
+              );
+              if (changedFlagsView !== undefined) {
+                reference.changedFlags = changedFlagsView;
+              }
 
-            return runMatchExpression({
-              expression: toMatcherExpression(expression),
-              defaults: store.defaults,
-              reference,
-            });
-          },
-          coreRun,
+              return runMatchExpression({
+                expression: toMatcherExpression(expression),
+                defaults: store.defaults,
+                reference,
+              });
+            },
+            coreRun,
+          });
         });
       },
     });

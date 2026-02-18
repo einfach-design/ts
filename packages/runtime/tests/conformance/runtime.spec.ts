@@ -87,4 +87,43 @@ describe("conformance/runtime", () => {
       expect(typeof sig).toBe("string");
     }
   });
+
+  it("E2 — runs per occurrence carry signal/payload and flag deltas", () => {
+    const run = createRuntime();
+
+    run.set({ addFlags: ["existing"] } as Record<string, unknown>);
+
+    const payload = { event: "go" };
+    const calls: Array<Record<string, unknown>> = [];
+
+    run.add({
+      id: "expr:e2",
+      targets: [
+        (i: unknown) => {
+          calls.push((i ?? {}) as Record<string, unknown>);
+        },
+      ],
+    });
+
+    run.impulse({
+      signals: ["s1", "s2"],
+      addFlags: ["new"],
+      removeFlags: ["existing"],
+      livePayload: payload,
+    } as Record<string, unknown>);
+
+    expect(calls).toHaveLength(2);
+    expect(calls.map((entry) => entry.signal)).toEqual(["s1", "s2"]);
+
+    for (const call of calls) {
+      expect(call.payload).toEqual(payload);
+      expect(call.addFlags).toEqual(["new"]);
+      expect(call.removeFlags).toEqual(["existing"]);
+
+      const changed = call.changedFlags as
+        | { list?: readonly string[] }
+        | undefined;
+      expect(changed?.list).toEqual(["existing", "new"]);
+    }
+  });
 });
