@@ -37,8 +37,12 @@ export type RegistryStore<TExpression extends RegistryExpression> =
 export function registry<
   TExpression extends RegistryExpression,
 >(): RegistryStore<TExpression> {
+  const COMPACT_TOMBSTONE_ABSOLUTE_MIN = 8;
+  const COMPACT_TOMBSTONE_RELATIVE_MIN = 0.25;
+
   const registeredQ: TExpression[] = [];
   const registeredById = new Map<string, TExpression>();
+  let tombstoneCount = 0;
 
   const register = (expression: TExpression): TExpression => {
     if (registeredById.has(expression.id)) {
@@ -61,15 +65,32 @@ export function registry<
     }
 
     expression.tombstone = true;
+    tombstoneCount += 1;
     registeredById.delete(id);
+
+    const reachesAbsoluteMin = tombstoneCount >= COMPACT_TOMBSTONE_ABSOLUTE_MIN;
+    const tombstoneShare =
+      registeredQ.length === 0 ? 0 : tombstoneCount / registeredQ.length;
+    const reachesRelativeMin = tombstoneShare >= COMPACT_TOMBSTONE_RELATIVE_MIN;
+    if (reachesAbsoluteMin && reachesRelativeMin) {
+      compact();
+    }
+
     return expression;
   };
 
   const compact = (): void => {
+    let didCompact = false;
+
     for (let index = registeredQ.length - 1; index >= 0; index -= 1) {
       if (registeredQ[index]?.tombstone === true) {
         registeredQ.splice(index, 1);
+        didCompact = true;
       }
+    }
+
+    if (didCompact) {
+      tombstoneCount = 0;
     }
   };
 
