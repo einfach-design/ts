@@ -141,24 +141,37 @@ export function runGet(
     const scope = resolveScope(opts?.scope);
     const projectedImpulseQ = projectImpulseQ(store.impulseQ, scope);
     const projectedFlagsState = projectFlagsState(projectedImpulseQ.q.entries);
+    const selectedFlags = hasScopedProjection
+      ? projectedFlagsState.flags
+      : store.flagsTruth;
+    const selectedChangedFlags = hasScopedProjection
+      ? projectedFlagsState.changedFlags
+      : store.changedFlags;
+    const selectedSeenFlags = hasScopedProjection
+      ? projectedFlagsState.seenFlags
+      : store.seenFlags;
+    const selectedSignal = hasScopedProjection
+      ? projectedFlagsState.signal
+      : store.signal;
+    const selectedSeenSignals = hasScopedProjection
+      ? projectedFlagsState.seenSignals
+      : store.seenSignals;
+    const selectedImpulseQ = hasScopedProjection
+      ? projectedImpulseQ
+      : store.impulseQ;
+    const selectedDiagnostics = diagnostics.list();
 
     const valueByKey: Record<AllowedGetKey, unknown> = {
       defaults: store.defaults,
-      flags: hasScopedProjection ? projectedFlagsState.flags : store.flagsTruth,
-      changedFlags: hasScopedProjection
-        ? projectedFlagsState.changedFlags
-        : store.changedFlags,
-      seenFlags: hasScopedProjection
-        ? projectedFlagsState.seenFlags
-        : store.seenFlags,
-      signal: hasScopedProjection ? projectedFlagsState.signal : store.signal,
-      seenSignals: hasScopedProjection
-        ? projectedFlagsState.seenSignals
-        : store.seenSignals,
-      impulseQ: hasScopedProjection ? projectedImpulseQ : store.impulseQ,
+      flags: selectedFlags,
+      changedFlags: selectedChangedFlags,
+      seenFlags: selectedSeenFlags,
+      signal: selectedSignal,
+      seenSignals: selectedSeenSignals,
+      impulseQ: selectedImpulseQ,
       backfillQ: toBackfillQSnapshot(store.backfillQ),
       registeredQ: expressionRegistry.registeredQ,
-      diagnostics: diagnostics.list(),
+      diagnostics: selectedDiagnostics,
       "*": {
         defaults: store.defaults,
         flags: hasScopedProjection
@@ -177,6 +190,7 @@ export function runGet(
         impulseQ: hasScopedProjection ? projectedImpulseQ : store.impulseQ,
         backfillQ: toBackfillQSnapshot(store.backfillQ),
         registeredQ: expressionRegistry.registeredQ,
+        diagnostics: selectedDiagnostics,
       },
     };
 
