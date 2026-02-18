@@ -142,6 +142,40 @@ describe("conformance/get-set", () => {
     });
   });
 
+  it("A3 — snapshot must tolerate opaque/cyclic livePayload values (Spec §4.1)", () => {
+    const run = createRuntime();
+    const livePayload: {
+      fn: () => string;
+      node?: unknown;
+    } = {
+      fn: () => "ok",
+    };
+    livePayload.node = livePayload;
+
+    run.impulse({
+      signals: ["opaque"],
+      livePayload,
+    });
+
+    const impulseQ = run.get("impulseQ" as string | undefined, {
+      as: "snapshot",
+    }) as {
+      q: {
+        entries: Array<{
+          livePayload?: {
+            fn: () => string;
+            node?: unknown;
+          };
+        }>;
+      };
+    };
+
+    expect(impulseQ.q.entries).toHaveLength(1);
+    expect(impulseQ.q.entries[0]?.livePayload?.fn).toBe(livePayload.fn);
+    expect(impulseQ.q.entries[0]?.livePayload?.node).toBe(
+      impulseQ.q.entries[0]?.livePayload,
+    );
+  });
   it("B1 — set(flagsTruth) must not compute changedFlags implicitly (Spec §4.2)", () => {
     const run = createRuntime();
 
