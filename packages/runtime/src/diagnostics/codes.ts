@@ -42,4 +42,13 @@ export const DIAGNOSTIC_CODES = {
       phase: "string",
     },
   },
+  "diagnostics.listener.error": {
+    description: "Diagnostic listener threw while processing a diagnostic.",
+    severity: "error",
+    shape: {
+      phase: "diagnostic/listener",
+      listenerIndex: "number?",
+      handlerName: "string?",
+    },
+  },
 } as const satisfies Record<string, DiagnosticCodeSpec>;
