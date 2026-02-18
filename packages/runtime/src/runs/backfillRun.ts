@@ -55,6 +55,23 @@ function oppositeGate(gate: RunGate): RunGate {
   return gate === "signal" ? "flags" : "signal";
 }
 
+function incrementGateRunsAndMaybeTombstone(
+  expression: RegisteredExpression,
+  gate: RunGate,
+): void {
+  const gateConfig = expression.backfill?.[gate];
+  const gateRuns = gateConfig?.runs;
+
+  if (gateRuns === undefined) {
+    return;
+  }
+
+  gateRuns.used += 1;
+  if (gateRuns.used >= gateRuns.max) {
+    expression.tombstone = true;
+  }
+}
+
 /**
  * Backfill run processing.
  *
@@ -122,8 +139,15 @@ export function backfillRun<TExpression extends RegisteredExpression>(
     }
 
     const primary = choosePrimaryGate(liveExpression);
+    incrementGateRunsAndMaybeTombstone(liveExpression, primary);
+
     const primaryResult = opts.attempt(liveExpression, primary);
     attempts += 1;
+
+    if (liveExpression.tombstone === true) {
+      pendingForReenqueue.delete(liveExpression.id);
+      continue;
+    }
 
     if (primaryResult.status === "deploy") {
       deployed += 1;
@@ -144,8 +168,15 @@ export function backfillRun<TExpression extends RegisteredExpression>(
     // opposite attempt in the same iteration. "No retry in this round" means
     // no additional attempts beyond that opposite attempt and no rotation.
     const secondary = oppositeGate(primary);
+    incrementGateRunsAndMaybeTombstone(liveExpression, secondary);
+
     const secondaryResult = opts.attempt(liveExpression, secondary);
     attempts += 1;
+
+    if (liveExpression.tombstone === true) {
+      pendingForReenqueue.delete(liveExpression.id);
+      continue;
+    }
 
     if (secondaryResult.status === "deploy") {
       deployed += 1;
@@ -168,6 +199,10 @@ export function backfillRun<TExpression extends RegisteredExpression>(
 
   let reEnqueued = 0;
   for (const expression of pendingForReenqueue.values()) {
+    if (expression.tombstone === true) {
+      continue;
+    }
+
     if (appendIfAbsent(opts.backfillQ, expression)) {
       reEnqueued += 1;
     }

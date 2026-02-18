@@ -14,8 +14,8 @@ export type RegisteredExpression = {
   id: string;
   tombstone?: true;
   backfill?: {
-    signal?: { debt?: number };
-    flags?: { debt?: number };
+    signal?: { debt?: number; runs?: { used: number; max: number } };
+    flags?: { debt?: number; runs?: { used: number; max: number } };
   };
 };
 

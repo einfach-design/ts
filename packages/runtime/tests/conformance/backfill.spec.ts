@@ -42,10 +42,65 @@ describe("conformance/backfill", () => {
     expect(calls.length).toBeGreaterThanOrEqual(1);
   });
 
-  it.todo(
-    "E2 — debt accounting is observable (proxy or explicit API) (Impl §10)",
-    () => {
-      // TODO(Impl §10): When debt metrics are exposed publicly, assert precise debt deltas.
-    },
-  );
+  it("E2 — signal backfill stops reenqueue after reaching runs.max = 1", () => {
+    const run = createRuntime();
+
+    const expressionId = "expr:signal-max";
+    const calls: Array<unknown> = [];
+
+    run.add({
+      id: expressionId,
+      backfill: { signal: { runs: { max: 1 } } },
+      targets: [
+        (i, a, r) => {
+          calls.push({ i, a, r });
+        },
+      ],
+    });
+
+    const snapshot = run.get("*") as {
+      defaults: unknown;
+      flags: unknown;
+      changedFlags: unknown;
+      seenFlags: unknown;
+      signal: unknown;
+      seenSignals: unknown;
+      impulseQ: unknown;
+      backfillQ: { list: string[]; map: Record<string, true> };
+      registeredQ: unknown;
+    };
+
+    run.set({
+      ...snapshot,
+      backfillQ: {
+        list: [expressionId],
+        map: { [expressionId]: true },
+      },
+    });
+
+    run.impulse({ addFlags: ["noop"] });
+    expect(calls).toHaveLength(1);
+
+    const registeredAfterFirstBackfillRun = run.get("registeredQ") as Array<{
+      id: string;
+      tombstone?: true;
+      backfill?: { signal?: { runs?: { used: number; max: number } } };
+    }>;
+    expect(registeredAfterFirstBackfillRun).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: expressionId,
+          tombstone: true,
+          backfill: expect.objectContaining({
+            signal: expect.objectContaining({
+              runs: expect.objectContaining({ used: 1, max: 1 }),
+            }),
+          }),
+        }),
+      ]),
+    );
+
+    run.impulse({ addFlags: ["noop:again"] });
+    expect(calls).toHaveLength(1);
+  });
 });
