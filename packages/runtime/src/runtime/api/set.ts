@@ -15,7 +15,11 @@ import {
   type SeenSignals,
 } from "../../state/signals.js";
 import { hasOwn, isObject, measureEntryBytes } from "../util.js";
-import type { RuntimeOnError, RuntimeStore } from "../store.js";
+import type {
+  RuntimeOnError,
+  RuntimeStore,
+  ScopeProjectionBaseline,
+} from "../store.js";
 import type { RegistryStore } from "../../state/registry.js";
 import type { DiagnosticCollector } from "../../diagnostics/index.js";
 import { snapshotGetKeys } from "./get.js";
@@ -77,6 +81,7 @@ export function runSet(
         seenFlags: FlagsView;
         signal?: string;
         seenSignals: SeenSignals;
+        scopeProjectionBaseline: ScopeProjectionBaseline;
         impulseQ: {
           q: { entries: ImpulseQEntryCanonical[]; cursor: number };
           config: {
@@ -104,7 +109,7 @@ export function runSet(
 
       store.impulseQ.q.entries = hydration.impulseQ.q.entries;
       store.impulseQ.q.cursor = hydration.impulseQ.q.cursor;
-      store.resetScopeProjectionBaseline();
+      store.scopeProjectionBaseline = hydration.scopeProjectionBaseline;
 
       if (hasOwn(hydration.impulseQ.config, "retain")) {
         store.impulseQ.config.retain = hydration.impulseQ.config.retain ?? 0;

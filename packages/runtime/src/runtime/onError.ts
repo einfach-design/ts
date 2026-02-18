@@ -4,7 +4,9 @@ import type { RuntimeOnError } from "./store.js";
 export type RuntimeErrorPhase =
   | "impulse/drain"
   | "diagnostic/listener"
-  | "trim/onTrim";
+  | "trim/onTrim"
+  | "target/callback"
+  | "target/object";
 
 export function handleRuntimeOnError(
   mode: RuntimeOnError | undefined,
@@ -13,21 +15,11 @@ export function handleRuntimeOnError(
   phase: RuntimeErrorPhase,
   extraData?: Record<string, unknown>,
 ): void {
-  if (typeof mode === "function") {
-    mode(error);
-    return;
-  }
-
-  if (mode === "swallow") {
-    return;
-  }
-
-  if (mode === "throw") {
-    throw error;
-  }
-
   diagnostics.emit({
-    code: "runtime.onError.report",
+    code:
+      phase === "target/callback" || phase === "target/object"
+        ? "runtime.target.error"
+        : "runtime.onError.report",
     message: error instanceof Error ? error.message : "Runtime onError report",
     severity: "error",
     data: {
@@ -35,4 +27,13 @@ export function handleRuntimeOnError(
       ...(extraData ?? {}),
     },
   });
+
+  if (typeof mode === "function") {
+    mode(error);
+    return;
+  }
+
+  if (mode === "throw") {
+    throw error;
+  }
 }
