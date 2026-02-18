@@ -4,7 +4,6 @@ import {
   createBackfillQ,
   type BackfillQSnapshot,
 } from "../../state/backfillQ.js";
-import { computeChangedFlags } from "../../state/changedFlags.js";
 import {
   setDefaults,
   type Defaults,
@@ -16,11 +15,24 @@ import { hasOwn, isObject, measureEntryBytes } from "../util.js";
 import type { RuntimeStore } from "../store.js";
 import type { RegistryStore } from "../../state/registry.js";
 
-const allowedSetKeys = [
+const hydrationRequiredKeys = [
+  "defaults",
+  "flags",
+  "changedFlags",
+  "seenFlags",
+  "signal",
+  "seenSignals",
+  "impulseQ",
+  "backfillQ",
+  "registeredQ",
+] as const;
+
+const allowedPatchKeys = [
   "flags",
   "addFlags",
   "removeFlags",
   "defaults",
+  "impulseQ",
 ] as const;
 
 type RegisteredExpression = { id: string; tombstone?: true } & Record<
@@ -40,68 +52,89 @@ export function runSet(
       throw new Error("set.patch.invalid");
     }
 
-    const isHydration = hasOwn(patch, "store.backfillQ");
+    const isHydration = hasOwn(patch, "backfillQ");
 
     if (isHydration) {
+      for (const key of hydrationRequiredKeys) {
+        if (!hasOwn(patch, key)) {
+          throw new Error("set.hydration.incomplete");
+        }
+      }
+
       const hydration = patch as {
-        defaults?: Defaults;
-        flags?: FlagsView;
+        defaults: Defaults;
+        flags: FlagsView;
         changedFlags?: FlagsView;
-        seenFlags?: FlagsView;
+        seenFlags: FlagsView;
         signal?: string;
-        seenSignals?: SeenSignals;
-        impulseQ?: {
-          q?: { entries?: ImpulseQEntryCanonical[]; cursor?: number };
-          config?: { retain?: number | boolean; maxBytes?: number };
+        seenSignals: SeenSignals;
+        impulseQ: {
+          q: { entries: ImpulseQEntryCanonical[]; cursor: number };
+          config: {
+            retain?: number | boolean;
+            maxBytes?: number;
+            onTrim?: (info: {
+              entries: readonly ImpulseQEntryCanonical[];
+              stats: { reason: "retain" | "maxBytes"; bytesFreed?: number };
+            }) => void;
+            onError?: (error: unknown) => void;
+          };
         };
-        backfillQ?: BackfillQSnapshot;
+        backfillQ: BackfillQSnapshot;
       };
 
-      if (hydration.defaults) store.defaults = hydration.defaults;
-      if (hydration.flags) store.flagsTruth = hydration.flags;
-      if (hasOwn(hydration, "store.changedFlags"))
-        store.changedFlags = hydration.changedFlags;
-      if (hydration.seenFlags) store.seenFlags = hydration.seenFlags;
-      if (hasOwn(hydration, "store.signal")) store.signal = hydration.signal;
-      if (hydration.seenSignals) store.seenSignals = hydration.seenSignals;
-      if (hydration.impulseQ?.q?.entries)
-        store.impulseQ.q.entries = hydration.impulseQ.q.entries;
-      if (typeof hydration.impulseQ?.q?.cursor === "number")
-        store.impulseQ.q.cursor = hydration.impulseQ.q.cursor;
-      if (hasOwn(hydration.impulseQ?.config ?? {}, "retain"))
-        store.impulseQ.config.retain = hydration.impulseQ?.config?.retain ?? 0;
-      if (typeof hydration.impulseQ?.config?.maxBytes === "number")
-        store.impulseQ.config.maxBytes = hydration.impulseQ.config.maxBytes;
+      store.defaults = hydration.defaults;
+      store.flagsTruth = hydration.flags;
+      store.changedFlags = hydration.changedFlags;
+      store.seenFlags = hydration.seenFlags;
+      store.signal = hydration.signal;
+      store.seenSignals = hydration.seenSignals;
 
-      if (hydration.backfillQ) {
-        store.backfillQ = createBackfillQ();
-        for (const id of hydration.backfillQ.list) {
-          const expression = expressionRegistry.resolve(id);
-          if (expression) {
-            store.backfillQ.list.push(expression);
-            store.backfillQ.map[id] = true;
-          }
+      store.impulseQ.q.entries = hydration.impulseQ.q.entries;
+      store.impulseQ.q.cursor = hydration.impulseQ.q.cursor;
+
+      if (hasOwn(hydration.impulseQ.config, "retain")) {
+        store.impulseQ.config.retain = hydration.impulseQ.config.retain ?? 0;
+      } else {
+        store.impulseQ.config.retain = 0;
+      }
+
+      if (hasOwn(hydration.impulseQ.config, "maxBytes")) {
+        store.impulseQ.config.maxBytes = Number(
+          hydration.impulseQ.config.maxBytes,
+        );
+      } else {
+        store.impulseQ.config.maxBytes = Number.POSITIVE_INFINITY;
+      }
+
+      store.impulseQ.config.onTrim = hydration.impulseQ.config.onTrim;
+      store.impulseQ.config.onError = hydration.impulseQ.config.onError;
+
+      store.backfillQ = createBackfillQ();
+      for (const id of hydration.backfillQ.list) {
+        const expression = expressionRegistry.resolve(id);
+        if (expression) {
+          store.backfillQ.list.push(expression);
+          store.backfillQ.map[id] = true;
         }
       }
 
       return;
     }
 
-    for (const k of Object.keys(patch)) {
-      if (!(allowedSetKeys as readonly string[]).includes(k)) {
+    for (const key of Object.keys(patch)) {
+      if (!(allowedPatchKeys as readonly string[]).includes(key)) {
         throw new Error("set.patch.forbidden");
       }
     }
 
-    if (hasOwn(patch, "impulseQ") || hasOwn(patch, "backfillQ")) {
-      throw new Error("set.patch.forbidden");
-    }
-
     if (
-      hasOwn(patch, "store.changedFlags") ||
-      hasOwn(patch, "store.seenFlags") ||
-      hasOwn(patch, "store.signal") ||
-      hasOwn(patch, "store.seenSignals")
+      hasOwn(patch, "changedFlags") ||
+      hasOwn(patch, "seenFlags") ||
+      hasOwn(patch, "signal") ||
+      hasOwn(patch, "seenSignals") ||
+      hasOwn(patch, "backfillQ") ||
+      hasOwn(patch, "registeredQ")
     ) {
       throw new Error("set.patch.forbidden");
     }
@@ -131,17 +164,11 @@ export function runSet(
         ? patch.removeFlags
         : [];
 
-      const before = store.flagsTruth;
-      const map = { ...before.map };
+      const map = { ...store.flagsTruth.map };
       for (const flag of removeFlags) delete map[String(flag)];
       for (const flag of addFlags) map[String(flag)] = true;
       store.flagsTruth = createFlagsView(Object.keys(map));
-      store.changedFlags = computeChangedFlags(
-        before,
-        store.flagsTruth,
-        removeFlags as string[],
-        addFlags as string[],
-      );
+      store.changedFlags = undefined;
       store.seenFlags = createFlagsView([
         ...store.seenFlags.list,
         ...store.flagsTruth.list,
@@ -155,7 +182,7 @@ export function runSet(
       );
     }
 
-    if (hasOwn(patch, "store.impulseQ")) {
+    if (hasOwn(patch, "impulseQ")) {
       const impulsePatch = patch.impulseQ;
       if (!isObject(impulsePatch)) {
         throw new Error("set.patch.impulseQ.invalid");
@@ -174,6 +201,19 @@ export function runSet(
         if (hasOwn(impulsePatch.config, "maxBytes")) {
           store.impulseQ.config.maxBytes = Number(impulsePatch.config.maxBytes);
         }
+        if (hasOwn(impulsePatch.config, "onTrim")) {
+          store.impulseQ.config.onTrim = impulsePatch.config.onTrim as
+            | ((info: {
+                entries: readonly ImpulseQEntryCanonical[];
+                stats: { reason: "retain" | "maxBytes"; bytesFreed?: number };
+              }) => void)
+            | undefined;
+        }
+        if (hasOwn(impulsePatch.config, "onError")) {
+          store.impulseQ.config.onError = impulsePatch.config.onError as
+            | ((error: unknown) => void)
+            | undefined;
+        }
 
         const trimmed = trim({
           entries: store.impulseQ.q.entries,
@@ -183,6 +223,9 @@ export function runSet(
           runtimeStackActive: store.runtimeStackDepth > 0,
           trimPendingMaxBytes: store.trimPendingMaxBytes,
           measureBytes: measureEntryBytes,
+          ...(store.impulseQ.config.onTrim !== undefined
+            ? { onTrim: store.impulseQ.config.onTrim }
+            : {}),
         });
 
         store.impulseQ.q.entries = [...trimmed.entries];

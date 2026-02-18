@@ -10,6 +10,13 @@ import { createFlagsView, type FlagsView } from "../state/flagsView.js";
 import { type SeenSignals } from "../state/signals.js";
 import { measureEntryBytes } from "./util.js";
 
+type ImpulseQOnTrim = (info: {
+  entries: readonly ImpulseQEntryCanonical[];
+  stats: { reason: "retain" | "maxBytes"; bytesFreed?: number };
+}) => void;
+
+type ImpulseQOnError = (error: unknown) => void;
+
 export type RuntimeStore<
   TExpression extends BackfillExpression = BackfillExpression,
 > = {
@@ -25,7 +32,12 @@ export type RuntimeStore<
 
   impulseQ: {
     q: { entries: ImpulseQEntryCanonical[]; cursor: number };
-    config: { retain: number | boolean; maxBytes: number };
+    config: {
+      retain: number | boolean;
+      maxBytes: number;
+      onTrim: ImpulseQOnTrim | undefined;
+      onError: ImpulseQOnError | undefined;
+    };
   };
 
   draining: boolean;
@@ -50,10 +62,20 @@ export function initRuntimeStore<
 
   const impulseQ: {
     q: { entries: ImpulseQEntryCanonical[]; cursor: number };
-    config: { retain: number | boolean; maxBytes: number };
+    config: {
+      retain: number | boolean;
+      maxBytes: number;
+      onTrim: ImpulseQOnTrim | undefined;
+      onError: ImpulseQOnError | undefined;
+    };
   } = {
     q: { entries: [], cursor: 0 },
-    config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
+    config: {
+      retain: 0,
+      maxBytes: Number.POSITIVE_INFINITY,
+      onTrim: undefined,
+      onError: undefined,
+    },
   };
 
   let draining = false;

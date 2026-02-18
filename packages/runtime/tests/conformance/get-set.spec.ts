@@ -74,4 +74,67 @@ describe("conformance/get-set", () => {
       run.set({ totallyUnknownKey: 123 } as Record<string, unknown>),
     ).toThrow();
   });
+
+  it("B3 — hydration must require full snapshot shape (Spec §4.2)", () => {
+    const run = createRuntime();
+    const snapshot = run.get("*" as string | undefined, {
+      as: "snapshot",
+    }) as Record<string, unknown>;
+
+    const incomplete = { ...snapshot };
+    delete incomplete.defaults;
+
+    expect(() => run.set(incomplete)).toThrow("set.hydration.incomplete");
+  });
+
+  it("B4 — patch must reject changedFlags and preserve hydration changedFlags (Spec §4.2)", () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.set({ changedFlags: { list: ["x"], map: { x: true } } }),
+    ).toThrow();
+
+    const snapshot = run.get("*" as string | undefined, {
+      as: "snapshot",
+    }) as Record<string, unknown>;
+
+    run.set({
+      ...snapshot,
+      changedFlags: { list: ["h"], map: { h: true } },
+      backfillQ: { list: [] },
+    });
+
+    expect(run.get("changedFlags" as string | undefined)).toEqual({
+      list: ["h"],
+      map: { h: true },
+    });
+  });
+
+  it("B5 — impulseQ config patch must be supported and q patch must throw (Spec §4.2.1)", () => {
+    const run = createRuntime();
+
+    run.impulse({ addFlags: ["a"] });
+
+    run.set({
+      impulseQ: {
+        config: {
+          retain: 0,
+          maxBytes: Number.POSITIVE_INFINITY,
+        },
+      },
+    });
+
+    const impulseQ = run.get("impulseQ" as string | undefined) as {
+      q: { entries: unknown[]; cursor: number };
+      config: { retain: number | boolean; maxBytes: number };
+    };
+
+    expect(impulseQ.config.retain).toBe(0);
+    expect(impulseQ.q.entries).toHaveLength(0);
+    expect(impulseQ.q.cursor).toBe(0);
+
+    expect(() =>
+      run.set({ impulseQ: { q: { entries: [] } } } as Record<string, unknown>),
+    ).toThrow("set.patch.impulseQ.q.forbidden");
+  });
 });
