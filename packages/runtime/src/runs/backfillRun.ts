@@ -42,6 +42,22 @@ function readDebt(expression: RegisteredExpression, gate: RunGate): number {
   return expression.backfill?.[gate]?.debt ?? 0;
 }
 
+function writeDebt(
+  expression: RegisteredExpression,
+  gate: RunGate,
+  debt: number,
+): void {
+  expression.backfill ??= {};
+  expression.backfill[gate] ??= {};
+  expression.backfill[gate].debt = Math.max(0, debt);
+}
+
+function hasPendingDebt(expression: RegisteredExpression): boolean {
+  return (
+    readDebt(expression, "signal") > 0 || readDebt(expression, "flags") > 0
+  );
+}
+
 function choosePrimaryGate(expression: RegisteredExpression): RunGate {
   const signalDebt = readDebt(expression, "signal");
   const flagsDebt = readDebt(expression, "flags");
@@ -55,6 +71,29 @@ function choosePrimaryGate(expression: RegisteredExpression): RunGate {
 
 function oppositeGate(gate: RunGate): RunGate {
   return gate === "signal" ? "flags" : "signal";
+}
+
+function isDeployAllowed(
+  expression: RegisteredExpression,
+  gate: RunGate,
+): boolean {
+  const expressionWithRuns = expression as RegisteredExpression & {
+    runs?: { used: number; max: number };
+  };
+
+  if (
+    expressionWithRuns.runs !== undefined &&
+    expressionWithRuns.runs.used >= expressionWithRuns.runs.max
+  ) {
+    return false;
+  }
+
+  const gateRuns = expression.backfill?.[gate]?.runs;
+  if (gateRuns !== undefined && gateRuns.used >= gateRuns.max) {
+    return false;
+  }
+
+  return true;
 }
 
 function incrementGateRunsAndMaybeTombstone(
@@ -122,7 +161,9 @@ export function backfillRun<TExpression extends RegisteredExpression>(
   let attempts = 0;
   let deployed = 0;
 
-  for (let index = 0; index < workingQ.length; index += 1) {
+  const maxProcessCount = workingQ.length;
+
+  for (let index = 0; index < maxProcessCount; index += 1) {
     if (
       opts.maxIterations !== undefined &&
       Number.isFinite(opts.maxIterations) &&
@@ -146,14 +187,35 @@ export function backfillRun<TExpression extends RegisteredExpression>(
     }
 
     const primary = choosePrimaryGate(liveExpression);
-    incrementGateRunsAndMaybeTombstone(
-      liveExpression,
-      primary,
-      opts.onLimitReached,
-    );
 
-    const primaryResult = opts.attempt(liveExpression, primary);
-    attempts += 1;
+    const runAttempt = (gate: RunGate): BackfillRunAttemptResult => {
+      if (!isDeployAllowed(liveExpression, gate)) {
+        return {
+          status: "reject",
+          pending: hasPendingDebt(liveExpression),
+        };
+      }
+
+      const result = opts.attempt(liveExpression, gate);
+      attempts += 1;
+
+      if (result.status === "deploy") {
+        deployed += 1;
+        writeDebt(liveExpression, gate, readDebt(liveExpression, gate) - 1);
+        incrementGateRunsAndMaybeTombstone(
+          liveExpression,
+          gate,
+          opts.onLimitReached,
+        );
+      }
+
+      return {
+        status: result.status,
+        pending: hasPendingDebt(liveExpression),
+      };
+    };
+
+    const primaryResult = runAttempt(primary);
 
     if (liveExpression.tombstone === true) {
       pendingForReenqueue.delete(liveExpression.id);
@@ -161,7 +223,6 @@ export function backfillRun<TExpression extends RegisteredExpression>(
     }
 
     if (primaryResult.status === "deploy") {
-      deployed += 1;
       if (primaryResult.pending) {
         if (!queuedInWorking.has(liveExpression.id)) {
           workingQ.push(liveExpression);
@@ -175,36 +236,21 @@ export function backfillRun<TExpression extends RegisteredExpression>(
       continue;
     }
 
-    // Spec intent (§9.7/§9.9): a primary reject always performs exactly one
-    // opposite attempt in the same iteration. "No retry in this round" means
-    // no additional attempts beyond that opposite attempt and no rotation.
     const secondary = oppositeGate(primary);
-    incrementGateRunsAndMaybeTombstone(
-      liveExpression,
-      secondary,
-      opts.onLimitReached,
-    );
-
-    const secondaryResult = opts.attempt(liveExpression, secondary);
-    attempts += 1;
+    const secondaryResult = runAttempt(secondary);
 
     if (liveExpression.tombstone === true) {
       pendingForReenqueue.delete(liveExpression.id);
       continue;
     }
 
-    if (secondaryResult.status === "deploy") {
-      deployed += 1;
-      if (secondaryResult.pending) {
-        if (!queuedInWorking.has(liveExpression.id)) {
-          workingQ.push(liveExpression);
-          queuedInWorking.add(liveExpression.id);
-        }
-
-        pendingForReenqueue.set(liveExpression.id, liveExpression);
-      } else {
-        pendingForReenqueue.delete(liveExpression.id);
+    if (secondaryResult.status === "deploy" && secondaryResult.pending) {
+      if (!queuedInWorking.has(liveExpression.id)) {
+        workingQ.push(liveExpression);
+        queuedInWorking.add(liveExpression.id);
       }
+
+      pendingForReenqueue.set(liveExpression.id, liveExpression);
     } else if (secondaryResult.pending) {
       pendingForReenqueue.set(liveExpression.id, liveExpression);
     } else {
@@ -214,13 +260,10 @@ export function backfillRun<TExpression extends RegisteredExpression>(
 
   let reEnqueued = 0;
   for (const expression of pendingForReenqueue.values()) {
-    if (expression.tombstone === true) {
-      continue;
-    }
-
-    if (appendIfAbsent(opts.backfillQ, expression)) {
-      opts.onEnqueue?.(expression.id);
+    const enqueued = appendIfAbsent(opts.backfillQ, expression);
+    if (enqueued) {
       reEnqueued += 1;
+      opts.onEnqueue?.(expression.id);
     }
   }
 
