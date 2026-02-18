@@ -140,6 +140,9 @@ export function backfillRun<TExpression extends RegisteredExpression>(
       continue;
     }
 
+    // Spec intent (§9.7/§9.9): a primary reject always performs exactly one
+    // opposite attempt in the same iteration. "No retry in this round" means
+    // no additional attempts beyond that opposite attempt and no rotation.
     const secondary = oppositeGate(primary);
     const secondaryResult = opts.attempt(liveExpression, secondary);
     attempts += 1;
@@ -165,8 +168,9 @@ export function backfillRun<TExpression extends RegisteredExpression>(
 
   let reEnqueued = 0;
   for (const expression of pendingForReenqueue.values()) {
-    appendIfAbsent(opts.backfillQ, expression);
-    reEnqueued += 1;
+    if (appendIfAbsent(opts.backfillQ, expression)) {
+      reEnqueued += 1;
+    }
   }
 
   return {
