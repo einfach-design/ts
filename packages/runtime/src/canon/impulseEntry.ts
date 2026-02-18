@@ -6,6 +6,7 @@
  * @description Canonicalization for impulse queue entries.
  */
 
+import type { RuntimeOnError } from "../runtime/store.js";
 import { hasOwn, isObjectNonNull } from "../util/guards.js";
 
 export type FlagsView = Readonly<{
@@ -14,6 +15,7 @@ export type FlagsView = Readonly<{
 }>;
 
 export type ImpulseEntryInput = {
+  onError?: RuntimeOnError;
   signals?: readonly string[];
   addFlags?: readonly string[];
   removeFlags?: readonly string[];
@@ -27,6 +29,11 @@ export type ImpulseQEntryCanonical = Readonly<{
   removeFlags: readonly string[];
   useFixedFlags: false | FlagsView;
   livePayload?: unknown;
+}>;
+
+export type ImpulseEntryCanonicalization = Readonly<{
+  entry: ImpulseQEntryCanonical | undefined;
+  onError: RuntimeOnError | undefined;
 }>;
 
 const isFlagsView = (value: unknown): value is FlagsView => {
@@ -63,28 +70,39 @@ const isFlagsView = (value: unknown): value is FlagsView => {
   return true;
 };
 
+const sourceWithOnError = (
+  value: Record<string, unknown>,
+): Record<string, unknown> => {
+  const { onError: _onError, ...rest } = value;
+  return rest;
+};
+
 /**
- * Canonicalize a `run.impulse(opts)` payload into a queue entry.
- * Returns `undefined` for invalid entry payloads.
+ * Canonicalize a `run.impulse(opts)` payload into a queue entry + outer onError mode.
+ * Returns `entry: undefined` for invalid entry payloads.
  */
 export function canonImpulseEntry(
   input: unknown,
-): ImpulseQEntryCanonical | undefined {
-  const source = isObjectNonNull(input) ? input : {};
+): ImpulseEntryCanonicalization {
+  const source = isObjectNonNull(input) ? sourceWithOnError(input) : {};
+  const onError =
+    isObjectNonNull(input) && hasOwn(input, "onError")
+      ? (input.onError as RuntimeOnError)
+      : undefined;
 
   const signals = hasOwn(source, "signals") ? source.signals : [];
   if (!Array.isArray(signals)) {
-    return undefined;
+    return { entry: undefined, onError };
   }
 
   const addFlags = hasOwn(source, "addFlags") ? source.addFlags : [];
   if (!Array.isArray(addFlags)) {
-    return undefined;
+    return { entry: undefined, onError };
   }
 
   const removeFlags = hasOwn(source, "removeFlags") ? source.removeFlags : [];
   if (!Array.isArray(removeFlags)) {
-    return undefined;
+    return { entry: undefined, onError };
   }
 
   let useFixedFlags: false | FlagsView = false;
@@ -94,17 +112,20 @@ export function canonImpulseEntry(
     } else if (isFlagsView(source.useFixedFlags)) {
       useFixedFlags = source.useFixedFlags;
     } else {
-      return undefined;
+      return { entry: undefined, onError };
     }
   }
 
   return {
-    signals,
-    addFlags,
-    removeFlags,
-    useFixedFlags,
-    ...(hasOwn(source, "livePayload")
-      ? { livePayload: source.livePayload }
-      : {}),
+    onError,
+    entry: {
+      signals,
+      addFlags,
+      removeFlags,
+      useFixedFlags,
+      ...(hasOwn(source, "livePayload")
+        ? { livePayload: source.livePayload }
+        : {}),
+    },
   };
 }

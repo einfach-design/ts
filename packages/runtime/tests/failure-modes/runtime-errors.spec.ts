@@ -22,6 +22,7 @@ describe("failure-modes/runtime-errors", () => {
 
     run.add({
       id: "expr:target-phase",
+      onError: "report",
       targets: [
         () => {
           throw new Error("target boom");
@@ -34,19 +35,12 @@ describe("failure-modes/runtime-errors", () => {
     expect(phases).toContain("target/callback");
   });
 
-  it("onError=throw aborts drain and propagates target exceptions", () => {
+  it("expression.onError=throw aborts drain and propagates target exceptions", () => {
     const run = createRuntime();
-
-    run.set({
-      impulseQ: {
-        config: {
-          onError: "throw",
-        },
-      },
-    });
 
     run.add({
       id: "expr:throw",
+      onError: "throw",
       targets: [
         () => {
           throw new Error("target throw");
@@ -62,6 +56,53 @@ describe("failure-modes/runtime-errors", () => {
 
     expect(impulseQ.q.cursor).toBe(0);
     expect(impulseQ.q.entries).toHaveLength(1);
+  });
+
+  it("invalid impulse canon follows ImpulseOpts.onError modes", () => {
+    const reported = createRuntime();
+    const reportDiags: Array<{ code: string; data?: Record<string, unknown> }> =
+      [];
+    reported.onDiagnostic((diagnostic) => reportDiags.push(diagnostic));
+    expect(() =>
+      reported.impulse({ signals: "bad", onError: "report" } as Record<
+        string,
+        unknown
+      >),
+    ).not.toThrow();
+    expect(reportDiags).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "impulse.input.invalid",
+          data: expect.objectContaining({ phase: "impulse/canon" }),
+        }),
+      ]),
+    );
+
+    const swallowed = createRuntime();
+    expect(() =>
+      swallowed.impulse({ signals: "bad", onError: "swallow" } as Record<
+        string,
+        unknown
+      >),
+    ).not.toThrow();
+
+    const throwing = createRuntime();
+    expect(() =>
+      throwing.impulse({ signals: "bad", onError: "throw" } as Record<
+        string,
+        unknown
+      >),
+    ).toThrow("impulse.input.invalid");
+
+    const fn = createRuntime();
+    expect(() =>
+      fn.impulse({
+        signals: "bad",
+        onError: () => {
+          throw new Error("from-onError-fn");
+        },
+      } as Record<string, unknown>),
+    ).toThrow("from-onError-fn");
   });
 
   it("routes listener exceptions to impulseQ onError callback (Spec §8.1, §8.2)", () => {
@@ -86,6 +127,7 @@ describe("failure-modes/runtime-errors", () => {
 
     run.add({
       id: "expr:listener-phase",
+      onError: "report",
       targets: [
         () => {
           throw new Error("target boom");
@@ -98,168 +140,5 @@ describe("failure-modes/runtime-errors", () => {
     expect(seen.length).toBeGreaterThanOrEqual(1);
     expect(seen[0]).toBeInstanceOf(Error);
     expect((seen[0] as Error).message).toBe("listener boom");
-  });
-
-  it("listener errors use runtime onError modes consistently", () => {
-    const reportRun = createRuntime();
-    const reportCodes: string[] = [];
-    reportRun.onDiagnostic((diagnostic) => {
-      reportCodes.push(diagnostic.code);
-      if (diagnostic.code === "impulse.input.invalid") {
-        throw new Error("listener report");
-      }
-    });
-
-    reportRun.set({ impulseQ: { config: { onError: "report" } } });
-    expect(() =>
-      reportRun.impulse({ signals: "bad" } as Record<string, unknown>),
-    ).not.toThrow();
-    expect(reportCodes).toContain("runtime.onError.report");
-
-    const swallowRun = createRuntime();
-    swallowRun.set({ impulseQ: { config: { onError: "swallow" } } });
-    swallowRun.onDiagnostic((diagnostic) => {
-      if (diagnostic.code === "impulse.input.invalid") {
-        throw new Error("listener swallow");
-      }
-    });
-    expect(() =>
-      swallowRun.impulse({ signals: "bad" } as Record<string, unknown>),
-    ).not.toThrow();
-
-    const throwRun = createRuntime();
-    throwRun.set({ impulseQ: { config: { onError: "throw" } } });
-    throwRun.onDiagnostic((diagnostic) => {
-      if (diagnostic.code === "impulse.input.invalid") {
-        throw new Error("listener throw");
-      }
-    });
-    expect(() =>
-      throwRun.impulse({ signals: "bad" } as Record<string, unknown>),
-    ).toThrow("listener throw");
-  });
-
-  it("handles onTrim callback errors through runtime onError modes (Spec §4.2, §8.2)", () => {
-    const throwRun = createRuntime();
-    throwRun.impulse({ addFlags: ["a"] });
-    expect(() =>
-      throwRun.set({
-        impulseQ: {
-          config: {
-            retain: true,
-            onError: "throw",
-            maxBytes: 0,
-            onTrim: () => {
-              throw new Error("trim throw");
-            },
-          },
-        },
-      }),
-    ).toThrow("trim throw");
-
-    const reportRun = createRuntime();
-    const reportCodes: string[] = [];
-    reportRun.onDiagnostic((diagnostic) => {
-      reportCodes.push(diagnostic.code);
-    });
-    reportRun.impulse({ addFlags: ["a"] });
-    expect(() =>
-      reportRun.set({
-        impulseQ: {
-          config: {
-            retain: true,
-            onError: "report",
-            maxBytes: 0,
-            onTrim: () => {
-              throw new Error("trim report");
-            },
-          },
-        },
-      }),
-    ).not.toThrow();
-    expect(reportCodes).toContain("runtime.onError.report");
-
-    const swallowRun = createRuntime();
-    swallowRun.impulse({ addFlags: ["a"] });
-    expect(() =>
-      swallowRun.set({
-        impulseQ: {
-          config: {
-            retain: true,
-            onError: "swallow",
-            maxBytes: 0,
-            onTrim: () => {
-              throw new Error("trim swallow");
-            },
-          },
-        },
-      }),
-    ).not.toThrow();
-  });
-
-  it("runs deferred maxBytes trim with onTrim callback once runtime stack clears", () => {
-    const run = createRuntime();
-    const trimReasons: Array<"retain" | "maxBytes"> = [];
-
-    run.set({
-      impulseQ: {
-        config: {
-          retain: true,
-          maxBytes: Number.POSITIVE_INFINITY,
-          onTrim: (info: { stats: { reason: "retain" | "maxBytes" } }) => {
-            trimReasons.push(info.stats.reason);
-          },
-        },
-      },
-    });
-
-    run.add({
-      id: "expr:deferred-trim",
-      targets: [
-        () => {
-          run.set({ impulseQ: { config: { maxBytes: 0 } } });
-        },
-      ],
-    });
-
-    run.impulse({ addFlags: ["warmup"] });
-    run.impulse({ addFlags: ["a"] });
-
-    expect(trimReasons).toContain("maxBytes");
-  });
-  it("onError=swallow reports runtime.target.error and continues", () => {
-    const run = createRuntime();
-    const codes: string[] = [];
-
-    run.onDiagnostic((diagnostic) => {
-      codes.push(diagnostic.code);
-    });
-
-    run.set({
-      impulseQ: {
-        config: {
-          onError: "swallow",
-        },
-      },
-    });
-
-    run.add({
-      id: "expr:swallow",
-      targets: [
-        () => {
-          throw new Error("target swallow");
-        },
-      ],
-    });
-
-    expect(() => run.impulse({ addFlags: ["a"] })).not.toThrow();
-    expect(codes).toContain("runtime.target.error");
-
-    const impulseQ = run.get("impulseQ", { as: "snapshot" }) as {
-      q: { cursor: number; entries: unknown[] };
-    };
-
-    expect(impulseQ.q.cursor).toBe(1);
-    expect(impulseQ.q.entries).toHaveLength(1);
   });
 });

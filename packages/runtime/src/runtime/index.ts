@@ -61,6 +61,7 @@ type Runtime = Readonly<{
     targets?: readonly RuntimeTarget[];
     backfill?: RuntimeAddBackfillInput;
     runs?: { max: number };
+    onError?: "throw" | "report" | "swallow" | ((error: unknown) => void);
   }) => () => void;
   impulse: (opts?: unknown) => void;
   get: (
@@ -213,22 +214,40 @@ export function createRuntime(): Runtime {
     expressionRegistry.remove(expression.id);
   };
 
+  const dispatchForCoreRun: Parameters<typeof coreRunImpl>[0]["dispatch"] = (
+    x,
+  ) =>
+    dispatch({
+      ...(x as Omit<DispatchInput, "reportError">),
+      reportError: reportDispatchIssue,
+    });
+
+  const reportRunsLimitReached = (expression: {
+    id: string;
+    max: number;
+  }): void => {
+    diagnostics.emit({
+      code: "runs.max.exceeded",
+      message: `Expression ${expression.id} reached runs.max=${expression.max}.`,
+      severity: "warn",
+      data: {
+        expressionId: expression.id,
+        max: expression.max,
+      },
+    });
+  };
+
   const coreRun = (expression: RegisteredExpression) =>
     coreRunImpl({
       expression,
       store: toCoreStoreView(),
       runtimeCore,
-      dispatch: (x: unknown) => {
-        dispatch({
-          ...(x as Omit<DispatchInput, "onError" | "reportError">),
-          onError: "report",
-          reportError: reportDispatchIssue,
-        });
-      },
+      dispatch: dispatchForCoreRun,
       matchExpression: matchExpressionForCoreRun,
       toMatchFlagsView,
       createFlagsView,
       onLimitReached: exitExpressionOnLimit,
+      onRunsLimitReached: reportRunsLimitReached,
     });
 
   const processImpulseEntry = (entry: ImpulseQEntryCanonical): void => {
@@ -311,13 +330,7 @@ export function createRuntime(): Runtime {
                   expression,
                   store: toCoreStoreView(),
                   runtimeCore,
-                  dispatch: (x: unknown) => {
-                    dispatch({
-                      ...(x as Omit<DispatchInput, "onError" | "reportError">),
-                      onError: "report",
-                      reportError: reportDispatchIssue,
-                    });
-                  },
+                  dispatch: dispatchForCoreRun,
                   matchExpression: matchExpressionForCoreRun,
                   toMatchFlagsView,
                   createFlagsView,

@@ -78,6 +78,14 @@ export const DIAGNOSTIC_CODES = {
       phase: "string",
     },
   },
+  "runs.max.exceeded": {
+    description: "Expression reached configured runs.max and was ended.",
+    severity: "warn",
+    shape: {
+      expressionId: "string",
+      max: "number",
+    },
+  },
   "runtime.diagnostic.listenerError": {
     description: "Diagnostic listener threw while processing a diagnostic.",
     severity: "error",

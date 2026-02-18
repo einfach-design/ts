@@ -28,6 +28,7 @@ export interface EmitDiagnosticOptions<
     handlerName?: string;
     diagnostic: TDiagnostic;
   }) => void;
+  readonly __emittingListenerError?: boolean;
 }
 
 export interface DiagnosticCollector<
@@ -76,7 +77,7 @@ export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
           diagnostic,
         });
 
-        if (diagnostic.code !== "runtime.diagnostic.listenerError") {
+        if (!options.__emittingListenerError) {
           const listenerErrorDiagnostic = {
             code: "runtime.diagnostic.listenerError",
             message:
@@ -96,6 +97,7 @@ export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
             listeners,
             ...(collector !== undefined ? { collector } : {}),
             ...(onListenerError !== undefined ? { onListenerError } : {}),
+            __emittingListenerError: true,
           });
         }
       }

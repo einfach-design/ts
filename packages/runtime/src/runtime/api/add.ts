@@ -3,7 +3,7 @@ import {
   type FlagSpecInput,
 } from "../../canon/flagSpecInput.js";
 import { hasOwn, isObject } from "../util.js";
-import type { RuntimeStore } from "../store.js";
+import type { RuntimeOnError, RuntimeStore } from "../store.js";
 import type { RegistryStore } from "../../state/registry.js";
 import type { DiagnosticCollector } from "../../diagnostics/index.js";
 
@@ -17,6 +17,7 @@ type RegisteredExpression = {
   signal?: string;
   flags?: ReturnType<typeof canonFlagSpecInput>;
   required?: { flags?: { min?: number; max?: number; changed?: number } };
+  onError?: RuntimeOnError;
   backfill?: {
     signal?: { debt?: number; runs?: { used: number; max: number } };
     flags?: { debt?: number; runs?: { used: number; max: number } };
@@ -167,6 +168,9 @@ export function runAdd(
           : {}),
         ...(normalizedBackfill !== undefined
           ? { backfill: normalizedBackfill }
+          : {}),
+        ...(hasOwn(source, "onError")
+          ? { onError: source.onError as RuntimeOnError }
           : {}),
         runs: {
           used: 0,
