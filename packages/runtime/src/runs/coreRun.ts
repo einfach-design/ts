@@ -127,12 +127,5 @@ export const coreRun = (args: {
     });
   }
 
-  if (expression.runs !== undefined) {
-    expression.runs.used += 1;
-    if (expression.runs.used >= expression.runs.max) {
-      expression.tombstone = true;
-    }
-  }
-
   return { status: "deploy" };
 };

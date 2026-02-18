@@ -127,6 +127,50 @@ describe("conformance/runtime", () => {
     }
   });
 
+  it("E3 — runs.max budget allows 2 deploys and rejects the 3rd matching occurrence", () => {
+    const run = createRuntime();
+    const calls: string[] = [];
+
+    run.add({
+      id: "expr:runs-max",
+      signal: "go",
+      runs: { max: 2 },
+      targets: [
+        (i: unknown) => {
+          const signal =
+            i && typeof i === "object" && "signal" in i
+              ? (i as { signal?: string }).signal
+              : undefined;
+          calls.push(signal ?? "");
+        },
+      ],
+    });
+
+    run.impulse({ signals: ["go", "go", "go"] });
+
+    expect(calls).toEqual(["go", "go"]);
+  });
+
+  it("E3 failure mode — emits runs.max.exceeded diagnostic for rejected over-budget occurrence", () => {
+    const run = createRuntime();
+    const seen: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      seen.push(diagnostic.code);
+    });
+
+    run.add({
+      id: "expr:runs-max-diagnostic",
+      signal: "go",
+      runs: { max: 2 },
+      targets: [() => undefined],
+    });
+
+    run.impulse({ signals: ["go", "go", "go"] });
+
+    expect(seen.filter((code) => code === "runs.max.exceeded")).toHaveLength(1);
+  });
+
   it("run.onDiagnostic subscribes to future diagnostics and remove deregisters", () => {
     const run = createRuntime();
     const seen: string[] = [];

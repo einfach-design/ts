@@ -182,8 +182,26 @@ export function createRuntime(): Runtime {
     });
   };
 
-  const coreRun = (expression: RegisteredExpression) =>
-    coreRunImpl({
+  const coreRun = (expression: RegisteredExpression) => {
+    if (
+      expression.runs !== undefined &&
+      expression.runs.used >= expression.runs.max
+    ) {
+      diagnostics.emit({
+        code: "runs.max.exceeded",
+        message: `Expression ${expression.id} exceeded runs.max (${expression.runs.max}).`,
+        severity: "warn",
+        data: {
+          expressionId: expression.id,
+          used: expression.runs.used,
+          max: expression.runs.max,
+        },
+      });
+
+      return { status: "reject" as const };
+    }
+
+    const result = coreRunImpl({
       expression,
       store: toCoreStoreView(),
       runtimeCore,
@@ -198,6 +216,13 @@ export function createRuntime(): Runtime {
       toMatchFlagsView,
       createFlagsView,
     });
+
+    if (result.status === "deploy" && expression.runs !== undefined) {
+      expression.runs.used += 1;
+    }
+
+    return result;
+  };
 
   const runBackfill = (): void => {
     backfillRun({
