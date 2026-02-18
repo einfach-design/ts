@@ -290,6 +290,8 @@ describe("conformance/diagnostic-codes", () => {
       "src/runtime/api/impulse.ts",
       "src/runtime/api/set.ts",
       "src/runtime/store.ts",
+      "src/targets/dispatch.ts",
+      "src/diagnostics/emit.ts",
     ];
 
     const knownCodes = new Set(Object.keys(DIAGNOSTIC_CODES));

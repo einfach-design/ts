@@ -6,25 +6,10 @@ import { hasOwn, isObject } from "../util.js";
 import type { RuntimeOnError, RuntimeStore } from "../store.js";
 import type { RegistryStore } from "../../state/registry.js";
 import type { DiagnosticCollector } from "../../diagnostics/index.js";
-
-type RuntimeTarget =
-  | ((i: unknown, a: unknown, r: unknown) => void)
-  | { on: Record<string, unknown> };
-
-type RegisteredExpression = {
-  id: string;
-  tombstone?: true;
-  signal?: string;
-  flags?: ReturnType<typeof canonFlagSpecInput>;
-  required?: { flags?: { min?: number; max?: number; changed?: number } };
-  onError?: RuntimeOnError;
-  backfill?: {
-    signal?: { debt?: number; runs?: { used: number; max: number } };
-    flags?: { debt?: number; runs?: { used: number; max: number } };
-  };
-  runs?: { used: number; max: number };
-  targets: RuntimeTarget[];
-};
+import type {
+  RegisteredExpression,
+  RuntimeTarget,
+} from "../../runs/coreRun.js";
 
 export function runAdd(
   store: RuntimeStore,

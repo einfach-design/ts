@@ -383,6 +383,7 @@ Ein Task/PR gilt als Done, wenn:
 - `pnpm typecheck` ✅
 - `pnpm lint` ✅
 - `pnpm test` ✅ (oder mindestens die betroffenen Unit-Tests; Conformance wenn relevant)
+- `pnpm -s prepublishOnly` ✅ (für Release-Kandidaten lokal grün)
 - Tests decken Kerninvarianten ab (Edgecases)
 - Keine Änderungen an nicht-owned Files (außer explizit durch Team 0 als Integration)
 - Keine neuen Dependencies ohne Freigabe (Test-only Ausnahme beachtet)

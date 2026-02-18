@@ -3,17 +3,64 @@
  * @version 0.11.3
  * @maintainer Axel Elstermann | einfach.design (e2d)
  * @scope Runtime package test code.
- * @description Conformance and test utilities for the runtime package.
+ * @description Deterministic trace recorder utilities for runtime conformance tests.
  */
 
-// Trace helpers for conformance tests.
-// TODO: implement trace recorder per impl plan.
-export type TraceEvent = { type: string; payload?: unknown };
+import type { RuntimeDiagnostic } from "../src/diagnostics/index.js";
+
+export type TargetTraceEvent = {
+  type: "target";
+  expressionId: string;
+  signal?: string;
+  occurrenceKind?: "registered" | "backfill";
+};
+
+export type DiagnosticTraceEvent = {
+  type: "diagnostic";
+  code: string;
+  phase?: string;
+};
+
+export type ApiTraceEvent = {
+  type: "api";
+  event: "remove" | "tombstone";
+  expressionId: string;
+};
+
+export type TraceEvent =
+  | TargetTraceEvent
+  | DiagnosticTraceEvent
+  | ApiTraceEvent;
 
 export function createTrace() {
   const events: TraceEvent[] = [];
+
   return {
     events,
-    push: (e: TraceEvent) => events.push(e),
+    recordTarget(payload: {
+      expressionId: string;
+      signal?: string;
+      occurrenceKind?: "registered" | "backfill";
+    }) {
+      events.push({ type: "target", ...payload });
+    },
+    recordDiagnostic(diagnostic: RuntimeDiagnostic) {
+      const phase =
+        diagnostic.data !== undefined &&
+        typeof diagnostic.data.phase === "string"
+          ? diagnostic.data.phase
+          : undefined;
+      events.push({
+        type: "diagnostic",
+        code: diagnostic.code,
+        ...(phase !== undefined ? { phase } : {}),
+      });
+    },
+    recordApiEvent(payload: {
+      event: "remove" | "tombstone";
+      expressionId: string;
+    }) {
+      events.push({ type: "api", ...payload });
+    },
   };
 }
