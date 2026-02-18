@@ -16,6 +16,33 @@
  * | §4.6 | matchExpression defaulting/reference behavior |
  */
 
+/**
+ * Coverage map (public surface × options):
+ * - run.get
+ *   - keys covered: defaults, flags, changedFlags, seenFlags, signal, seenSignals, scopeProjectionBaseline, impulseQ, backfillQ, registeredQ, registeredById, diagnostics, *
+ *   - options covered: as=snapshot|reference; scope=applied|pending|pendingOnly
+ *   - negative cases covered: invalid key -> get.key.invalid
+ * - run.set
+ *   - keys covered: full hydration snapshot, addFlags/removeFlags, signals, impulseQ.config
+ *   - options covered: patch mode + hydration mode
+ *   - negative cases covered: forbidden payload keys, invalid flags payload
+ * - run.add
+ *   - keys covered: callback target, object target, signal/signals, required.flags, backfill.signal debt/runs, runs.max
+ *   - options covered: onError=swallow, target object handlers (everyRun + signal)
+ *   - negative cases covered: missing target
+ * - run.impulse
+ *   - keys covered: signals, addFlags, removeFlags, livePayload, useFixedFlags
+ *   - options covered: outer onError policies
+ *   - negative cases covered: dispatch error policy split report|swallow via target configs
+ * - run.onDiagnostic
+ *   - keys covered: listener subscribe path
+ *   - options covered: diagnostic trace capture
+ *   - negative cases covered: listener error routing via runtime.diagnostic.listenerError
+ * - run.matchExpression
+ *   - keys covered: defaults + reference overlay behavior
+ *   - options covered: defaults omitted/explicit
+ *   - negative cases covered: deterministic false path for unmet requirements
+ */
 import { describe, expect, it } from "vitest";
 import { createRuntime } from "../../src/index.js";
 import type { MatchExpressionInput } from "../../src/match/matchExpression.js";
