@@ -84,7 +84,9 @@ export type RuntimeStore<
     error: unknown,
     phase: RuntimeErrorPhase,
     extraData?: Record<string, unknown>,
+    modeOverride?: RuntimeOnError,
   ) => void;
+  activeOuterOnError: RuntimeOnError | undefined;
 };
 
 export function initRuntimeStore<
@@ -306,8 +308,14 @@ export function initRuntimeStore<
 
     withRuntimeStack,
     diagnostics: undefined,
-    reportRuntimeError(error, phase, extraData) {
+    activeOuterOnError: undefined,
+    reportRuntimeError(error, phase, extraData, modeOverride) {
       const diagnostics = this.diagnostics;
+      const mode =
+        modeOverride ??
+        this.activeOuterOnError ??
+        this.impulseQ.config.onError ??
+        "report";
 
       const isTargetPhase =
         phase === "target/callback" || phase === "target/object";
@@ -315,19 +323,25 @@ export function initRuntimeStore<
         ? "runtime.target.error"
         : "runtime.onError.report";
 
-      diagnostics?.emit({
-        code,
-        message: error instanceof Error ? error.message : "Runtime error",
-        severity: "error",
-        data: {
-          phase,
-          ...(extraData ?? {}),
-        },
-      });
-
-      const mode = this.impulseQ.config.onError ?? "report";
       if (typeof mode === "function") {
         mode(error);
+        return;
+      }
+
+      if (mode === "report") {
+        diagnostics?.emit({
+          code,
+          message: error instanceof Error ? error.message : "Runtime error",
+          severity: "error",
+          data: {
+            phase,
+            ...(extraData ?? {}),
+          },
+        });
+        return;
+      }
+
+      if (mode === "swallow") {
         return;
       }
 

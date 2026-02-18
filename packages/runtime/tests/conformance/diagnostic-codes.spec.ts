@@ -110,6 +110,54 @@ describe("conformance/diagnostic-codes", () => {
 
     expect(seen).toContain("runtime.diagnostic.listenerError");
   });
+
+  it("emits add.objectTarget.* diagnostics for invalid object targets", () => {
+    const missingEntrypoint = createRuntime();
+    expect(() =>
+      missingEntrypoint.add({
+        id: "expr:missing-on",
+        signal: "foo",
+        targets: [{} as { on: Record<string, unknown> }],
+      }),
+    ).toThrow("add.objectTarget.missingEntrypoint");
+
+    expect(
+      (missingEntrypoint.get("diagnostics") as Array<{ code: string }>).some(
+        (entry) => entry.code === "add.objectTarget.missingEntrypoint",
+      ),
+    ).toBe(true);
+
+    const missingHandler = createRuntime();
+    expect(() =>
+      missingHandler.add({
+        id: "expr:missing-handler",
+        signal: "foo",
+        targets: [{ on: {} }],
+      }),
+    ).toThrow("add.objectTarget.missingHandler");
+
+    expect(
+      (missingHandler.get("diagnostics") as Array<{ code: string }>).some(
+        (entry) => entry.code === "add.objectTarget.missingHandler",
+      ),
+    ).toBe(true);
+
+    const nonCallable = createRuntime();
+    expect(() =>
+      nonCallable.add({
+        id: "expr:non-callable-handler",
+        signal: "foo",
+        targets: [{ on: { foo: "nope" } }],
+      }),
+    ).toThrow("add.objectTarget.nonCallableHandler");
+
+    expect(
+      (nonCallable.get("diagnostics") as Array<{ code: string }>).some(
+        (entry) => entry.code === "add.objectTarget.nonCallableHandler",
+      ),
+    ).toBe(true);
+  });
+
   it("uses only registered diagnostic codes in runtime emits", () => {
     const runtimeFiles = [
       "src/runtime/api/add.ts",

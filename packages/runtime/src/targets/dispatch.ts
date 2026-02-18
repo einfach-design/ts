@@ -70,7 +70,15 @@ function emitDispatchError(
   }
 
   if (onError === "swallow") {
-    reportError?.(issue);
+    return;
+  }
+
+  if (onError === "report") {
+    if (reportError !== undefined) {
+      reportError(issue);
+      return;
+    }
+
     return;
   }
 
@@ -185,11 +193,23 @@ export function dispatch(input: DispatchInput): DispatchResult {
     },
   );
 
-  if (
-    signal &&
-    signal !== EVERY_RUN_HANDLER &&
-    Object.prototype.hasOwnProperty.call(target.on, signal)
-  ) {
+  if (signal && signal !== EVERY_RUN_HANDLER) {
+    if (!Object.prototype.hasOwnProperty.call(target.on, signal)) {
+      reportDispatchError(
+        onError,
+        reportError,
+        {
+          phase: "target/object",
+          targetKind,
+          handler: signal,
+          signal,
+          ...(context ?? {}),
+        },
+        `Object target is missing handler for signal "${signal}".`,
+      );
+      return { attempted };
+    }
+
     attempted += callHandler(target.on[signal], args, onError, reportError, {
       phase: "target/object",
       targetKind,

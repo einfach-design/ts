@@ -109,6 +109,8 @@ export function runSet(
 
       store.impulseQ.q.entries = hydration.impulseQ.q.entries;
       store.impulseQ.q.cursor = hydration.impulseQ.q.cursor;
+
+      store.resetScopeProjectionBaseline();
       store.scopeProjectionBaseline = hydration.scopeProjectionBaseline;
 
       if (hasOwn(hydration.impulseQ.config, "retain")) {
