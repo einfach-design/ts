@@ -21,6 +21,34 @@ export interface DiagnosticCodeSpec {
 }
 
 export const DIAGNOSTIC_CODES = {
+  "set.hydration.incomplete": {
+    description: "Hydration patch is missing one or more required keys.",
+    severity: "error",
+    shape: {},
+  },
+  "set.patch.forbidden": {
+    description: "set patch contains forbidden keys for partial updates.",
+    severity: "error",
+    shape: {},
+  },
+  "set.patch.flags.conflict": {
+    description:
+      "set patch must not combine flags with addFlags/removeFlags in one call.",
+    severity: "error",
+    shape: {},
+  },
+  "add.target.required": {
+    description: "add call requires at least one target or targets entry.",
+    severity: "error",
+    shape: {},
+  },
+  "get.key.invalid": {
+    description: "get was called with an unknown key.",
+    severity: "error",
+    shape: {
+      key: "string",
+    },
+  },
   "impulse.input.invalid": {
     description: "Invalid impulse payload was rejected.",
     severity: "error",
