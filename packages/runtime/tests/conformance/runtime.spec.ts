@@ -13,6 +13,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { createRuntime } from "../../src/index.js";
+import { DIAGNOSTIC_CODES } from "../../src/diagnostics/index.js";
 
 describe("conformance/runtime", () => {
   it("C — delta semantics: remove wins within same impulse (Spec §6.2)", () => {
@@ -140,6 +141,36 @@ describe("conformance/runtime", () => {
     run.impulse({ signals: "bad" } as Record<string, unknown>);
 
     expect(seen).toEqual(["impulse.input.invalid"]);
+  });
+
+  it("runtime diagnostics use only registered codes", () => {
+    const run = createRuntime();
+
+    run.add({
+      id: "expr:diag:dispatch",
+      targets: [
+        () => {
+          throw new Error("boom");
+        },
+      ],
+    });
+
+    run.set({
+      impulseQ: {
+        config: {
+          onError: "report",
+        },
+      },
+    });
+
+    run.impulse({ signals: "bad" } as Record<string, unknown>);
+    run.impulse({ addFlags: ["x"] });
+
+    const diagnostics = run.get("diagnostics") as Array<{ code: string }>;
+
+    for (const diagnostic of diagnostics) {
+      expect(Object.hasOwn(DIAGNOSTIC_CODES, diagnostic.code)).toBe(true);
+    }
   });
 
   it("run.onError modes: report and swallow do not throw", () => {

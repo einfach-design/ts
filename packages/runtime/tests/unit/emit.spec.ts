@@ -14,20 +14,34 @@ import {
 } from "../../src/diagnostics/emit.js";
 
 describe("diagnostics/emit", () => {
+  it("throws for unknown diagnostic codes", () => {
+    expect(() => {
+      emitDiagnostic({
+        diagnostic: {
+          code: "unknown.code",
+          message: "hello",
+        },
+      });
+    }).toThrow("emit.code.unknown:unknown.code");
+  });
+
   it("emits to listeners and collector", () => {
     const collector: Array<{ code: string; message: string }> = [];
     const listener = vi.fn();
     const listeners = new Set([listener]);
 
     const diagnostic = emitDiagnostic({
-      diagnostic: { code: "x", message: "hello" },
+      diagnostic: { code: "dispatch.error", message: "hello" },
       collector,
       listeners,
     });
 
-    expect(diagnostic).toEqual({ code: "x", message: "hello" });
-    expect(collector).toEqual([{ code: "x", message: "hello" }]);
-    expect(listener).toHaveBeenCalledWith({ code: "x", message: "hello" });
+    expect(diagnostic).toEqual({ code: "dispatch.error", message: "hello" });
+    expect(collector).toEqual([{ code: "dispatch.error", message: "hello" }]);
+    expect(listener).toHaveBeenCalledWith({
+      code: "dispatch.error",
+      message: "hello",
+    });
   });
 
   it("supports a reusable diagnostic collector with subscribe/remove", () => {
@@ -38,16 +52,19 @@ describe("diagnostics/emit", () => {
     const removeA = collector.subscribe(handlerA);
     collector.subscribe(handlerB);
 
-    collector.emit({ code: "a", message: "A" });
+    collector.emit({ code: "dispatch.error", message: "A" });
     removeA();
-    collector.emit({ code: "b", message: "B" });
+    collector.emit({ code: "impulse.input.invalid", message: "B" });
 
     expect(collector.list()).toEqual([
-      { code: "a", message: "A" },
-      { code: "b", message: "B" },
+      { code: "dispatch.error", message: "A" },
+      { code: "impulse.input.invalid", message: "B" },
     ]);
     expect(handlerA).toHaveBeenCalledTimes(1);
-    expect(handlerA).toHaveBeenCalledWith({ code: "a", message: "A" });
+    expect(handlerA).toHaveBeenCalledWith({
+      code: "dispatch.error",
+      message: "A",
+    });
     expect(handlerB).toHaveBeenCalledTimes(2);
 
     collector.clear();

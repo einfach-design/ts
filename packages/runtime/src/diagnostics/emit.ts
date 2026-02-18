@@ -6,6 +6,8 @@
  * @description Project file.
  */
 
+import { DIAGNOSTIC_CODES } from "./codes.js";
+
 export interface RuntimeDiagnostic<TCode extends string = string> {
   readonly code: TCode;
   readonly message: string;
@@ -30,6 +32,14 @@ export interface DiagnosticCollector<
   clear: () => void;
 }
 
+function assertKnownDiagnosticCode(diagnostic: RuntimeDiagnostic): void {
+  if (Object.hasOwn(DIAGNOSTIC_CODES, diagnostic.code)) {
+    return;
+  }
+
+  throw new Error(`emit.code.unknown:${diagnostic.code}`);
+}
+
 /**
  * Diagnostic emission mechanics.
  */
@@ -37,6 +47,8 @@ export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
   options: EmitDiagnosticOptions<TDiagnostic>,
 ): TDiagnostic {
   const { diagnostic, listeners, collector } = options;
+
+  assertKnownDiagnosticCode(diagnostic);
 
   if (collector) {
     collector.push(diagnostic);
