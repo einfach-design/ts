@@ -64,6 +64,52 @@ describe("conformance/diagnostic-codes", () => {
     ).toBe(true);
   });
 
+  it("emits set.patch.impulseQ.invalid for invalid impulseQ patch", () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.set({
+        impulseQ: 123 as unknown as object,
+      }),
+    ).toThrow("set.patch.impulseQ.invalid");
+
+    const diagnostics = run.get("diagnostics") as Array<{
+      code: string;
+      data?: { valueType?: string };
+    }>;
+
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "set.patch.impulseQ.invalid",
+        data: expect.objectContaining({ valueType: "number" }),
+      }),
+    );
+  });
+
+  it("emits set.patch.impulseQ.q.forbidden for impulseQ q patch", () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.set({
+        impulseQ: {
+          q: { entries: [], cursor: 0 },
+        } as unknown as object,
+      }),
+    ).toThrow("set.patch.impulseQ.q.forbidden");
+
+    const diagnostics = run.get("diagnostics") as Array<{
+      code: string;
+      data?: { field?: string };
+    }>;
+
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "set.patch.impulseQ.q.forbidden",
+        data: expect.objectContaining({ field: "q" }),
+      }),
+    );
+  });
+
   it("emits add.target.required when no target is provided", () => {
     const run = createRuntime();
 

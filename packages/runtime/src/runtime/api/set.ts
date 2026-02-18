@@ -243,10 +243,27 @@ export function runSet(
     if (hasOwn(patch, "impulseQ")) {
       const impulsePatch = patch.impulseQ;
       if (!isObject(impulsePatch)) {
+        const valueType = Array.isArray(impulsePatch)
+          ? "array"
+          : impulsePatch === null
+            ? "null"
+            : typeof impulsePatch;
+        diagnostics.emit({
+          code: "set.patch.impulseQ.invalid",
+          message: "impulseQ patch must be an object.",
+          severity: "error",
+          data: { valueType },
+        });
         throw new Error("set.patch.impulseQ.invalid");
       }
 
       if (hasOwn(impulsePatch, "q")) {
+        diagnostics.emit({
+          code: "set.patch.impulseQ.q.forbidden",
+          message: "impulseQ.q cannot be patched via set().",
+          severity: "error",
+          data: { field: "q" },
+        });
         throw new Error("set.patch.impulseQ.q.forbidden");
       }
 
