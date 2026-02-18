@@ -464,6 +464,7 @@ export function createRuntime(): Runtime {
               return {
                 status: result.status,
                 pending: expressionHasDebt(expression),
+                consumedDebt: result.status === "deploy",
               };
             },
             onLimitReached: exitExpressionOnLimit,

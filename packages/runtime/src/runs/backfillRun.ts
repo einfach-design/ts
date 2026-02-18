@@ -16,6 +16,7 @@ import { type RegisteredExpression, type RunGate } from "./registeredRun.js";
 export type BackfillRunAttemptResult = Readonly<{
   status: "deploy" | "reject";
   pending: boolean;
+  consumedDebt: boolean;
 }>;
 
 export type BackfillRunOptions<TExpression extends RegisteredExpression> =
@@ -161,9 +162,7 @@ export function backfillRun<TExpression extends RegisteredExpression>(
   let attempts = 0;
   let deployed = 0;
 
-  const maxProcessCount = workingQ.length;
-
-  for (let index = 0; index < maxProcessCount; index += 1) {
+  for (let index = 0; index < workingQ.length; index += 1) {
     if (
       opts.maxIterations !== undefined &&
       Number.isFinite(opts.maxIterations) &&
@@ -193,15 +192,19 @@ export function backfillRun<TExpression extends RegisteredExpression>(
         return {
           status: "reject",
           pending: hasPendingDebt(liveExpression),
+          consumedDebt: false,
         };
       }
 
       const result = opts.attempt(liveExpression, gate);
       attempts += 1;
 
+      let consumedDebt = false;
       if (result.status === "deploy") {
         deployed += 1;
-        writeDebt(liveExpression, gate, readDebt(liveExpression, gate) - 1);
+        const previousDebt = readDebt(liveExpression, gate);
+        writeDebt(liveExpression, gate, previousDebt - 1);
+        consumedDebt = previousDebt > 0;
         incrementGateRunsAndMaybeTombstone(
           liveExpression,
           gate,
@@ -212,6 +215,7 @@ export function backfillRun<TExpression extends RegisteredExpression>(
       return {
         status: result.status,
         pending: hasPendingDebt(liveExpression),
+        consumedDebt,
       };
     };
 
@@ -223,7 +227,7 @@ export function backfillRun<TExpression extends RegisteredExpression>(
     }
 
     if (primaryResult.status === "deploy") {
-      if (primaryResult.pending) {
+      if (primaryResult.pending && primaryResult.consumedDebt) {
         if (!queuedInWorking.has(liveExpression.id)) {
           workingQ.push(liveExpression);
           queuedInWorking.add(liveExpression.id);
@@ -244,7 +248,11 @@ export function backfillRun<TExpression extends RegisteredExpression>(
       continue;
     }
 
-    if (secondaryResult.status === "deploy" && secondaryResult.pending) {
+    if (
+      secondaryResult.status === "deploy" &&
+      secondaryResult.pending &&
+      secondaryResult.consumedDebt
+    ) {
       if (!queuedInWorking.has(liveExpression.id)) {
         workingQ.push(liveExpression);
         queuedInWorking.add(liveExpression.id);
