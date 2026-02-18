@@ -72,4 +72,21 @@ describe("diagnostics/emit", () => {
     collector.clear();
     expect(collector.list()).toEqual([]);
   });
+  it("prevents recursive listenerError emission loops", () => {
+    const collector = createDiagnosticCollector();
+    const seen: string[] = [];
+
+    collector.subscribe((diagnostic) => {
+      seen.push(diagnostic.code);
+      throw new Error("listener boom");
+    });
+
+    expect(() =>
+      collector.emit({ code: "impulse.input.invalid", message: "hello" }),
+    ).not.toThrow();
+
+    expect(
+      seen.filter((code) => code === "runtime.diagnostic.listenerError"),
+    ).toHaveLength(1);
+  });
 });

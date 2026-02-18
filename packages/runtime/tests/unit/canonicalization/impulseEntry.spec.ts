@@ -5,10 +5,13 @@ import { canonImpulseEntry } from "../../../src/canon/impulseEntry.js";
 describe("canon/impulseEntry", () => {
   it("applies container defaults", () => {
     expect(canonImpulseEntry({})).toEqual({
-      signals: [],
-      addFlags: [],
-      removeFlags: [],
-      useFixedFlags: false,
+      onError: undefined,
+      entry: {
+        signals: [],
+        addFlags: [],
+        removeFlags: [],
+        useFixedFlags: false,
+      },
     });
   });
 
@@ -20,10 +23,13 @@ describe("canon/impulseEntry", () => {
         removeFlags: ["b", "b"],
       }),
     ).toEqual({
-      signals: ["s", "s"],
-      addFlags: ["a", "a"],
-      removeFlags: ["b", "b"],
-      useFixedFlags: false,
+      onError: undefined,
+      entry: {
+        signals: ["s", "s"],
+        addFlags: ["a", "a"],
+        removeFlags: ["b", "b"],
+        useFixedFlags: false,
+      },
     });
   });
 
@@ -31,11 +37,14 @@ describe("canon/impulseEntry", () => {
     const payload = { nested: [1, 2, 3] };
 
     expect(canonImpulseEntry({ livePayload: payload })).toEqual({
-      signals: [],
-      addFlags: [],
-      removeFlags: [],
-      useFixedFlags: false,
-      livePayload: payload,
+      onError: undefined,
+      entry: {
+        signals: [],
+        addFlags: [],
+        removeFlags: [],
+        useFixedFlags: false,
+        livePayload: payload,
+      },
     });
   });
 
@@ -48,22 +57,31 @@ describe("canon/impulseEntry", () => {
         },
       }),
     ).toEqual({
-      signals: [],
-      addFlags: [],
-      removeFlags: [],
-      useFixedFlags: {
-        list: ["x", "y"],
-        map: { x: true, y: true },
+      onError: undefined,
+      entry: {
+        signals: [],
+        addFlags: [],
+        removeFlags: [],
+        useFixedFlags: {
+          list: ["x", "y"],
+          map: { x: true, y: true },
+        },
       },
     });
   });
 
-  it("returns undefined for invalid entry payloads", () => {
-    expect(canonImpulseEntry({ signals: "bad" })).toBeUndefined();
+  it("keeps onError separate and returns undefined entry for invalid payloads", () => {
+    expect(canonImpulseEntry({ signals: "bad", onError: "throw" })).toEqual({
+      onError: "throw",
+      entry: undefined,
+    });
     expect(
       canonImpulseEntry({
         useFixedFlags: { list: ["x", "x"], map: { x: true } },
       }),
-    ).toBeUndefined();
+    ).toEqual({
+      onError: undefined,
+      entry: undefined,
+    });
   });
 });

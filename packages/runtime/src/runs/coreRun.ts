@@ -6,6 +6,7 @@
  * @description Core run processing, used by backfillRun und registeredRun.
  */
 
+import type { RuntimeOnError } from "../runtime/store.js";
 import type { FlagsView } from "../state/flagsView.js";
 
 export type RuntimeOccurrence = Readonly<{
@@ -28,6 +29,7 @@ export type RegisteredExpression = {
   flags?: unknown;
   required?: { flags?: { min?: number; max?: number; changed?: number } };
   targets: RuntimeTarget[];
+  onError?: RuntimeOnError;
   backfill?: {
     signal?: { debt?: number; runs?: { used: number; max: number } };
     flags?: { debt?: number; runs?: { used: number; max: number } };
@@ -35,6 +37,19 @@ export type RegisteredExpression = {
   runs?: { used: number; max: number };
   tombstone?: true;
 };
+
+export type InnerExpressionAbort = Readonly<{
+  __runtimeInnerAbort: true;
+  error: unknown;
+}>;
+
+export const isInnerExpressionAbort = (
+  value: unknown,
+): value is InnerExpressionAbort =>
+  typeof value === "object" &&
+  value !== null &&
+  "__runtimeInnerAbort" in value &&
+  (value as { __runtimeInnerAbort?: unknown }).__runtimeInnerAbort === true;
 
 export type RuntimeTarget =
   | ((i: RuntimeOccurrence, a: RegisteredExpression, r: RuntimeCore) => void)
@@ -65,10 +80,11 @@ export const coreRun = (args: {
       changedFlags?: { map: Record<string, true>; list?: string[] };
     };
   }) => boolean;
-  dispatch: (x: unknown) => void;
+  dispatch: (x: unknown) => { attempted: number };
   occurrenceKind?: "registered" | "backfill";
   runtimeCore: RuntimeCore;
   onLimitReached?: (expression: { id: string }) => void;
+  onRunsLimitReached?: (expression: { id: string; max: number }) => void;
 }): {
   status: "deploy" | "reject";
   debtDelta?: { signal?: number; flags?: number };
@@ -82,6 +98,7 @@ export const coreRun = (args: {
     dispatch,
     runtimeCore,
     onLimitReached,
+    onRunsLimitReached,
     occurrenceKind = "registered",
   } = args;
 
@@ -124,23 +141,53 @@ export const coreRun = (args: {
     ...(store.occurrenceHasPayload ? { payload: store.payload } : {}),
   };
 
+  let attempted = 0;
+
+  const resolveOnError = ():
+    | RuntimeOnError
+    | ((issue: { error: unknown }) => void) => {
+    if (expression.onError === "throw") {
+      return (issue: { error: unknown }) => {
+        throw {
+          __runtimeInnerAbort: true,
+          error: issue.error,
+        } as InnerExpressionAbort;
+      };
+    }
+
+    const expressionOnError = expression.onError;
+    if (typeof expressionOnError === "function") {
+      return (issue: { error: unknown }) => {
+        try {
+          expressionOnError(issue.error);
+        } catch (error) {
+          throw { __runtimeInnerAbort: true, error } as InnerExpressionAbort;
+        }
+      };
+    }
+
+    return expression.onError ?? "throw";
+  };
+
   for (const target of expression.targets) {
     const targetKind = typeof target === "function" ? "callback" : "object";
-    dispatch({
+    attempted += dispatch({
       targetKind,
       target,
       ...(store.signal !== undefined ? { signal: store.signal } : {}),
       args: [actualExpression, expression, runtimeCore],
+      onError: resolveOnError(),
       context: {
         expressionId: expression.id,
         occurrenceKind,
       },
-    });
+    }).attempted;
   }
 
-  if (expression.runs !== undefined) {
+  if (expression.runs !== undefined && attempted > 0) {
     expression.runs.used += 1;
     if (expression.runs.used >= expression.runs.max) {
+      onRunsLimitReached?.({ id: expression.id, max: expression.runs.max });
       if (onLimitReached !== undefined) {
         onLimitReached(expression);
       } else {

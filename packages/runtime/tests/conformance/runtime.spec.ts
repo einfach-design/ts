@@ -217,7 +217,7 @@ describe("conformance/runtime", () => {
     expect(seen).toEqual(["impulse.input.invalid"]);
   });
 
-  it("run.onError modes: report and swallow do not throw", () => {
+  it("expression.onError modes: report and swallow do not throw", () => {
     const run = createRuntime();
     const seen: string[] = [];
 
@@ -225,16 +225,9 @@ describe("conformance/runtime", () => {
       seen.push(diagnostic.code);
     });
 
-    run.set({
-      impulseQ: {
-        config: {
-          onError: "report",
-        },
-      },
-    });
-
     run.add({
       id: "expr:error",
+      onError: "report",
       targets: [
         () => {
           throw new Error("boom");
@@ -246,15 +239,18 @@ describe("conformance/runtime", () => {
 
     expect(seen).toContain("runtime.target.error");
 
-    run.set({
-      impulseQ: {
-        config: {
-          onError: "swallow",
+    const runSwallow = createRuntime();
+    runSwallow.add({
+      id: "expr:error:swallow",
+      onError: "swallow",
+      targets: [
+        () => {
+          throw new Error("boom");
         },
-      },
+      ],
     });
 
-    expect(() => run.impulse({ addFlags: ["y"] })).not.toThrow();
+    expect(() => runSwallow.impulse({ addFlags: ["y"] })).not.toThrow();
   });
 
   it("diagnostic listener errors do not stop later listeners and runtime remains usable", () => {
@@ -306,5 +302,55 @@ describe("conformance/runtime", () => {
     expect(listenerError?.data?.phase).toBe("diagnostic/listener");
     expect(listenerError?.data?.listenerIndex).toBeTypeOf("number");
     expect(listenerError?.data?.handlerName).toBe("brokenListener");
+  });
+
+  it("E8 — runs.used increments only when at least one target is attempted", () => {
+    const run = createRuntime();
+
+    run.add({
+      id: "expr:no-attempt",
+      runs: { max: 2 },
+      onError: "swallow",
+      targets: [{ on: {} }],
+    });
+
+    run.impulse({ signals: ["s1"] });
+    run.impulse({ signals: ["s2"] });
+
+    const expression = (
+      run.get("registeredById") as Map<string, { runs?: { used: number } }>
+    ).get("expr:no-attempt");
+    expect(expression?.runs?.used).toBe(0);
+  });
+
+  it("E9 — reaching runs.max emits runs.max.exceeded diagnostic", () => {
+    const run = createRuntime();
+    const seen: Array<{
+      code: string;
+      severity?: string;
+      data?: Record<string, unknown>;
+    }> = [];
+
+    run.onDiagnostic((diagnostic) => {
+      if (diagnostic.code === "runs.max.exceeded") {
+        seen.push(diagnostic);
+      }
+    });
+
+    run.add({
+      id: "expr:budget",
+      runs: { max: 1 },
+      targets: [() => {}],
+    });
+
+    run.impulse({ addFlags: ["a"] });
+
+    expect(seen).toEqual([
+      expect.objectContaining({
+        code: "runs.max.exceeded",
+        severity: "warn",
+        data: expect.objectContaining({ expressionId: "expr:budget", max: 1 }),
+      }),
+    ]);
   });
 });

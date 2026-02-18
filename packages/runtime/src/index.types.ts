@@ -19,6 +19,12 @@ export type TargetToken =
   | ((i: unknown, a: unknown, r: unknown) => void)
   | { on: Record<string, unknown> };
 
+export type OnError =
+  | "throw"
+  | "report"
+  | "swallow"
+  | ((error: unknown) => void);
+
 export type AddOpts = Readonly<{
   id?: string;
   signal?: string;
@@ -29,6 +35,7 @@ export type AddOpts = Readonly<{
   targets?: readonly TargetToken[];
   backfill?: { signal?: { debt?: number }; flags?: { debt?: number } };
   runs?: { max: number };
+  onError?: OnError;
 }>;
 
 export type ImpulseOpts = Readonly<{
@@ -39,6 +46,7 @@ export type ImpulseOpts = Readonly<{
     | false
     | { list: readonly string[]; map: Record<string, true> };
   livePayload?: unknown;
+  onError?: OnError;
 }>;
 
 export type RunGetKey =

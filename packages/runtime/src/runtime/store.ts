@@ -14,8 +14,15 @@ import {
   type SeenSignals,
 } from "../state/signals.js";
 import { measureEntryBytes } from "./util.js";
-import type { RuntimeErrorPhase } from "./onError.js";
 import type { DiagnosticCollector } from "../diagnostics/index.js";
+
+export type RuntimeErrorPhase =
+  | "impulse/drain"
+  | "impulse/canon"
+  | "diagnostic/listener"
+  | "trim/onTrim"
+  | "target/callback"
+  | "target/object";
 
 type ImpulseQOnTrim = (info: {
   entries: readonly ImpulseQEntryCanonical[];
