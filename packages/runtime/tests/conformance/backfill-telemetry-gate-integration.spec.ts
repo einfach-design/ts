@@ -81,15 +81,21 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
       (call) =>
         call.id === "expr:integration:gate-reject" && call.q === "backfill",
     );
-    expect(gateBackfillCalls).toEqual([
+    expect(gateBackfillCalls).toHaveLength(1);
+    expect(gateBackfillCalls[0]).toEqual(
       expect.objectContaining({ gate: "signal", inBackfillQ: false }),
-    ]);
+    );
+
+    const gateRejectReasons = gateBackfillCalls
+      .map((call) => call.gate)
+      .filter((gate): gate is "signal" | "flags" => gate !== undefined);
+    expect(gateRejectReasons).toEqual(["signal"]);
 
     const gateRegisteredCalls = calls.filter(
       (call) =>
         call.id === "expr:integration:gate-reject" && call.q === "registered",
     );
-    expect(gateRegisteredCalls).toEqual([]);
+    expect(gateRegisteredCalls).toHaveLength(0);
 
     const telemetryBackfillCall = calls.find(
       (call) =>
@@ -130,6 +136,8 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
       list: string[];
       map: Record<string, true>;
     };
+    expect(backfillQ.list).not.toContain("expr:integration:gate-reject");
+    expect(backfillQ.map["expr:integration:gate-reject"]).toBeUndefined();
     expect(backfillQ.list).toContain("expr:integration:telemetry-pending");
     expect(backfillQ.map).toHaveProperty("expr:integration:telemetry-pending");
   });
