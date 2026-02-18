@@ -17,7 +17,7 @@ export interface EmitDiagnosticOptions<
   TDiagnostic extends RuntimeDiagnostic = RuntimeDiagnostic,
 > {
   readonly diagnostic: TDiagnostic;
-  readonly onDiagnostic?: (diagnostic: TDiagnostic) => void;
+  readonly listeners?: ReadonlySet<(diagnostic: TDiagnostic) => void>;
   readonly collector?: TDiagnostic[];
 }
 
@@ -25,6 +25,7 @@ export interface DiagnosticCollector<
   TDiagnostic extends RuntimeDiagnostic = RuntimeDiagnostic,
 > {
   emit: (diagnostic: TDiagnostic) => TDiagnostic;
+  subscribe: (handler: (diagnostic: TDiagnostic) => void) => () => void;
   readonly list: () => readonly TDiagnostic[];
   clear: () => void;
 }
@@ -35,29 +36,36 @@ export interface DiagnosticCollector<
 export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
   options: EmitDiagnosticOptions<TDiagnostic>,
 ): TDiagnostic {
-  const { diagnostic, onDiagnostic, collector } = options;
+  const { diagnostic, listeners, collector } = options;
 
   if (collector) {
     collector.push(diagnostic);
   }
 
-  onDiagnostic?.(diagnostic);
+  if (listeners) {
+    for (const listener of listeners) {
+      listener(diagnostic);
+    }
+  }
 
   return diagnostic;
 }
 
 export function createDiagnosticCollector<
   TDiagnostic extends RuntimeDiagnostic = RuntimeDiagnostic,
->(
-  onDiagnostic?: (diagnostic: TDiagnostic) => void,
-): DiagnosticCollector<TDiagnostic> {
+>(): DiagnosticCollector<TDiagnostic> {
   const diagnostics: TDiagnostic[] = [];
+  const listeners = new Set<(diagnostic: TDiagnostic) => void>();
 
   return {
     emit(diagnostic) {
-      return onDiagnostic
-        ? emitDiagnostic({ diagnostic, onDiagnostic, collector: diagnostics })
-        : emitDiagnostic({ diagnostic, collector: diagnostics });
+      return emitDiagnostic({ diagnostic, listeners, collector: diagnostics });
+    },
+    subscribe(handler) {
+      listeners.add(handler);
+      return () => {
+        listeners.delete(handler);
+      };
     },
     list() {
       return diagnostics;

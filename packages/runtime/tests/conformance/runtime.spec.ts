@@ -126,4 +126,19 @@ describe("conformance/runtime", () => {
       expect(changed?.list).toEqual(["existing", "new"]);
     }
   });
+
+  it("run.onDiagnostic subscribes to future diagnostics and remove deregisters", () => {
+    const run = createRuntime();
+    const seen: string[] = [];
+
+    const remove = run.onDiagnostic((diagnostic) => {
+      seen.push(diagnostic.code);
+    });
+
+    run.impulse({ signals: "bad" } as Record<string, unknown>);
+    remove();
+    run.impulse({ signals: "bad" } as Record<string, unknown>);
+
+    expect(seen).toEqual(["impulse.input.invalid"]);
+  });
 });
