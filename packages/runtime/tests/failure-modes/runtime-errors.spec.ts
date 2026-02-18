@@ -116,7 +116,7 @@ describe("failure-modes/runtime-errors", () => {
     expect(() =>
       reportRun.impulse({ signals: "bad" } as Record<string, unknown>),
     ).not.toThrow();
-    expect(reportCodes).toContain("runtime.diagnostic.listenerError");
+    expect(reportCodes).toContain("runtime.onError.report");
 
     const swallowRun = createRuntime();
     swallowRun.set({ impulseQ: { config: { onError: "swallow" } } });
@@ -141,22 +141,92 @@ describe("failure-modes/runtime-errors", () => {
     ).toThrow("listener throw");
   });
 
-  it("propagates trim callback errors directly during run.set (Spec §4.2, §8.2)", () => {
-    const run = createRuntime();
-
-    run.impulse({ addFlags: ["a"] });
-
+  it("handles onTrim callback errors through runtime onError modes (Spec §4.2, §8.2)", () => {
+    const throwRun = createRuntime();
+    throwRun.impulse({ addFlags: ["a"] });
     expect(() =>
-      run.set({
+      throwRun.set({
         impulseQ: {
           config: {
+            retain: true,
+            onError: "throw",
             maxBytes: 0,
             onTrim: () => {
-              throw new Error("trim boom");
+              throw new Error("trim throw");
             },
           },
         },
       }),
-    ).toThrow("trim boom");
+    ).toThrow("trim throw");
+
+    const reportRun = createRuntime();
+    const reportCodes: string[] = [];
+    reportRun.onDiagnostic((diagnostic) => {
+      reportCodes.push(diagnostic.code);
+    });
+    reportRun.impulse({ addFlags: ["a"] });
+    expect(() =>
+      reportRun.set({
+        impulseQ: {
+          config: {
+            retain: true,
+            onError: "report",
+            maxBytes: 0,
+            onTrim: () => {
+              throw new Error("trim report");
+            },
+          },
+        },
+      }),
+    ).not.toThrow();
+    expect(reportCodes).toContain("runtime.onError.report");
+
+    const swallowRun = createRuntime();
+    swallowRun.impulse({ addFlags: ["a"] });
+    expect(() =>
+      swallowRun.set({
+        impulseQ: {
+          config: {
+            retain: true,
+            onError: "swallow",
+            maxBytes: 0,
+            onTrim: () => {
+              throw new Error("trim swallow");
+            },
+          },
+        },
+      }),
+    ).not.toThrow();
+  });
+
+  it("runs deferred maxBytes trim with onTrim callback once runtime stack clears", () => {
+    const run = createRuntime();
+    const trimReasons: Array<"retain" | "maxBytes"> = [];
+
+    run.set({
+      impulseQ: {
+        config: {
+          retain: true,
+          maxBytes: Number.POSITIVE_INFINITY,
+          onTrim: (info: { stats: { reason: "retain" | "maxBytes" } }) => {
+            trimReasons.push(info.stats.reason);
+          },
+        },
+      },
+    });
+
+    run.add({
+      id: "expr:deferred-trim",
+      targets: [
+        () => {
+          run.set({ impulseQ: { config: { maxBytes: 0 } } });
+        },
+      ],
+    });
+
+    run.impulse({ addFlags: ["warmup"] });
+    run.impulse({ addFlags: ["a"] });
+
+    expect(trimReasons).toContain("maxBytes");
   });
 });

@@ -14,6 +14,7 @@ import {
   type SeenSignals,
 } from "../state/signals.js";
 import { measureEntryBytes } from "./util.js";
+import type { RuntimeErrorPhase } from "./onError.js";
 
 type ImpulseQOnTrim = (info: {
   entries: readonly ImpulseQEntryCanonical[];
@@ -70,6 +71,11 @@ export type RuntimeStore<
   runtimeStackDepth: number;
 
   withRuntimeStack: <T>(fn: () => T) => T;
+  reportRuntimeError: (
+    error: unknown,
+    phase: RuntimeErrorPhase,
+    extraData?: Record<string, unknown>,
+  ) => void;
 };
 
 export function initRuntimeStore<
@@ -183,7 +189,14 @@ export function initRuntimeStore<
           runtimeStackActive: false,
           trimPendingMaxBytes,
           measureBytes: measureEntryBytes,
+          ...(impulseQ.config.onTrim !== undefined
+            ? { onTrim: impulseQ.config.onTrim }
+            : {}),
         });
+
+        if (trimmed.onTrimError !== undefined) {
+          store.reportRuntimeError(trimmed.onTrimError, "trim/onTrim");
+        }
 
         const removedCount = Math.max(0, prevCursor - trimmed.cursor);
         if (removedCount > 0) {
@@ -283,6 +296,11 @@ export function initRuntimeStore<
     },
 
     withRuntimeStack,
+    reportRuntimeError(error, phase, extraData) {
+      void error;
+      void phase;
+      void extraData;
+    },
   };
 
   return store;
