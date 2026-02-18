@@ -116,6 +116,15 @@ describe("conformance/telemetry-backfill-relevant", () => {
 
     run.impulse({ signals: ["sig:need"] });
 
+    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
+      list: string[];
+      map: Record<string, true>;
+    };
+
+    expect(backfillQ.list).toContain("expr:pending");
+    expect(backfillQ.map["expr:pending"]).toBe(true);
+    expect(backfillQ.list.filter((id) => id === "expr:pending").length).toBe(1);
+
     const backfillCall = calls.find((call) => call.q === "backfill");
     expect(backfillCall).toBeDefined();
     expect(backfillCall).toEqual(
