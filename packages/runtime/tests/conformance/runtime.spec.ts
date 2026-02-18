@@ -127,21 +127,45 @@ describe("conformance/runtime", () => {
     }
   });
 
-  it("E3 — runs.max limits deployments and tombstones expression (Spec §4.4, §7.4)", () => {
+  it("E3 — runs.max limits deployments and deregisters expression after first deploy (Spec §4.4, §7.4)", () => {
     const run = createRuntime();
+    const expressionId = "expr:runs-max-1";
     const calls: string[] = [];
 
     run.add({
-      id: "expr:runs-max-1",
+      id: expressionId,
       runs: { max: 1 },
       targets: [() => calls.push("hit")],
     });
 
     run.impulse({ addFlags: ["a"] });
+
+    const registeredByIdAfterFirstDeploy = run.get("registeredById") as Map<
+      string,
+      unknown
+    >;
+    expect(registeredByIdAfterFirstDeploy.has(expressionId)).toBe(false);
+
     run.impulse({ addFlags: ["b"] });
 
     // Spec §7.4: once used >= max, expression must not deploy again.
     expect(calls).toEqual(["hit"]);
+
+    const registeredByIdAfterSecondImpulse = run.get("registeredById") as Map<
+      string,
+      unknown
+    >;
+    expect(registeredByIdAfterSecondImpulse.has(expressionId)).toBe(false);
+
+    const registeredQ = run.get("registeredQ") as Array<{
+      id: string;
+      tombstone?: true;
+    }>;
+    expect(registeredQ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: expressionId, tombstone: true }),
+      ]),
+    );
   });
 
   it("E4 — runs.max values <= 0 are clamped to 1 (Spec §4.4)", () => {

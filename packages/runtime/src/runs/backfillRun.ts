@@ -27,6 +27,7 @@ export type BackfillRunOptions<TExpression extends RegisteredExpression> =
       gate: RunGate,
     ) => BackfillRunAttemptResult;
     maxIterations?: number;
+    onLimitReached?: (expression: { id: string }) => void;
   }>;
 
 export type BackfillRunResult = Readonly<{
@@ -58,6 +59,7 @@ function oppositeGate(gate: RunGate): RunGate {
 function incrementGateRunsAndMaybeTombstone(
   expression: RegisteredExpression,
   gate: RunGate,
+  onLimitReached?: (expression: { id: string }) => void,
 ): void {
   const gateConfig = expression.backfill?.[gate];
   const gateRuns = gateConfig?.runs;
@@ -68,7 +70,11 @@ function incrementGateRunsAndMaybeTombstone(
 
   gateRuns.used += 1;
   if (gateRuns.used >= gateRuns.max) {
-    expression.tombstone = true;
+    if (onLimitReached !== undefined) {
+      onLimitReached(expression);
+    } else {
+      expression.tombstone = true;
+    }
   }
 }
 
@@ -139,7 +145,11 @@ export function backfillRun<TExpression extends RegisteredExpression>(
     }
 
     const primary = choosePrimaryGate(liveExpression);
-    incrementGateRunsAndMaybeTombstone(liveExpression, primary);
+    incrementGateRunsAndMaybeTombstone(
+      liveExpression,
+      primary,
+      opts.onLimitReached,
+    );
 
     const primaryResult = opts.attempt(liveExpression, primary);
     attempts += 1;
@@ -168,7 +178,11 @@ export function backfillRun<TExpression extends RegisteredExpression>(
     // opposite attempt in the same iteration. "No retry in this round" means
     // no additional attempts beyond that opposite attempt and no rotation.
     const secondary = oppositeGate(primary);
-    incrementGateRunsAndMaybeTombstone(liveExpression, secondary);
+    incrementGateRunsAndMaybeTombstone(
+      liveExpression,
+      secondary,
+      opts.onLimitReached,
+    );
 
     const secondaryResult = opts.attempt(liveExpression, secondary);
     attempts += 1;

@@ -52,6 +52,7 @@ export type RunGetKey =
   | "impulseQ"
   | "backfillQ"
   | "registeredQ"
+  | "registeredById"
   | "diagnostics";
 
 export type RunSetInput = Readonly<Record<string, unknown>>;

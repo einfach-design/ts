@@ -19,6 +19,7 @@ const allowedGetKeys = [
   "impulseQ",
   "backfillQ",
   "registeredQ",
+  "registeredById",
   "diagnostics",
 ] as const;
 
@@ -177,6 +178,7 @@ export function runGet(
       impulseQ: selectedImpulseQ,
       backfillQ: toBackfillQSnapshot(store.backfillQ),
       registeredQ: expressionRegistry.registeredQ,
+      registeredById: expressionRegistry.registeredById,
       diagnostics: selectedDiagnostics,
       "*": {
         defaults: store.defaults,
@@ -188,6 +190,7 @@ export function runGet(
         impulseQ: selectedImpulseQ,
         backfillQ: toBackfillQSnapshot(store.backfillQ),
         registeredQ: expressionRegistry.registeredQ,
+        registeredById: expressionRegistry.registeredById,
         diagnostics: selectedDiagnostics,
       },
     };

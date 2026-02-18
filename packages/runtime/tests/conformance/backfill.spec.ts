@@ -81,6 +81,11 @@ describe("conformance/backfill", () => {
     run.impulse({ addFlags: ["noop"] });
     expect(calls).toHaveLength(1);
 
+    const registeredByIdAfterFirstBackfillRun = run.get(
+      "registeredById",
+    ) as Map<string, unknown>;
+    expect(registeredByIdAfterFirstBackfillRun.has(expressionId)).toBe(false);
+
     const registeredAfterFirstBackfillRun = run.get("registeredQ") as Array<{
       id: string;
       tombstone?: true;
