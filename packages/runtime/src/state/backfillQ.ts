@@ -36,14 +36,15 @@ export function createBackfillQ<
 export function appendIfAbsent<TExpression extends BackfillExpression>(
   backfillQ: BackfillQ<TExpression>,
   expression: TExpression,
-): void {
+): boolean {
   const id = expression.id;
   if (backfillQ.map[id] === true) {
-    return;
+    return false;
   }
 
   backfillQ.list.push(expression);
   backfillQ.map[id] = true;
+  return true;
 }
 
 /**

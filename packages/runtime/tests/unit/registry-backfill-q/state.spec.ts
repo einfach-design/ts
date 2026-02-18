@@ -62,6 +62,13 @@ describe("state/backfillQ", () => {
     expect(queue.map).toEqual({ x: true, y: true });
   });
 
+  it("returns whether enqueue happened", () => {
+    const queue = createBackfillQ<{ id: string }>();
+
+    expect(appendIfAbsent(queue, { id: "a" })).toBe(true);
+    expect(appendIfAbsent(queue, { id: "a" })).toBe(false);
+  });
+
   it("projects an id-only snapshot", () => {
     const queue = createBackfillQ<{ id: string }>();
     appendIfAbsent(queue, { id: "a" });
