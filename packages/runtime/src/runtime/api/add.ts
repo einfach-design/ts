@@ -17,6 +17,7 @@ type RegisteredExpression = {
   flags?: ReturnType<typeof canonFlagSpecInput>;
   required?: { flags?: { min?: number; max?: number; changed?: number } };
   backfill?: { signal?: { debt?: number }; flags?: { debt?: number } };
+  runs?: { used: number; max: number };
   targets: RuntimeTarget[];
 };
 
@@ -26,7 +27,7 @@ export function runAdd(
     expressionRegistry,
   }: { expressionRegistry: RegistryStore<RegisteredExpression> },
   opts: unknown,
-): { ids: readonly string[]; remove: () => void } {
+): () => void {
   return store.withRuntimeStack(() => {
     const source = isObject(opts) ? opts : {};
     const baseId =
@@ -77,6 +78,10 @@ export function runAdd(
       : undefined;
 
     const ids: string[] = [];
+    const runsMax =
+      isObject(source.runs) && typeof source.runs.max === "number"
+        ? Math.max(1, source.runs.max)
+        : Number.POSITIVE_INFINITY;
 
     for (const [index, sig] of signals.entries()) {
       const id = signals.length > 1 ? `${baseId}:${index}` : baseId;
@@ -98,18 +103,21 @@ export function runAdd(
               >,
             }
           : {}),
+        runs: {
+          used: 0,
+          max: runsMax,
+        },
         targets,
       });
       ids.push(id);
     }
 
-    return {
-      ids,
-      remove() {
-        for (const id of ids) {
-          expressionRegistry.remove(id);
-        }
-      },
+    return () => {
+      for (const id of ids) {
+        expressionRegistry.remove(id);
+      }
+
+      expressionRegistry.compact();
     };
   });
 }

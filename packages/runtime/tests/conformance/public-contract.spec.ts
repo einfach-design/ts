@@ -25,4 +25,16 @@ describe("conformance: public contract (values)", () => {
     expect(typeof run.matchExpression).toBe("function");
     expect(typeof run.onDiagnostic).toBe("function");
   });
+
+  it("run.add returns a remove function", async () => {
+    const { createRuntime } = await import("../../src/index.js");
+    const run = createRuntime();
+
+    const remove = run.add({
+      id: "expr:contract",
+      targets: [() => undefined],
+    });
+
+    expect(typeof remove).toBe("function");
+  });
 });

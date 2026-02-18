@@ -15,7 +15,13 @@ type ImpulseQOnTrim = (info: {
   stats: { reason: "retain" | "maxBytes"; bytesFreed?: number };
 }) => void;
 
-type ImpulseQOnError = (error: unknown) => void;
+export type RuntimeOnError =
+  | "throw"
+  | "report"
+  | "swallow"
+  | ((error: unknown) => void);
+
+type ImpulseQOnError = RuntimeOnError;
 
 export type RuntimeStore<
   TExpression extends BackfillExpression = BackfillExpression,

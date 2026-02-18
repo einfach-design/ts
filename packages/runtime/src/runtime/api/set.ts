@@ -12,7 +12,7 @@ import {
 import { createFlagsView, type FlagsView } from "../../state/flagsView.js";
 import type { SeenSignals } from "../../state/signals.js";
 import { hasOwn, isObject, measureEntryBytes } from "../util.js";
-import type { RuntimeStore } from "../store.js";
+import type { RuntimeOnError, RuntimeStore } from "../store.js";
 import type { RegistryStore } from "../../state/registry.js";
 
 const hydrationRequiredKeys = [
@@ -77,7 +77,7 @@ export function runSet(
               entries: readonly ImpulseQEntryCanonical[];
               stats: { reason: "retain" | "maxBytes"; bytesFreed?: number };
             }) => void;
-            onError?: (error: unknown) => void;
+            onError?: RuntimeOnError;
           };
         };
         backfillQ: BackfillQSnapshot;
@@ -211,7 +211,7 @@ export function runSet(
         }
         if (hasOwn(impulsePatch.config, "onError")) {
           store.impulseQ.config.onError = impulsePatch.config.onError as
-            | ((error: unknown) => void)
+            | RuntimeOnError
             | undefined;
         }
 
