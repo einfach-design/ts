@@ -161,12 +161,20 @@ export function runGet(
       diagnostics: diagnostics.list(),
       "*": {
         defaults: store.defaults,
-        flags: store.flagsTruth,
-        changedFlags: store.changedFlags,
-        seenFlags: store.seenFlags,
-        signal: store.signal,
-        seenSignals: store.seenSignals,
-        impulseQ: store.impulseQ,
+        flags: hasScopedProjection
+          ? projectedFlagsState.flags
+          : store.flagsTruth,
+        changedFlags: hasScopedProjection
+          ? projectedFlagsState.changedFlags
+          : store.changedFlags,
+        seenFlags: hasScopedProjection
+          ? projectedFlagsState.seenFlags
+          : store.seenFlags,
+        signal: hasScopedProjection ? projectedFlagsState.signal : store.signal,
+        seenSignals: hasScopedProjection
+          ? projectedFlagsState.seenSignals
+          : store.seenSignals,
+        impulseQ: hasScopedProjection ? projectedImpulseQ : store.impulseQ,
         backfillQ: toBackfillQSnapshot(store.backfillQ),
         registeredQ: expressionRegistry.registeredQ,
       },
