@@ -106,7 +106,7 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
       expect.objectContaining({ inBackfillQ: false }),
     );
     expect(telemetryRegisteredCall).toEqual(
-      expect.objectContaining({ inBackfillQ: false }),
+      expect.objectContaining({ inBackfillQ: true }),
     );
 
     const byId = run.get("registeredById") as Map<
@@ -124,11 +124,11 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
     ).toBe(0);
     expect(
       byId.get("expr:integration:telemetry-pending")?.backfill?.flags?.debt,
-    ).toBe(0);
+    ).toBe(1);
 
     expect(run.get("backfillQ", { as: "snapshot" })).toEqual({
-      list: [],
-      map: {},
+      list: ["expr:integration:telemetry-pending"],
+      map: { "expr:integration:telemetry-pending": true },
     });
   });
 });

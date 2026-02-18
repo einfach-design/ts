@@ -113,6 +113,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
     };
 
     run.set(snapshot);
+
     run.impulse({ signals: ["sig:need"] });
 
     const backfillCall = calls.find((call) => call.q === "backfill");
