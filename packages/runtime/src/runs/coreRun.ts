@@ -29,6 +29,7 @@ export type RegisteredExpression = {
   required?: { flags?: { min?: number; max?: number; changed?: number } };
   targets: RuntimeTarget[];
   backfill?: { signal?: { debt?: number }; flags?: { debt?: number } };
+  runs?: { used: number; max: number };
   tombstone?: true;
 };
 
@@ -124,6 +125,13 @@ export const coreRun = (args: {
       ...(store.signal !== undefined ? { signal: store.signal } : {}),
       args: [actualExpression, expression, runtimeCore],
     });
+  }
+
+  if (expression.runs !== undefined) {
+    expression.runs.used += 1;
+    if (expression.runs.used >= expression.runs.max) {
+      expression.tombstone = true;
+    }
   }
 
   return { status: "deploy" };

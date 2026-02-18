@@ -24,7 +24,12 @@ import { computeChangedFlags } from "../state/changedFlags.js";
 import { createFlagsView } from "../state/flagsView.js";
 import { registry } from "../state/registry.js";
 import { extendSeenSignals, projectSignal } from "../state/signals.js";
-import { dispatch, type DispatchInput } from "../targets/dispatch.js";
+import {
+  dispatch,
+  type DispatchError,
+  type DispatchInput,
+  type DispatchOnErrorMode,
+} from "../targets/dispatch.js";
 import { hasOwn, isObject, toMatchFlagsView } from "./util.js";
 import { initRuntimeStore } from "./store.js";
 import {
@@ -51,7 +56,8 @@ type Runtime = Readonly<{
     target?: RuntimeTarget;
     targets?: readonly RuntimeTarget[];
     backfill?: RegisteredExpression["backfill"];
-  }) => { ids: readonly string[]; remove: () => void };
+    runs?: { max: number };
+  }) => () => void;
   impulse: (opts?: unknown) => void;
   get: (
     key?: string,
@@ -161,13 +167,32 @@ export function createRuntime(): Runtime {
       reference: input.reference,
     });
 
+  const reportDispatchIssue = (issue: DispatchError): void => {
+    diagnostics.emit({
+      code: "dispatch.error",
+      message: issue.error.message,
+      severity: "error",
+      data: {
+        phase: issue.context.phase,
+        targetKind: issue.context.targetKind,
+        ...(issue.context.handler !== undefined
+          ? { handler: issue.context.handler }
+          : {}),
+      },
+    });
+  };
+
   const coreRun = (expression: RegisteredExpression) =>
     coreRunImpl({
       expression,
       store: toCoreStoreView(),
       runtimeCore,
       dispatch: (x: unknown) => {
-        dispatch(x as DispatchInput);
+        dispatch({
+          ...(x as DispatchInput),
+          onError: "report" satisfies DispatchOnErrorMode,
+          reportError: reportDispatchIssue,
+        });
       },
       matchExpression: matchExpressionForCoreRun,
       toMatchFlagsView,
@@ -301,6 +326,8 @@ export function createRuntime(): Runtime {
         });
       },
     });
+
+    expressionRegistry.compact();
   };
 
   const deps = {

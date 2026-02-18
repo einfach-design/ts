@@ -141,4 +141,44 @@ describe("conformance/runtime", () => {
 
     expect(seen).toEqual(["impulse.input.invalid"]);
   });
+
+  it("run.onError modes: report and swallow do not throw", () => {
+    const run = createRuntime();
+    const seen: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      seen.push(diagnostic.code);
+    });
+
+    run.set({
+      impulseQ: {
+        config: {
+          onError: "report",
+        },
+      },
+    });
+
+    run.add({
+      id: "expr:error",
+      targets: [
+        () => {
+          throw new Error("boom");
+        },
+      ],
+    });
+
+    run.impulse({ addFlags: ["x"] });
+
+    expect(seen).toContain("dispatch.error");
+
+    run.set({
+      impulseQ: {
+        config: {
+          onError: "swallow",
+        },
+      },
+    });
+
+    expect(() => run.impulse({ addFlags: ["y"] })).not.toThrow();
+  });
 });

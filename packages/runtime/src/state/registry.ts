@@ -21,6 +21,7 @@ export type RegistryStore<TExpression extends RegistryExpression> =
     register(expression: TExpression): TExpression;
     resolve(id: string): TExpression | undefined;
     remove(id: string): TExpression | undefined;
+    compact(): void;
     isRegistered(id: string): boolean;
     activeList(): TExpression[];
   };
@@ -60,7 +61,16 @@ export function registry<
     }
 
     expression.tombstone = true;
+    registeredById.delete(id);
     return expression;
+  };
+
+  const compact = (): void => {
+    for (let index = registeredQ.length - 1; index >= 0; index -= 1) {
+      if (registeredQ[index]?.tombstone === true) {
+        registeredQ.splice(index, 1);
+      }
+    }
   };
 
   const isRegistered = (id: string): boolean => {
@@ -78,6 +88,7 @@ export function registry<
     register,
     resolve,
     remove,
+    compact,
     isRegistered,
     activeList,
   };

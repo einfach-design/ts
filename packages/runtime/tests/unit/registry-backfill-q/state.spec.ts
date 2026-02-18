@@ -27,7 +27,7 @@ describe("state/registry", () => {
     expect(reg.isRegistered("b")).toBe(true);
   });
 
-  it("marks tombstones on remove while retaining historical queue entries", () => {
+  it("marks tombstones on remove and drops id lookup entry", () => {
     const reg = registry<{ id: string; tombstone?: true }>();
     reg.register({ id: "a" });
     reg.register({ id: "b" });
@@ -35,7 +35,8 @@ describe("state/registry", () => {
     reg.remove("a");
 
     expect(reg.registeredQ.map((entry) => entry.id)).toEqual(["a", "b"]);
-    expect(reg.resolve("a")?.tombstone).toBe(true);
+    expect(reg.registeredQ[0]?.tombstone).toBe(true);
+    expect(reg.resolve("a")).toBeUndefined();
     expect(reg.isRegistered("a")).toBe(false);
     expect(reg.activeList().map((entry) => entry.id)).toEqual(["b"]);
   });

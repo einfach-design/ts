@@ -22,12 +22,19 @@ export interface DispatchError {
   readonly context: DispatchContext;
 }
 
+export type DispatchOnErrorMode =
+  | "throw"
+  | "report"
+  | "swallow"
+  | ((issue: DispatchError) => void);
+
 export interface DispatchInput {
   readonly targetKind: DispatchTargetKind;
   readonly target: unknown;
   readonly signal?: string;
   readonly args: readonly unknown[];
-  readonly onError?: (issue: DispatchError) => void;
+  readonly onError?: DispatchOnErrorMode;
+  readonly reportError?: (issue: DispatchError) => void;
 }
 
 export interface DispatchResult {
@@ -48,16 +55,34 @@ function asError(value: unknown, fallbackMessage: string): Error {
   return value instanceof Error ? value : new Error(fallbackMessage);
 }
 
-function reportDispatchError(
+function emitDispatchError(
   onError: DispatchInput["onError"],
-  context: DispatchContext,
-  fallbackMessage: string,
-): void {
-  if (!onError) {
+  reportError: DispatchInput["reportError"],
+  issue: DispatchError,
+): never | void {
+  if (typeof onError === "function") {
+    onError(issue);
     return;
   }
 
-  onError({
+  if (onError === "swallow") {
+    return;
+  }
+
+  if (onError === "throw") {
+    throw issue.error;
+  }
+
+  reportError?.(issue);
+}
+
+function reportDispatchError(
+  onError: DispatchInput["onError"],
+  reportError: DispatchInput["reportError"],
+  context: DispatchContext,
+  fallbackMessage: string,
+): void {
+  emitDispatchError(onError, reportError, {
     error: new Error(fallbackMessage),
     context,
   });
@@ -67,6 +92,7 @@ function callHandler(
   candidate: unknown,
   args: readonly unknown[],
   onError: DispatchInput["onError"],
+  reportError: DispatchInput["reportError"],
   context: DispatchContext,
 ): number {
   if (!isCallable(candidate)) {
@@ -78,7 +104,7 @@ function callHandler(
     return 1;
   } catch (error) {
     if (onError) {
-      onError({
+      emitDispatchError(onError, reportError, {
         error: asError(error, `Dispatch failed in ${context.phase}`),
         context,
       });
@@ -92,12 +118,13 @@ function callHandler(
  * Target dispatch (callback/object) + silent semantics.
  */
 export function dispatch(input: DispatchInput): DispatchResult {
-  const { targetKind, target, signal, args, onError } = input;
+  const { targetKind, target, signal, args, onError, reportError } = input;
 
   if (targetKind === "callback") {
     if (!isCallable(target)) {
       reportDispatchError(
         onError,
+        reportError,
         { phase: "target/callback", targetKind },
         "Callback target must be callable.",
       );
@@ -105,7 +132,7 @@ export function dispatch(input: DispatchInput): DispatchResult {
     }
 
     return {
-      attempted: callHandler(target, args, onError, {
+      attempted: callHandler(target, args, onError, reportError, {
         phase: "target/callback",
         targetKind,
       }),
@@ -115,6 +142,7 @@ export function dispatch(input: DispatchInput): DispatchResult {
   if (!isObjectNonNull(target) || !isObjectNonNull(target.on)) {
     reportDispatchError(
       onError,
+      reportError,
       { phase: "target/object", targetKind },
       "Object target must expose an object `on` entrypoint.",
     );
@@ -122,18 +150,24 @@ export function dispatch(input: DispatchInput): DispatchResult {
   }
 
   let attempted = 0;
-  attempted += callHandler(target.on[EVERY_RUN_HANDLER], args, onError, {
-    phase: "target/object",
-    targetKind,
-    handler: EVERY_RUN_HANDLER,
-  });
+  attempted += callHandler(
+    target.on[EVERY_RUN_HANDLER],
+    args,
+    onError,
+    reportError,
+    {
+      phase: "target/object",
+      targetKind,
+      handler: EVERY_RUN_HANDLER,
+    },
+  );
 
   if (
     signal &&
     signal !== EVERY_RUN_HANDLER &&
     Object.prototype.hasOwnProperty.call(target.on, signal)
   ) {
-    attempted += callHandler(target.on[signal], args, onError, {
+    attempted += callHandler(target.on[signal], args, onError, reportError, {
       phase: "target/object",
       targetKind,
       handler: signal,
