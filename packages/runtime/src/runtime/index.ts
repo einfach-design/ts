@@ -242,6 +242,10 @@ export function createRuntime(): Runtime {
     });
   };
 
+  const exitExpressionOnLimit = (expression: { id: string }): void => {
+    expressionRegistry.remove(expression.id);
+  };
+
   const coreRun = (expression: RegisteredExpression) =>
     coreRunImpl({
       expression,
@@ -257,6 +261,7 @@ export function createRuntime(): Runtime {
       matchExpression: matchExpressionForCoreRun,
       toMatchFlagsView,
       createFlagsView,
+      onLimitReached: exitExpressionOnLimit,
     });
 
   const runBackfill = (): void => {
@@ -269,6 +274,7 @@ export function createRuntime(): Runtime {
           pending: false,
         };
       },
+      onLimitReached: exitExpressionOnLimit,
     });
   };
 

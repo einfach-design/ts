@@ -67,6 +67,7 @@ export const coreRun = (args: {
   }) => boolean;
   dispatch: (x: unknown) => void;
   runtimeCore: RuntimeCore;
+  onLimitReached?: (expression: { id: string }) => void;
 }): {
   status: "deploy" | "reject";
   debtDelta?: { signal?: number; flags?: number };
@@ -79,6 +80,7 @@ export const coreRun = (args: {
     matchExpression,
     dispatch,
     runtimeCore,
+    onLimitReached,
   } = args;
 
   const coreReference: {
@@ -133,7 +135,11 @@ export const coreRun = (args: {
   if (expression.runs !== undefined) {
     expression.runs.used += 1;
     if (expression.runs.used >= expression.runs.max) {
-      expression.tombstone = true;
+      if (onLimitReached !== undefined) {
+        onLimitReached(expression);
+      } else {
+        expression.tombstone = true;
+      }
     }
   }
 

@@ -247,6 +247,7 @@ describe("conformance/get-set", () => {
       "impulseQ",
       "backfillQ",
       "registeredQ",
+      "registeredById",
       "diagnostics",
     ];
 
@@ -316,6 +317,7 @@ describe("conformance/get-set", () => {
       "impulseQ",
       "backfillQ",
       "registeredQ",
+      "registeredById",
       "diagnostics",
     ];
 
@@ -385,6 +387,7 @@ describe("conformance/get-set", () => {
       "impulseQ",
       "backfillQ",
       "registeredQ",
+      "registeredById",
       "diagnostics",
     ];
 
