@@ -10,11 +10,22 @@ import type { RuntimeOnError } from "../runtime/store.js";
 import type { FlagsView } from "../state/flagsView.js";
 
 export type RuntimeOccurrence = Readonly<{
+  seq: number;
+  id: string;
+  q: "backfill" | "registered";
   signal?: string;
   flags: FlagsView;
   changedFlags: FlagsView;
   addFlags: readonly string[];
   removeFlags: readonly string[];
+  expression: Readonly<{
+    id: string;
+    backfillSignalRuns: number;
+    backfillFlagsRuns: number;
+    backfillRuns: number;
+    actBackfillGate?: "signal" | "flags";
+    inBackfillQ?: boolean;
+  }>;
   payload?: unknown;
 }>;
 
@@ -66,7 +77,18 @@ export const coreRun = (args: {
     removeFlags: readonly string[];
     occurrenceHasPayload: boolean;
     payload?: unknown;
+    occurrenceSeq: number;
+    occurrenceId: string;
     defaults: unknown;
+    expressionTelemetryById: ReadonlyMap<
+      string,
+      {
+        backfillSignalRuns: number;
+        backfillFlagsRuns: number;
+        inBackfillQ?: boolean;
+      }
+    >;
+    currentBackfillGate?: "signal" | "flags";
   };
   toMatchFlagsView: (
     v: FlagsView | undefined,
@@ -133,12 +155,40 @@ export const coreRun = (args: {
     return { status: "reject", debtDelta: { signal: 1, flags: 1 } };
   }
 
+  const expressionTelemetry = store.expressionTelemetryById.get(
+    expression.id,
+  ) ?? {
+    backfillSignalRuns: 0,
+    backfillFlagsRuns: 0,
+  };
+
+  const inBackfillQ =
+    occurrenceKind === "registered"
+      ? (expressionTelemetry.inBackfillQ ?? false)
+      : expressionTelemetry.inBackfillQ;
+
   const actualExpression: RuntimeOccurrence = {
+    seq: store.occurrenceSeq,
+    id: store.occurrenceId,
+    q: occurrenceKind,
     ...(store.signal !== undefined ? { signal: store.signal } : {}),
     flags: store.flagsTruth,
     changedFlags: store.changedFlags ?? createFlagsView([]),
     addFlags: store.addFlags,
     removeFlags: store.removeFlags,
+    expression: Object.freeze({
+      id: expression.id,
+      backfillSignalRuns: expressionTelemetry.backfillSignalRuns,
+      backfillFlagsRuns: expressionTelemetry.backfillFlagsRuns,
+      backfillRuns:
+        expressionTelemetry.backfillSignalRuns +
+        expressionTelemetry.backfillFlagsRuns,
+      ...(occurrenceKind === "backfill" &&
+      store.currentBackfillGate !== undefined
+        ? { actBackfillGate: store.currentBackfillGate }
+        : {}),
+      ...(inBackfillQ !== undefined ? { inBackfillQ } : {}),
+    }),
     ...(store.occurrenceHasPayload ? { payload: store.payload } : {}),
   };
 

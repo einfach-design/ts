@@ -643,8 +643,8 @@ describe("conformance/get-set", () => {
         as: "snapshot",
       }),
     ).toEqual({
-      list: ["a", "c"],
-      map: { a: true, c: true },
+      list: ["c"],
+      map: { c: true },
     });
     expect(
       run.get("flags" as string | undefined, {
@@ -774,8 +774,8 @@ describe("conformance/get-set", () => {
         as: "snapshot",
       }),
     ).toEqual({
-      list: ["a", "d"],
-      map: { a: true, d: true },
+      list: ["d"],
+      map: { d: true },
     });
     expect(
       run.get("flags" as string | undefined, {
@@ -1090,6 +1090,33 @@ describe("conformance/get-set", () => {
       run.get("impulseQ", { scope: "pendingOnly", as: "snapshot" }),
     );
   });
+
+  it("A2.pendingOnly.trim-regression — pendingOnly ignores baseline seed after trim", () => {
+    const run = createRuntime();
+
+    run.impulse({ signals: ["applied"], addFlags: ["a"] });
+
+    const hydration = run.get("*", { as: "snapshot" }) as {
+      impulseQ: {
+        q: { entries: Array<Record<string, unknown>>; cursor: number };
+      };
+    } & Record<string, unknown>;
+
+    hydration.impulseQ.q.entries = [
+      { signals: ["applied"], addFlags: ["a"], removeFlags: [] },
+      { signals: ["pending"], addFlags: ["b"], removeFlags: [] },
+    ];
+    hydration.impulseQ.q.cursor = 1;
+    run.set(hydration);
+
+    run.set({ impulseQ: { config: { retain: 0 } } });
+
+    expect(run.get("flags", { scope: "pendingOnly", as: "snapshot" })).toEqual({
+      list: ["b"],
+      map: { b: true },
+    });
+  });
+
   it("A2.hydration.trim — snapshot roundtrip preserves scoped projections after trim", () => {
     const run = createRuntime();
 

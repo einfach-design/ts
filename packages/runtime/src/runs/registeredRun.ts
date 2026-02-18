@@ -31,6 +31,7 @@ export type RegisteredRunOptions<TExpression extends RegisteredExpression> =
     backfillQ: BackfillQ<TExpression>;
     matchExpression: (expression: TExpression) => boolean;
     coreRun: (expression: TExpression) => RegisteredRunAttemptResult;
+    onEnqueue?: (expressionId: string) => void;
   }>;
 
 export type RegisteredRunResult = Readonly<{
@@ -106,7 +107,11 @@ export function registeredRun<TExpression extends RegisteredExpression>(
       writeDebt(liveExpression, gate, next);
 
       if (previous <= 0 && next > 0) {
-        appendIfAbsent(opts.backfillQ, liveExpression);
+        const enqueued = appendIfAbsent(opts.backfillQ, liveExpression);
+        if (enqueued) {
+          opts.onEnqueue?.(liveExpression.id);
+        }
+
         debtEntries += 1;
       }
     }

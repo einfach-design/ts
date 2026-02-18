@@ -81,6 +81,22 @@ describe("conformance/public-method-matrix", () => {
     expect(() => run.get("__invalid__")).toThrow("get.key.invalid");
   });
 
+  it("run.get defaults ignores scope projection semantics", () => {
+    const run = createRuntime();
+
+    run.impulse({ signals: ["s1"], addFlags: ["a"] });
+
+    const plain = run.get("defaults", { as: "snapshot" });
+    const scoped = run.get("defaults", {
+      as: "snapshot",
+      scope: "pendingOnly",
+    });
+
+    expect(scoped).toEqual(plain);
+    const diagnostics = run.get("diagnostics") as Array<{ code: string }>;
+    expect(diagnostics).toEqual([]);
+  });
+
   it("run.set matrix: hydration + allowed patch fields + forbidden shapes", () => {
     const run = createRuntime();
 

@@ -119,6 +119,32 @@ const projectImpulseQ = (
   };
 };
 
+const getProjectionSeed = (
+  store: RuntimeStore,
+  scope: Scope,
+): ProjectionState => {
+  if (scope === "pendingOnly") {
+    return {
+      flags: createFlagsView([]),
+      changedFlags: createFlagsView([]),
+      seenFlags: createFlagsView([]),
+      signal: undefined,
+      seenSignals: { list: [], map: {} },
+    };
+  }
+
+  return store.scopeProjectionBaseline;
+};
+
+const wantsScopeProjectionForKey = (resolvedKey: string): boolean =>
+  resolvedKey === "*" ||
+  resolvedKey === "flags" ||
+  resolvedKey === "changedFlags" ||
+  resolvedKey === "seenFlags" ||
+  resolvedKey === "signal" ||
+  resolvedKey === "seenSignals" ||
+  resolvedKey === "impulseQ";
+
 export function runGet(
   store: RuntimeStore,
   {
@@ -148,7 +174,8 @@ export function runGet(
 
   return store.withRuntimeStack(() => {
     const as = opts?.as ?? "snapshot";
-    const hasScopedProjection = opts?.scope !== undefined;
+    const wantsScopeProjection =
+      opts?.scope !== undefined && wantsScopeProjectionForKey(resolvedKey);
 
     let selectedFlags = store.flagsTruth;
     let selectedChangedFlags = store.changedFlags;
@@ -157,12 +184,12 @@ export function runGet(
     let selectedSeenSignals = store.seenSignals;
     let selectedImpulseQ = store.impulseQ;
 
-    if (hasScopedProjection) {
+    if (wantsScopeProjection) {
       const scope = resolveScope(opts?.scope);
       const projectedImpulseQ = projectImpulseQ(store.impulseQ, scope);
       const projectedFlagsState = projectFlagsState(
         projectedImpulseQ.q.entries,
-        store.scopeProjectionBaseline,
+        getProjectionSeed(store, scope),
       );
 
       selectedFlags = projectedFlagsState.flags;

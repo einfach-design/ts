@@ -28,6 +28,7 @@ export type BackfillRunOptions<TExpression extends RegisteredExpression> =
     ) => BackfillRunAttemptResult;
     maxIterations?: number;
     onLimitReached?: (expression: { id: string }) => void;
+    onEnqueue?: (expressionId: string) => void;
   }>;
 
 export type BackfillRunResult = Readonly<{
@@ -218,6 +219,7 @@ export function backfillRun<TExpression extends RegisteredExpression>(
     }
 
     if (appendIfAbsent(opts.backfillQ, expression)) {
+      opts.onEnqueue?.(expression.id);
       reEnqueued += 1;
     }
   }
