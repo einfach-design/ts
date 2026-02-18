@@ -8,8 +8,7 @@ import type { RuntimeStore } from "../store.js";
 import type { DiagnosticCollector } from "../../diagnostics/index.js";
 import type { RegistryStore } from "../../state/registry.js";
 
-const allowedGetKeys = [
-  "*",
+export const snapshotGetKeys = [
   "defaults",
   "flags",
   "changedFlags",
@@ -22,6 +21,8 @@ const allowedGetKeys = [
   "registeredById",
   "diagnostics",
 ] as const;
+
+const allowedGetKeys = ["*", ...snapshotGetKeys] as const;
 
 type AllowedGetKey = (typeof allowedGetKeys)[number];
 type Scope = "applied" | "pending" | "pendingOnly";

@@ -37,6 +37,11 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     shape: {},
   },
+  "set.patch.signals.invalid": {
+    description: "set patch signals value must be an array of strings.",
+    severity: "error",
+    shape: {},
+  },
   "add.target.required": {
     description: "add call requires at least one target or targets entry.",
     severity: "error",

@@ -44,7 +44,7 @@ import { runMatchExpression as runMatchExpressionApi } from "./api/matchExpressi
 import { runOnDiagnostic } from "./api/onDiagnostic.js";
 import { runSet } from "./api/set.js";
 import type { ActOccurrence } from "../processing/actImpulse.js";
-import type { RuntimeOnError } from "./store.js";
+import { handleRuntimeOnError } from "./onError.js";
 
 type RuntimeAddBackfillInput = {
   signal?: { debt?: number; runs?: { max?: number } };
@@ -116,39 +116,6 @@ export function createRuntime(): Runtime {
   const expressionRegistry = registry<RegisteredExpression>();
   const store = initRuntimeStore<RegisteredExpression>();
 
-  const handleRuntimeOnError = (
-    mode: RuntimeOnError | undefined,
-    error: unknown,
-    phase: "diagnostic/listener",
-    extraData?: Record<string, unknown>,
-  ): void => {
-    if (typeof mode === "function") {
-      mode(error);
-      return;
-    }
-
-    if (mode === "swallow") {
-      return;
-    }
-
-    if (mode === "throw") {
-      throw error;
-    }
-
-    diagnostics.emit({
-      code: "runtime.diagnostic.listenerError",
-      message:
-        error instanceof Error
-          ? error.message
-          : "Runtime diagnostic listener error",
-      severity: "error",
-      data: {
-        phase,
-        ...(extraData ?? {}),
-      },
-    });
-  };
-
   let handlingDiagnosticListenerError = false;
 
   const diagnostics = createDiagnosticCollector<RuntimeDiagnostic>({
@@ -159,20 +126,25 @@ export function createRuntime(): Runtime {
 
       handlingDiagnosticListenerError = true;
       try {
-        handleRuntimeOnError(
-          store.impulseQ.config.onError,
-          error,
-          "diagnostic/listener",
-          {
-            listenerIndex,
-            ...(handlerName !== undefined ? { handlerName } : {}),
-          },
-        );
+        store.reportRuntimeError(error, "diagnostic/listener", {
+          listenerIndex,
+          ...(handlerName !== undefined ? { handlerName } : {}),
+        });
       } finally {
         handlingDiagnosticListenerError = false;
       }
     },
   });
+
+  store.reportRuntimeError = (error, phase, extraData): void => {
+    handleRuntimeOnError(
+      store.impulseQ.config.onError,
+      diagnostics,
+      error,
+      phase,
+      extraData,
+    );
+  };
 
   const runtimeCore: RuntimeCore = {
     get(key, opts) {

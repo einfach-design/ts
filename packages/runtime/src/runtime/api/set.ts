@@ -10,28 +10,23 @@ import {
   type SetDefaults,
 } from "../../state/defaults.js";
 import { createFlagsView, type FlagsView } from "../../state/flagsView.js";
-import type { SeenSignals } from "../../state/signals.js";
+import {
+  signals as patchSignals,
+  type SeenSignals,
+} from "../../state/signals.js";
 import { hasOwn, isObject, measureEntryBytes } from "../util.js";
 import type { RuntimeOnError, RuntimeStore } from "../store.js";
 import type { RegistryStore } from "../../state/registry.js";
 import type { DiagnosticCollector } from "../../diagnostics/index.js";
+import { snapshotGetKeys } from "./get.js";
 
-const hydrationRequiredKeys = [
-  "defaults",
-  "flags",
-  "changedFlags",
-  "seenFlags",
-  "signal",
-  "seenSignals",
-  "impulseQ",
-  "backfillQ",
-  "registeredQ",
-] as const;
+const hydrationRequiredKeys = snapshotGetKeys;
 
 const allowedPatchKeys = [
   "flags",
   "addFlags",
   "removeFlags",
+  "signals",
   "defaults",
   "impulseQ",
 ] as const;
@@ -57,7 +52,11 @@ export function runSet(
       throw new Error("set.patch.invalid");
     }
 
-    const isHydration = hasOwn(patch, "backfillQ");
+    const isHydration =
+      hasOwn(patch, "backfillQ") ||
+      hasOwn(patch, "registeredQ") ||
+      hasOwn(patch, "registeredById") ||
+      hasOwn(patch, "diagnostics");
 
     if (isHydration) {
       for (const key of hydrationRequiredKeys) {
@@ -91,6 +90,9 @@ export function runSet(
           };
         };
         backfillQ: BackfillQSnapshot;
+        registeredQ: readonly string[];
+        registeredById: Record<string, unknown>;
+        diagnostics: readonly unknown[];
       };
 
       store.defaults = hydration.defaults;
@@ -201,6 +203,29 @@ export function runSet(
       ]);
     }
 
+    if (hasOwn(patch, "signals")) {
+      if (
+        !Array.isArray(patch.signals) ||
+        !patch.signals.every((signal) => typeof signal === "string")
+      ) {
+        diagnostics.emit({
+          code: "set.patch.signals.invalid",
+          message: "signals patch must be an array of strings.",
+          severity: "error",
+        });
+        throw new Error("set.patch.signals.invalid");
+      }
+
+      const nextSignals = patchSignals({
+        ...(store.signal !== undefined ? { previousSignal: store.signal } : {}),
+        previousSeenSignals: store.seenSignals,
+        signals: patch.signals,
+      });
+
+      store.signal = nextSignals.signal;
+      store.seenSignals = nextSignals.seenSignals;
+    }
+
     if (hasOwn(patch, "defaults")) {
       store.defaults = setDefaults(
         store.defaults,
@@ -256,6 +281,10 @@ export function runSet(
             ? { onTrim: store.impulseQ.config.onTrim }
             : {}),
         });
+
+        if (trimmed.onTrimError !== undefined) {
+          store.reportRuntimeError(trimmed.onTrimError, "trim/onTrim");
+        }
 
         const removedCount = Math.max(0, prevCursor - trimmed.cursor);
         if (removedCount > 0) {

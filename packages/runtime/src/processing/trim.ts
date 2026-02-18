@@ -40,6 +40,7 @@ export type TrimResult<TEntry> = Readonly<{
   cursor: number;
   trimPendingMaxBytes: boolean;
   events: readonly TrimEvent[];
+  onTrimError: unknown | undefined;
 }>;
 
 function canonicalRetain(retain: number | boolean | undefined): number {
@@ -82,6 +83,7 @@ export function trim<TEntry>(opts: TrimOptions<TEntry>): TrimResult<TEntry> {
   const applied = opts.entries.slice(0, opts.cursor);
   const pending = opts.entries.slice(opts.cursor);
   const events: TrimEvent[] = [];
+  let onTrimError: unknown | undefined;
   let cursorDelta = 0;
   let pendingMaxBytes = opts.trimPendingMaxBytes;
 
@@ -90,13 +92,19 @@ export function trim<TEntry>(opts: TrimOptions<TEntry>): TrimResult<TEntry> {
     const removed = applied.slice(0, retainOverflow);
     const bytesFreed = appliedBytes(removed, opts.measureBytes);
 
-    opts.onTrim?.({
-      entries: removed,
-      stats: {
-        reason: "retain",
-        bytesFreed,
-      },
-    });
+    if (opts.onTrim !== undefined) {
+      try {
+        opts.onTrim({
+          entries: removed,
+          stats: {
+            reason: "retain",
+            bytesFreed,
+          },
+        });
+      } catch (error) {
+        onTrimError ??= error;
+      }
+    }
 
     applied.splice(0, retainOverflow);
     cursorDelta += retainOverflow;
@@ -123,13 +131,19 @@ export function trim<TEntry>(opts: TrimOptions<TEntry>): TrimResult<TEntry> {
         const removed = applied.slice(0, index);
         const bytesFreed = appliedBytes(removed, opts.measureBytes);
 
-        opts.onTrim?.({
-          entries: removed,
-          stats: {
-            reason: "maxBytes",
-            bytesFreed,
-          },
-        });
+        if (opts.onTrim !== undefined) {
+          try {
+            opts.onTrim({
+              entries: removed,
+              stats: {
+                reason: "maxBytes",
+                bytesFreed,
+              },
+            });
+          } catch (error) {
+            onTrimError ??= error;
+          }
+        }
 
         applied.splice(0, index);
         cursorDelta += index;
@@ -150,5 +164,6 @@ export function trim<TEntry>(opts: TrimOptions<TEntry>): TrimResult<TEntry> {
     cursor: opts.cursor - cursorDelta,
     trimPendingMaxBytes: pendingMaxBytes,
     events,
+    onTrimError,
   };
 }

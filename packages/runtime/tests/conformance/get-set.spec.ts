@@ -61,6 +61,8 @@ describe("conformance/get-set", () => {
       },
       backfillQ: { list: [], map: {} },
       registeredQ: [],
+      registeredById: {},
+      diagnostics: [],
     });
 
     expect(
@@ -228,6 +230,8 @@ describe("conformance/get-set", () => {
       },
       backfillQ: { list: [], map: {} },
       registeredQ: [],
+      registeredById: {},
+      diagnostics: [],
     });
 
     const scoped = run.get("*" as string | undefined, {
@@ -298,6 +302,8 @@ describe("conformance/get-set", () => {
       },
       backfillQ: { list: [], map: {} },
       registeredQ: [],
+      registeredById: {},
+      diagnostics: [],
     });
 
     const scoped = run.get("*" as string | undefined, {
@@ -368,6 +374,8 @@ describe("conformance/get-set", () => {
       },
       backfillQ: { list: [], map: {} },
       registeredQ: [],
+      registeredById: {},
+      diagnostics: [],
     });
 
     const scoped = run.get("*" as string | undefined, {
@@ -431,6 +439,8 @@ describe("conformance/get-set", () => {
       },
       backfillQ: { list: [], map: {} },
       registeredQ: [],
+      registeredById: {},
+      diagnostics: [],
     });
 
     expect(() => run.get("flags" as string | undefined)).not.toThrow();
@@ -537,6 +547,8 @@ describe("conformance/get-set", () => {
       },
       backfillQ: { list: [], map: {} },
       registeredQ: [],
+      registeredById: {},
+      diagnostics: [],
     });
 
     const appliedBeforeTrim = run.get("flags" as string | undefined, {
@@ -655,6 +667,8 @@ describe("conformance/get-set", () => {
       },
       backfillQ: { list: [], map: {} },
       registeredQ: [],
+      registeredById: {},
+      diagnostics: [],
     });
 
     const maxBytes =
@@ -804,10 +818,20 @@ describe("conformance/get-set", () => {
       as: "snapshot",
     }) as Record<string, unknown>;
 
-    const incomplete = { ...snapshot };
-    delete incomplete.defaults;
+    const missingKeyCodes: string[] = [];
+    run.onDiagnostic((diagnostic) => {
+      if (diagnostic.code === "set.hydration.incomplete") {
+        missingKeyCodes.push(diagnostic.code);
+      }
+    });
 
-    expect(() => run.set(incomplete)).toThrow("set.hydration.incomplete");
+    for (const key of Object.keys(snapshot)) {
+      const incomplete = { ...snapshot };
+      delete incomplete[key as keyof typeof incomplete];
+      expect(() => run.set(incomplete)).toThrow("set.hydration.incomplete");
+    }
+
+    expect(missingKeyCodes).toHaveLength(Object.keys(snapshot).length);
   });
 
   it("B4 — patch must reject changedFlags and preserve hydration changedFlags (Spec §4.2)", () => {
@@ -861,6 +885,45 @@ describe("conformance/get-set", () => {
     ).toThrow("set.patch.impulseQ.q.forbidden");
   });
 
+  it("B6 — signals patch updates signal/seenSignals without queue processing (Spec §4.2)", () => {
+    const run = createRuntime();
+
+    run.impulse({ signals: ["a"], addFlags: ["a"] });
+
+    const beforeQ = run.get("impulseQ", { as: "snapshot" }) as {
+      q: { cursor: number; entries: unknown[] };
+    };
+
+    run.set({ signals: ["patch-1", "patch-2"] });
+
+    expect(run.get("signal")).toBe("patch-2");
+    expect(run.get("seenSignals")).toEqual({
+      list: ["a", "patch-1", "patch-2"],
+      map: { a: true, "patch-1": true, "patch-2": true },
+    });
+
+    const afterQ = run.get("impulseQ", { as: "snapshot" }) as {
+      q: { cursor: number; entries: unknown[] };
+    };
+
+    expect(afterQ.q.cursor).toBe(beforeQ.q.cursor);
+    expect(afterQ.q.entries).toEqual(beforeQ.q.entries);
+  });
+
+  it("B7 — signals patch rejects invalid payloads (Spec §4.2)", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({ signals: ["ok", 1] as unknown as string[] }),
+    ).toThrow("set.patch.signals.invalid");
+    expect(codes).toContain("set.patch.signals.invalid");
+  });
+
   it("A2.trim — trimming applied keeps pending projections stable", () => {
     const run = createRuntime();
 
@@ -902,6 +965,8 @@ describe("conformance/get-set", () => {
       },
       backfillQ: { list: [], map: {} },
       registeredQ: [],
+      registeredById: {},
+      diagnostics: [],
     });
 
     const pendingImpulseQBefore = run.get("impulseQ", {
