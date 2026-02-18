@@ -9,6 +9,26 @@ type Call = {
   gate?: "signal" | "flags";
 };
 
+type TelemetryTargetInput = {
+  q: Call["q"];
+  expression: {
+    id: string;
+    inBackfillQ: boolean;
+    actBackfillGate?: "signal" | "flags";
+  };
+};
+
+const collectTelemetryCall = (calls: Call[], i: TelemetryTargetInput): void => {
+  calls.push({
+    id: i.expression.id,
+    q: i.q,
+    inBackfillQ: i.expression.inBackfillQ,
+    ...(i.expression.actBackfillGate !== undefined
+      ? { gate: i.expression.actBackfillGate }
+      : {}),
+  });
+};
+
 describe("conformance/backfill-telemetry-gate-integration", () => {
   it("keeps gate reject, pending re-enqueue, and telemetry inBackfillQ semantics deterministic", () => {
     const run = createRuntime();
@@ -25,14 +45,7 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
       },
       targets: [
         (i) => {
-          calls.push({
-            id: i.expression.id,
-            q: i.q,
-            inBackfillQ: i.expression.inBackfillQ,
-            ...(i.expression.actBackfillGate !== undefined
-              ? { gate: i.expression.actBackfillGate }
-              : {}),
-          });
+          collectTelemetryCall(calls, i);
         },
       ],
     });
@@ -46,14 +59,7 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
       },
       targets: [
         (i) => {
-          calls.push({
-            id: i.expression.id,
-            q: i.q,
-            inBackfillQ: i.expression.inBackfillQ,
-            ...(i.expression.actBackfillGate !== undefined
-              ? { gate: i.expression.actBackfillGate }
-              : {}),
-          });
+          collectTelemetryCall(calls, i);
         },
       ],
     });

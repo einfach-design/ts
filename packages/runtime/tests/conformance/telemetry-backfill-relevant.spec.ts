@@ -9,6 +9,32 @@ type TelemetryCall = {
   inBackfillQ: boolean;
 };
 
+type TelemetryTargetInput = {
+  q: TelemetryCall["q"];
+  expression: {
+    backfillSignalRuns?: number;
+    backfillFlagsRuns?: number;
+    backfillRuns?: number;
+    inBackfillQ: boolean;
+  };
+};
+
+const pushCall = (calls: TelemetryCall[], i: TelemetryTargetInput): void => {
+  calls.push({
+    q: i.q,
+    ...(i.expression.backfillSignalRuns !== undefined
+      ? { signalRuns: i.expression.backfillSignalRuns }
+      : {}),
+    ...(i.expression.backfillFlagsRuns !== undefined
+      ? { flagsRuns: i.expression.backfillFlagsRuns }
+      : {}),
+    ...(i.expression.backfillRuns !== undefined
+      ? { runs: i.expression.backfillRuns }
+      : {}),
+    inBackfillQ: i.expression.inBackfillQ,
+  });
+};
+
 describe("conformance/telemetry-backfill-relevant", () => {
   it("debt drain in same run: registered call reports inBackfillQ=false", () => {
     const run = createRuntime();
@@ -22,19 +48,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
       },
       targets: [
         (i) => {
-          calls.push({
-            q: i.q,
-            ...(i.expression.backfillSignalRuns !== undefined
-              ? { signalRuns: i.expression.backfillSignalRuns }
-              : {}),
-            ...(i.expression.backfillFlagsRuns !== undefined
-              ? { flagsRuns: i.expression.backfillFlagsRuns }
-              : {}),
-            ...(i.expression.backfillRuns !== undefined
-              ? { runs: i.expression.backfillRuns }
-              : {}),
-            inBackfillQ: i.expression.inBackfillQ,
-          });
+          pushCall(calls, i);
         },
       ],
     });
@@ -87,19 +101,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
       },
       targets: [
         (i) => {
-          calls.push({
-            q: i.q,
-            ...(i.expression.backfillSignalRuns !== undefined
-              ? { signalRuns: i.expression.backfillSignalRuns }
-              : {}),
-            ...(i.expression.backfillFlagsRuns !== undefined
-              ? { flagsRuns: i.expression.backfillFlagsRuns }
-              : {}),
-            ...(i.expression.backfillRuns !== undefined
-              ? { runs: i.expression.backfillRuns }
-              : {}),
-            inBackfillQ: i.expression.inBackfillQ,
-          });
+          pushCall(calls, i);
         },
       ],
     });
@@ -154,19 +156,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
       },
       targets: [
         (i) => {
-          calls.push({
-            q: i.q,
-            ...(i.expression.backfillSignalRuns !== undefined
-              ? { signalRuns: i.expression.backfillSignalRuns }
-              : {}),
-            ...(i.expression.backfillFlagsRuns !== undefined
-              ? { flagsRuns: i.expression.backfillFlagsRuns }
-              : {}),
-            ...(i.expression.backfillRuns !== undefined
-              ? { runs: i.expression.backfillRuns }
-              : {}),
-            inBackfillQ: i.expression.inBackfillQ,
-          });
+          pushCall(calls, i);
         },
       ],
     });
@@ -220,19 +210,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
       id: "expr:plain",
       targets: [
         (i) => {
-          calls.push({
-            q: i.q,
-            ...(i.expression.backfillSignalRuns !== undefined
-              ? { signalRuns: i.expression.backfillSignalRuns }
-              : {}),
-            ...(i.expression.backfillFlagsRuns !== undefined
-              ? { flagsRuns: i.expression.backfillFlagsRuns }
-              : {}),
-            ...(i.expression.backfillRuns !== undefined
-              ? { runs: i.expression.backfillRuns }
-              : {}),
-            inBackfillQ: i.expression.inBackfillQ,
-          });
+          pushCall(calls, i);
         },
       ],
     });
