@@ -54,17 +54,17 @@ describe("diagnostics/emit", () => {
     const removeA = collector.subscribe(handlerA);
     collector.subscribe(handlerB);
 
-    collector.emit({ code: "dispatch.error", message: "A" });
+    collector.emit({ code: "runtime.target.error", message: "A" });
     removeA();
     collector.emit({ code: "runtime.onError.report", message: "B" });
 
     expect(collector.list()).toEqual([
-      { code: "dispatch.error", message: "A" },
+      { code: "runtime.target.error", message: "A" },
       { code: "runtime.onError.report", message: "B" },
     ]);
     expect(handlerA).toHaveBeenCalledTimes(1);
     expect(handlerA).toHaveBeenCalledWith({
-      code: "dispatch.error",
+      code: "runtime.target.error",
       message: "A",
     });
     expect(handlerB).toHaveBeenCalledTimes(2);

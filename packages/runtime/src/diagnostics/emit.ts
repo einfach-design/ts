@@ -71,9 +71,9 @@ export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
           diagnostic,
         });
 
-        if (diagnostic.code !== "diagnostics.listener.error") {
+        if (diagnostic.code !== "runtime.diagnostic.listenerError") {
           const listenerErrorDiagnostic = {
-            code: "diagnostics.listener.error",
+            code: "runtime.diagnostic.listenerError",
             message:
               error instanceof Error
                 ? error.message

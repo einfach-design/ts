@@ -244,7 +244,7 @@ describe("conformance/runtime", () => {
 
     run.impulse({ addFlags: ["x"] });
 
-    expect(seen).toContain("dispatch.error");
+    expect(seen).toContain("runtime.target.error");
 
     run.set({
       impulseQ: {
@@ -299,7 +299,7 @@ describe("conformance/runtime", () => {
     run.impulse({ signals: "bad" } as Record<string, unknown>);
 
     const listenerError = seen.find(
-      (diagnostic) => diagnostic.code === "diagnostics.listener.error",
+      (diagnostic) => diagnostic.code === "runtime.diagnostic.listenerError",
     );
 
     expect(listenerError).toBeTruthy();

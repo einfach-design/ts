@@ -91,7 +91,7 @@ describe("conformance/diagnostic-codes", () => {
     expect(invalidGet?.data?.key).toBe("unknown-key");
   });
 
-  it("emits diagnostics.listener.error when a diagnostic listener throws", () => {
+  it("emits runtime.diagnostic.listenerError when a diagnostic listener throws", () => {
     const run = createRuntime();
     const seen: string[] = [];
 
@@ -105,6 +105,6 @@ describe("conformance/diagnostic-codes", () => {
 
     expect(() => run.get("unknown-key")).toThrow("get.key.invalid");
 
-    expect(seen).toContain("diagnostics.listener.error");
+    expect(seen).toContain("runtime.diagnostic.listenerError");
   });
 });

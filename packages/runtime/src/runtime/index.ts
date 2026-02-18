@@ -28,7 +28,6 @@ import {
   dispatch,
   type DispatchError,
   type DispatchInput,
-  type DispatchOnErrorMode,
 } from "../targets/dispatch.js";
 import { hasOwn, isObject, toMatchFlagsView } from "./util.js";
 import { initRuntimeStore } from "./store.js";
@@ -137,9 +136,11 @@ export function createRuntime(): Runtime {
     }
 
     diagnostics.emit({
-      code: "runtime.onError.report",
+      code: "runtime.diagnostic.listenerError",
       message:
-        error instanceof Error ? error.message : "Runtime onError report",
+        error instanceof Error
+          ? error.message
+          : "Runtime diagnostic listener error",
       severity: "error",
       data: {
         phase,
@@ -229,7 +230,7 @@ export function createRuntime(): Runtime {
 
   const reportDispatchIssue = (issue: DispatchError): void => {
     diagnostics.emit({
-      code: "dispatch.error",
+      code: "runtime.target.error",
       message: issue.error.message,
       severity: "error",
       data: {
@@ -237,6 +238,15 @@ export function createRuntime(): Runtime {
         targetKind: issue.context.targetKind,
         ...(issue.context.handler !== undefined
           ? { handler: issue.context.handler }
+          : {}),
+        ...(issue.context.signal !== undefined
+          ? { signal: issue.context.signal }
+          : {}),
+        ...(issue.context.expressionId !== undefined
+          ? { expressionId: issue.context.expressionId }
+          : {}),
+        ...(issue.context.occurrenceKind !== undefined
+          ? { occurrenceKind: issue.context.occurrenceKind }
           : {}),
       },
     });
@@ -253,8 +263,8 @@ export function createRuntime(): Runtime {
       runtimeCore,
       dispatch: (x: unknown) => {
         dispatch({
-          ...(x as DispatchInput),
-          onError: "report" satisfies DispatchOnErrorMode,
+          ...(x as Omit<DispatchInput, "onError" | "reportError">),
+          onError: store.impulseQ.config.onError ?? "report",
           reportError: reportDispatchIssue,
         });
       },
@@ -263,20 +273,6 @@ export function createRuntime(): Runtime {
       createFlagsView,
       onLimitReached: exitExpressionOnLimit,
     });
-
-  const runBackfill = (): void => {
-    backfillRun({
-      backfillQ: store.backfillQ,
-      registeredById: expressionRegistry.registeredById,
-      attempt(expression) {
-        return {
-          status: coreRun(expression).status,
-          pending: false,
-        };
-      },
-      onLimitReached: exitExpressionOnLimit,
-    });
-  };
 
   const processImpulseEntry = (entry: ImpulseQEntryCanonical): void => {
     const before = store.flagsTruth;
@@ -349,7 +345,33 @@ export function createRuntime(): Runtime {
       hasBackfill: store.backfillQ.list.length > 0,
       runBackfill: (occurrence) => {
         withOccurrenceContext(occurrence, () => {
-          runBackfill();
+          backfillRun({
+            backfillQ: store.backfillQ,
+            registeredById: expressionRegistry.registeredById,
+            attempt(expression) {
+              return {
+                status: coreRunImpl({
+                  expression,
+                  store: toCoreStoreView(),
+                  runtimeCore,
+                  dispatch: (x: unknown) => {
+                    dispatch({
+                      ...(x as Omit<DispatchInput, "onError" | "reportError">),
+                      onError: store.impulseQ.config.onError ?? "report",
+                      reportError: reportDispatchIssue,
+                    });
+                  },
+                  matchExpression: matchExpressionForCoreRun,
+                  toMatchFlagsView,
+                  createFlagsView,
+                  onLimitReached: exitExpressionOnLimit,
+                  occurrenceKind: "backfill",
+                }).status,
+                pending: false,
+              };
+            },
+            onLimitReached: exitExpressionOnLimit,
+          });
         });
       },
       runRegistered: (occurrence) => {
