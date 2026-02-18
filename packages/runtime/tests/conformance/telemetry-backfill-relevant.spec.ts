@@ -73,6 +73,74 @@ describe("conformance/telemetry-backfill-relevant", () => {
     );
   });
 
+  it("drains signal and flags debt in one impulse without re-enqueueing backfill", () => {
+    const run = createRuntime();
+    const calls: TelemetryCall[] = [];
+
+    run.add({
+      id: "expr:drain-countercase",
+      signal: "sig:ready",
+      required: { flags: { changed: 1 } },
+      backfill: {
+        signal: { debt: 1 },
+        flags: { debt: 1 },
+      },
+      targets: [
+        (i) => {
+          calls.push({
+            q: i.q,
+            ...(i.expression.backfillSignalRuns !== undefined
+              ? { signalRuns: i.expression.backfillSignalRuns }
+              : {}),
+            ...(i.expression.backfillFlagsRuns !== undefined
+              ? { flagsRuns: i.expression.backfillFlagsRuns }
+              : {}),
+            ...(i.expression.backfillRuns !== undefined
+              ? { runs: i.expression.backfillRuns }
+              : {}),
+            inBackfillQ: i.expression.inBackfillQ,
+          });
+        },
+      ],
+    });
+
+    const snapshot = run.get("*", { as: "snapshot" }) as {
+      backfillQ: { list: string[]; map: Record<string, true> };
+    } & Record<string, unknown>;
+
+    snapshot.backfillQ = {
+      list: ["expr:drain-countercase"],
+      map: { "expr:drain-countercase": true },
+    };
+
+    run.set(snapshot);
+
+    run.impulse({
+      signals: ["sig:ready"],
+      addFlags: ["flag:up"],
+      removeFlags: ["flag:down"],
+    });
+
+    const registeredCalls = calls.filter((call) => call.q === "registered");
+    expect(registeredCalls).toHaveLength(1);
+    expect(registeredCalls[0]).toEqual(
+      expect.objectContaining({
+        signalRuns: 1,
+        flagsRuns: 1,
+        runs: 2,
+        inBackfillQ: false,
+      }),
+    );
+
+    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
+      list: string[];
+      map: Record<string, true>;
+    };
+
+    expect(backfillQ.list).not.toContain("expr:drain-countercase");
+    expect(backfillQ.map["expr:drain-countercase"]).toBeUndefined();
+  });
+
   it("keeps backfill-relevant telemetry stable across backfill and registered runs", () => {
     const run = createRuntime();
     const calls: TelemetryCall[] = [];
