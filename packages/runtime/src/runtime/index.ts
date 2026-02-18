@@ -45,6 +45,7 @@ import { runMatchExpression as runMatchExpressionApi } from "./api/matchExpressi
 import { runOnDiagnostic } from "./api/onDiagnostic.js";
 import { runSet } from "./api/set.js";
 import type { ActOccurrence } from "../processing/actImpulse.js";
+import type { RuntimeOnError } from "./store.js";
 
 type Runtime = Readonly<{
   add: (opts: {
@@ -109,9 +110,63 @@ const toMatcherExpression = (
  */
 export function createRuntime(): Runtime {
   const expressionRegistry = registry<RegisteredExpression>();
-  const diagnostics = createDiagnosticCollector<RuntimeDiagnostic>();
-
   const store = initRuntimeStore<RegisteredExpression>();
+
+  const handleRuntimeOnError = (
+    mode: RuntimeOnError | undefined,
+    error: unknown,
+    phase: "diagnostic/listener",
+    extraData?: Record<string, unknown>,
+  ): void => {
+    if (typeof mode === "function") {
+      mode(error);
+      return;
+    }
+
+    if (mode === "swallow") {
+      return;
+    }
+
+    if (mode === "throw") {
+      throw error;
+    }
+
+    diagnostics.emit({
+      code: "runtime.onError.report",
+      message:
+        error instanceof Error ? error.message : "Runtime onError report",
+      severity: "error",
+      data: {
+        phase,
+        ...(extraData ?? {}),
+      },
+    });
+  };
+
+  let handlingDiagnosticListenerError = false;
+
+  const diagnostics = createDiagnosticCollector<RuntimeDiagnostic>({
+    onListenerError: ({ error, listenerIndex, handlerName }): void => {
+      if (handlingDiagnosticListenerError) {
+        return;
+      }
+
+      handlingDiagnosticListenerError = true;
+      try {
+        handleRuntimeOnError(
+          store.impulseQ.config.onError,
+          error,
+          "diagnostic/listener",
+          {
+            listenerIndex,
+            ...(handlerName !== undefined ? { handlerName } : {}),
+          },
+        );
+      } finally {
+        handlingDiagnosticListenerError = false;
+      }
+    },
+  });
 
   const runtimeCore: RuntimeCore = {
     get(key, opts) {

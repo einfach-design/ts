@@ -6,10 +6,14 @@ import { drain } from "../../processing/drain.js";
 import type { RuntimeOnError, RuntimeStore } from "../store.js";
 import type { DiagnosticCollector } from "../../diagnostics/index.js";
 
+type RuntimeErrorPhase = "impulse/drain" | "diagnostic/listener";
+
 function handleOnError(
   mode: RuntimeOnError | undefined,
   diagnostics: DiagnosticCollector,
   error: unknown,
+  phase: RuntimeErrorPhase,
+  extraData?: Record<string, unknown>,
 ): void {
   if (typeof mode === "function") {
     mode(error);
@@ -28,7 +32,10 @@ function handleOnError(
     code: "runtime.onError.report",
     message: error instanceof Error ? error.message : "Runtime onError report",
     severity: "error",
-    data: { phase: "impulse/drain" },
+    data: {
+      phase,
+      ...(extraData ?? {}),
+    },
   });
 }
 
@@ -69,7 +76,12 @@ export function runImpulse(
         draining: false,
         process: processImpulseEntry,
         onAbort: (info) => {
-          handleOnError(store.impulseQ.config.onError, diagnostics, info.error);
+          handleOnError(
+            store.impulseQ.config.onError,
+            diagnostics,
+            info.error,
+            "impulse/drain",
+          );
         },
       });
 

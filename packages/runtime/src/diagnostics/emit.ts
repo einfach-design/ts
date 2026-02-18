@@ -21,6 +21,13 @@ export interface EmitDiagnosticOptions<
   readonly diagnostic: TDiagnostic;
   readonly listeners?: ReadonlySet<(diagnostic: TDiagnostic) => void>;
   readonly collector?: TDiagnostic[];
+  readonly onListenerError?: (info: {
+    error: unknown;
+    listener: (diagnostic: TDiagnostic) => void;
+    listenerIndex: number;
+    handlerName?: string;
+    diagnostic: TDiagnostic;
+  }) => void;
 }
 
 export interface DiagnosticCollector<
@@ -38,7 +45,7 @@ export interface DiagnosticCollector<
 export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
   options: EmitDiagnosticOptions<TDiagnostic>,
 ): TDiagnostic {
-  const { diagnostic, listeners, collector } = options;
+  const { diagnostic, listeners, collector, onListenerError } = options;
 
   if (!(diagnostic.code in DIAGNOSTIC_CODES)) {
     throw new Error("diagnostics.code.unknown");
@@ -49,8 +56,46 @@ export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
   }
 
   if (listeners) {
+    let listenerIndex = 0;
     for (const listener of listeners) {
-      listener(diagnostic);
+      try {
+        listener(diagnostic);
+      } catch (error) {
+        const handlerName = listener.name || undefined;
+
+        onListenerError?.({
+          error,
+          listener,
+          listenerIndex,
+          ...(handlerName !== undefined ? { handlerName } : {}),
+          diagnostic,
+        });
+
+        if (diagnostic.code !== "diagnostics.listener.error") {
+          const listenerErrorDiagnostic = {
+            code: "diagnostics.listener.error",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Diagnostic listener failed",
+            severity: "error",
+            data: {
+              phase: "diagnostic/listener",
+              listenerIndex,
+              ...(handlerName !== undefined ? { handlerName } : {}),
+            },
+          } as unknown as TDiagnostic;
+
+          emitDiagnostic({
+            diagnostic: listenerErrorDiagnostic,
+            listeners,
+            ...(collector !== undefined ? { collector } : {}),
+            ...(onListenerError !== undefined ? { onListenerError } : {}),
+          });
+        }
+      }
+
+      listenerIndex += 1;
     }
   }
 
@@ -59,13 +104,22 @@ export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
 
 export function createDiagnosticCollector<
   TDiagnostic extends RuntimeDiagnostic = RuntimeDiagnostic,
->(): DiagnosticCollector<TDiagnostic> {
+>(
+  options?: Pick<EmitDiagnosticOptions<TDiagnostic>, "onListenerError">,
+): DiagnosticCollector<TDiagnostic> {
   const diagnostics: TDiagnostic[] = [];
   const listeners = new Set<(diagnostic: TDiagnostic) => void>();
 
   return {
     emit(diagnostic) {
-      return emitDiagnostic({ diagnostic, listeners, collector: diagnostics });
+      return emitDiagnostic({
+        diagnostic,
+        listeners,
+        collector: diagnostics,
+        ...(options?.onListenerError !== undefined
+          ? { onListenerError: options.onListenerError }
+          : {}),
+      });
     },
     subscribe(handler) {
       listeners.add(handler);

@@ -232,4 +232,55 @@ describe("conformance/runtime", () => {
 
     expect(() => run.impulse({ addFlags: ["y"] })).not.toThrow();
   });
+
+  it("diagnostic listener errors do not stop later listeners and runtime remains usable", () => {
+    const run = createRuntime();
+    let secondListenerCalls = 0;
+
+    run.onDiagnostic(() => {
+      throw new Error("listener boom");
+    });
+
+    run.onDiagnostic(() => {
+      secondListenerCalls += 1;
+    });
+
+    expect(() =>
+      run.impulse({ signals: "bad" } as Record<string, unknown>),
+    ).not.toThrow();
+
+    expect(secondListenerCalls).toBeGreaterThan(0);
+
+    expect(() =>
+      run.impulse({ signals: "bad" } as Record<string, unknown>),
+    ).not.toThrow();
+    expect(secondListenerCalls).toBeGreaterThan(1);
+  });
+
+  it("diagnostic listener errors are reported with stable code and listener metadata", () => {
+    const run = createRuntime();
+    const seen: Array<{ code: string; data?: Record<string, unknown> }> = [];
+
+    run.onDiagnostic((diagnostic) => {
+      seen.push({
+        code: diagnostic.code,
+        ...(diagnostic.data !== undefined ? { data: diagnostic.data } : {}),
+      });
+    });
+
+    run.onDiagnostic(function brokenListener() {
+      throw new Error("listener failed");
+    });
+
+    run.impulse({ signals: "bad" } as Record<string, unknown>);
+
+    const listenerError = seen.find(
+      (diagnostic) => diagnostic.code === "diagnostics.listener.error",
+    );
+
+    expect(listenerError).toBeTruthy();
+    expect(listenerError?.data?.phase).toBe("diagnostic/listener");
+    expect(listenerError?.data?.listenerIndex).toBeTypeOf("number");
+    expect(listenerError?.data?.handlerName).toBe("brokenListener");
+  });
 });
