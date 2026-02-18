@@ -15,7 +15,7 @@ describe("failure-modes/runtime-errors", () => {
     const phases: string[] = [];
 
     run.onDiagnostic((diagnostic) => {
-      if (diagnostic.code === "dispatch.error") {
+      if (diagnostic.code === "runtime.target.error") {
         phases.push(String(diagnostic.data?.phase));
       }
     });
@@ -31,8 +31,37 @@ describe("failure-modes/runtime-errors", () => {
 
     run.impulse({ addFlags: ["a"] });
 
-    // Spec §8.2: target execution errors are routed through onError reporting flow.
     expect(phases).toContain("target/callback");
+  });
+
+  it("onError=throw aborts drain and propagates target exceptions", () => {
+    const run = createRuntime();
+
+    run.set({
+      impulseQ: {
+        config: {
+          onError: "throw",
+        },
+      },
+    });
+
+    run.add({
+      id: "expr:throw",
+      targets: [
+        () => {
+          throw new Error("target throw");
+        },
+      ],
+    });
+
+    expect(() => run.impulse({ addFlags: ["a"] })).toThrow("target throw");
+
+    const impulseQ = run.get("impulseQ", { as: "snapshot" }) as {
+      q: { cursor: number; entries: unknown[] };
+    };
+
+    expect(impulseQ.q.cursor).toBe(0);
+    expect(impulseQ.q.entries).toHaveLength(1);
   });
 
   it("routes listener exceptions to impulseQ onError callback (Spec §8.1, §8.2)", () => {
@@ -50,7 +79,7 @@ describe("failure-modes/runtime-errors", () => {
     });
 
     run.onDiagnostic((diagnostic) => {
-      if (diagnostic.code === "dispatch.error") {
+      if (diagnostic.code === "runtime.target.error") {
         throw new Error("listener boom");
       }
     });
@@ -66,10 +95,50 @@ describe("failure-modes/runtime-errors", () => {
 
     run.impulse({ addFlags: ["a"] });
 
-    // Spec §8.2: listener-side failures inside impulse processing are handled by configured onError.
     expect(seen).toHaveLength(1);
-    expect(seen[0]).toBeInstanceOf(Error);
-    expect((seen[0] as Error).message).toBe("listener boom");
+    expect(seen[0]).toMatchObject({
+      context: { phase: "target/callback", targetKind: "callback" },
+    });
+    expect((seen[0] as { error: Error }).error.message).toBe("target boom");
+  });
+
+  it("listener errors use runtime onError modes consistently", () => {
+    const reportRun = createRuntime();
+    const reportCodes: string[] = [];
+    reportRun.onDiagnostic((diagnostic) => {
+      reportCodes.push(diagnostic.code);
+      if (diagnostic.code === "impulse.input.invalid") {
+        throw new Error("listener report");
+      }
+    });
+
+    reportRun.set({ impulseQ: { config: { onError: "report" } } });
+    expect(() =>
+      reportRun.impulse({ signals: "bad" } as Record<string, unknown>),
+    ).not.toThrow();
+    expect(reportCodes).toContain("runtime.diagnostic.listenerError");
+
+    const swallowRun = createRuntime();
+    swallowRun.set({ impulseQ: { config: { onError: "swallow" } } });
+    swallowRun.onDiagnostic((diagnostic) => {
+      if (diagnostic.code === "impulse.input.invalid") {
+        throw new Error("listener swallow");
+      }
+    });
+    expect(() =>
+      swallowRun.impulse({ signals: "bad" } as Record<string, unknown>),
+    ).not.toThrow();
+
+    const throwRun = createRuntime();
+    throwRun.set({ impulseQ: { config: { onError: "throw" } } });
+    throwRun.onDiagnostic((diagnostic) => {
+      if (diagnostic.code === "impulse.input.invalid") {
+        throw new Error("listener throw");
+      }
+    });
+    expect(() =>
+      throwRun.impulse({ signals: "bad" } as Record<string, unknown>),
+    ).toThrow("listener throw");
   });
 
   it("propagates trim callback errors directly during run.set (Spec §4.2, §8.2)", () => {
@@ -77,7 +146,6 @@ describe("failure-modes/runtime-errors", () => {
 
     run.impulse({ addFlags: ["a"] });
 
-    // Spec §4.2: trim can be triggered during set; thrown errors must stay observable to caller.
     expect(() =>
       run.set({
         impulseQ: {

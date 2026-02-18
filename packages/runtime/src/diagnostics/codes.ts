@@ -54,13 +54,16 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     shape: {},
   },
-  "dispatch.error": {
+  "runtime.target.error": {
     description: "Target dispatch failed and was reported.",
     severity: "error",
     shape: {
       phase: "target/callback|target/object",
       targetKind: "callback|object",
       handler: "string?",
+      signal: "string?",
+      expressionId: "string?",
+      occurrenceKind: "registered|backfill?",
     },
   },
   "runtime.onError.report": {
@@ -70,7 +73,7 @@ export const DIAGNOSTIC_CODES = {
       phase: "string",
     },
   },
-  "diagnostics.listener.error": {
+  "runtime.diagnostic.listenerError": {
     description: "Diagnostic listener threw while processing a diagnostic.",
     severity: "error",
     shape: {

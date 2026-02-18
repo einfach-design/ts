@@ -15,6 +15,9 @@ export interface DispatchContext {
   readonly phase: DispatchPhase;
   readonly targetKind: DispatchTargetKind;
   readonly handler?: string;
+  readonly signal?: string;
+  readonly expressionId?: string;
+  readonly occurrenceKind?: "registered" | "backfill";
 }
 
 export interface DispatchError {
@@ -33,8 +36,9 @@ export interface DispatchInput {
   readonly target: unknown;
   readonly signal?: string;
   readonly args: readonly unknown[];
-  readonly onError?: DispatchOnErrorMode;
+  readonly onError: DispatchOnErrorMode;
   readonly reportError?: (issue: DispatchError) => void;
+  readonly context?: Pick<DispatchContext, "expressionId" | "occurrenceKind">;
 }
 
 export interface DispatchResult {
@@ -66,6 +70,7 @@ function emitDispatchError(
   }
 
   if (onError === "swallow") {
+    reportError?.(issue);
     return;
   }
 
@@ -73,7 +78,12 @@ function emitDispatchError(
     throw issue.error;
   }
 
-  reportError?.(issue);
+  if (reportError !== undefined) {
+    reportError(issue);
+    return;
+  }
+
+  throw issue.error;
 }
 
 function reportDispatchError(
@@ -103,12 +113,10 @@ function callHandler(
     candidate(...args);
     return 1;
   } catch (error) {
-    if (onError) {
-      emitDispatchError(onError, reportError, {
-        error: asError(error, `Dispatch failed in ${context.phase}`),
-        context,
-      });
-    }
+    emitDispatchError(onError, reportError, {
+      error: asError(error, `Dispatch failed in ${context.phase}`),
+      context,
+    });
 
     return 0;
   }
@@ -118,14 +126,20 @@ function callHandler(
  * Target dispatch (callback/object) + silent semantics.
  */
 export function dispatch(input: DispatchInput): DispatchResult {
-  const { targetKind, target, signal, args, onError, reportError } = input;
+  const { targetKind, target, signal, args, onError, reportError, context } =
+    input;
 
   if (targetKind === "callback") {
     if (!isCallable(target)) {
       reportDispatchError(
         onError,
         reportError,
-        { phase: "target/callback", targetKind },
+        {
+          phase: "target/callback",
+          targetKind,
+          ...(signal !== undefined ? { signal } : {}),
+          ...(context ?? {}),
+        },
         "Callback target must be callable.",
       );
       return { attempted: 0 };
@@ -135,6 +149,8 @@ export function dispatch(input: DispatchInput): DispatchResult {
       attempted: callHandler(target, args, onError, reportError, {
         phase: "target/callback",
         targetKind,
+        ...(signal !== undefined ? { signal } : {}),
+        ...(context ?? {}),
       }),
     };
   }
@@ -143,7 +159,12 @@ export function dispatch(input: DispatchInput): DispatchResult {
     reportDispatchError(
       onError,
       reportError,
-      { phase: "target/object", targetKind },
+      {
+        phase: "target/object",
+        targetKind,
+        ...(signal !== undefined ? { signal } : {}),
+        ...(context ?? {}),
+      },
       "Object target must expose an object `on` entrypoint.",
     );
     return { attempted: 0 };
@@ -159,6 +180,8 @@ export function dispatch(input: DispatchInput): DispatchResult {
       phase: "target/object",
       targetKind,
       handler: EVERY_RUN_HANDLER,
+      ...(signal !== undefined ? { signal } : {}),
+      ...(context ?? {}),
     },
   );
 
@@ -171,6 +194,7 @@ export function dispatch(input: DispatchInput): DispatchResult {
       phase: "target/object",
       targetKind,
       handler: signal,
+      ...(context ?? {}),
     });
   }
 

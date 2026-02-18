@@ -66,6 +66,7 @@ export const coreRun = (args: {
     };
   }) => boolean;
   dispatch: (x: unknown) => void;
+  occurrenceKind?: "registered" | "backfill";
   runtimeCore: RuntimeCore;
   onLimitReached?: (expression: { id: string }) => void;
 }): {
@@ -81,6 +82,7 @@ export const coreRun = (args: {
     dispatch,
     runtimeCore,
     onLimitReached,
+    occurrenceKind = "registered",
   } = args;
 
   const coreReference: {
@@ -129,6 +131,10 @@ export const coreRun = (args: {
       target,
       ...(store.signal !== undefined ? { signal: store.signal } : {}),
       args: [actualExpression, expression, runtimeCore],
+      context: {
+        expressionId: expression.id,
+        occurrenceKind,
+      },
     });
   }
 

@@ -860,4 +860,110 @@ describe("conformance/get-set", () => {
       run.set({ impulseQ: { q: { entries: [] } } } as Record<string, unknown>),
     ).toThrow("set.patch.impulseQ.q.forbidden");
   });
+
+  it("A2.trim — trimming applied keeps pending projections stable", () => {
+    const run = createRuntime();
+
+    run.set({
+      defaults: run.get("defaults", { as: "snapshot" }) as Record<
+        string,
+        unknown
+      >,
+      flags: { list: ["base"], map: { base: true } },
+      changedFlags: { list: ["base"], map: { base: true } },
+      seenFlags: { list: ["base"], map: { base: true } },
+      signal: "applied-a",
+      seenSignals: { list: ["applied-a"], map: { "applied-a": true } },
+      impulseQ: {
+        q: {
+          entries: [
+            {
+              signals: ["applied-a"],
+              addFlags: ["base"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+            {
+              signals: ["applied-b"],
+              addFlags: ["b"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+            {
+              signals: ["pending-c"],
+              addFlags: ["c"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+          ],
+          cursor: 2,
+        },
+        config: { retain: true, maxBytes: Number.POSITIVE_INFINITY },
+      },
+      backfillQ: { list: [], map: {} },
+      registeredQ: [],
+    });
+
+    const pendingImpulseQBefore = run.get("impulseQ", {
+      scope: "pendingOnly",
+      as: "snapshot",
+    });
+
+    run.set({
+      impulseQ: {
+        config: {
+          maxBytes: JSON.stringify({
+            signals: ["applied-b"],
+            addFlags: ["b"],
+            removeFlags: [],
+            useFixedFlags: false,
+          }).length,
+        },
+      },
+    });
+
+    const pendingImpulseQAfter = run.get("impulseQ", {
+      scope: "pendingOnly",
+      as: "snapshot",
+    });
+    const appliedFlags = run.get("flags", { scope: "applied", as: "snapshot" });
+
+    expect((pendingImpulseQAfter as { q: unknown }).q).toEqual(
+      (pendingImpulseQBefore as { q: unknown }).q,
+    );
+    expect(appliedFlags).toEqual({
+      list: ["base", "b"],
+      map: { base: true, b: true },
+    });
+  });
+
+  it("A2.star — scoped get('*') equals scoped single-key projections", () => {
+    const run = createRuntime();
+    run.impulse({ signals: ["one"], addFlags: ["a"] });
+    run.impulse({ signals: ["two"], addFlags: ["b"] });
+
+    const star = run.get("*", {
+      scope: "pendingOnly",
+      as: "snapshot",
+    }) as Record<string, unknown>;
+
+    expect(star.flags).toEqual(
+      run.get("flags", { scope: "pendingOnly", as: "snapshot" }),
+    );
+    expect(star.changedFlags).toEqual(
+      run.get("changedFlags", { scope: "pendingOnly", as: "snapshot" }),
+    );
+    expect(star.seenFlags).toEqual(
+      run.get("seenFlags", { scope: "pendingOnly", as: "snapshot" }),
+    );
+    expect(star.signal).toEqual(
+      run.get("signal", { scope: "pendingOnly", as: "snapshot" }),
+    );
+    expect(star.seenSignals).toEqual(
+      run.get("seenSignals", { scope: "pendingOnly", as: "snapshot" }),
+    );
+    expect(star.impulseQ).toEqual(
+      run.get("impulseQ", { scope: "pendingOnly", as: "snapshot" }),
+    );
+  });
 });

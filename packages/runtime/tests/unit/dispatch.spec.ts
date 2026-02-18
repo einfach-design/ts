@@ -17,6 +17,7 @@ describe("targets/dispatch", () => {
       targetKind: "callback",
       target: callback,
       args: ["a", 1],
+      onError: "throw",
     });
 
     expect(callback).toHaveBeenCalledWith("a", 1);
@@ -85,5 +86,21 @@ describe("targets/dispatch", () => {
     expect(result.attempted).toBe(0);
     expect(onError).toHaveBeenCalledOnce();
     expect(onError.mock.calls[0]?.[0].context.phase).toBe("target/object");
+  });
+
+  it("swallow mode keeps errors observable via reportError", () => {
+    const reportError = vi.fn();
+    const result = dispatch({
+      targetKind: "callback",
+      target: () => {
+        throw new Error("boom");
+      },
+      args: [],
+      onError: "swallow",
+      reportError,
+    });
+
+    expect(result.attempted).toBe(0);
+    expect(reportError).toHaveBeenCalledOnce();
   });
 });
