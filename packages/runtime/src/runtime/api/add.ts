@@ -116,8 +116,6 @@ export function runAdd(
       for (const id of ids) {
         expressionRegistry.remove(id);
       }
-
-      expressionRegistry.compact();
     };
   });
 }

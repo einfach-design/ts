@@ -326,8 +326,6 @@ export function createRuntime(): Runtime {
         });
       },
     });
-
-    expressionRegistry.compact();
   };
 
   const deps = {
