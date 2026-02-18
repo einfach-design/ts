@@ -251,6 +251,39 @@ describe("conformance/diagnostic-codes", () => {
   });
 
   it("uses only registered diagnostic codes in runtime emits", () => {
+    const run = createRuntime();
+    const seenCodes = new Set<string>();
+
+    run.onDiagnostic((diagnostic) => {
+      seenCodes.add(diagnostic.code);
+    });
+
+    expect(() => run.set(null as unknown as Record<string, unknown>)).toThrow(
+      "set.patch.invalid",
+    );
+    expect(() => run.get("unknown-key")).toThrow("get.key.invalid");
+    expect(() => run.add({ id: "expr:no-target" })).toThrow(
+      "add.target.required",
+    );
+
+    run.add({
+      id: "expr:dispatch-error",
+      onError: "report",
+      targets: [
+        () => {
+          throw new Error("boom");
+        },
+      ],
+    });
+
+    expect(() => run.impulse({ addFlags: ["dispatch"] })).not.toThrow();
+
+    for (const code of seenCodes) {
+      expect(code in DIAGNOSTIC_CODES).toBe(true);
+    }
+  });
+
+  it("uses only registered diagnostic codes in runtime sources", () => {
     const runtimeFiles = [
       "src/runtime/api/add.ts",
       "src/runtime/api/get.ts",
