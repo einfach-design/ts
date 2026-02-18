@@ -30,17 +30,26 @@ export function runImpulse(
 
     store.impulseQ.q.entries.push(entry);
 
-    const result = drain({
-      entries: store.impulseQ.q.entries,
-      cursor: store.impulseQ.q.cursor,
-      draining: store.draining,
-      process: processImpulseEntry,
-      onAbort: () => undefined,
-    });
+    if (store.draining) {
+      return;
+    }
 
-    store.draining = result.draining;
-    if (!result.aborted) {
-      store.impulseQ.q.cursor = result.cursor;
+    store.draining = true;
+
+    try {
+      const result = drain({
+        entries: store.impulseQ.q.entries,
+        cursor: store.impulseQ.q.cursor,
+        draining: false,
+        process: processImpulseEntry,
+        onAbort: () => undefined,
+      });
+
+      if (!result.aborted) {
+        store.impulseQ.q.cursor = result.cursor;
+      }
+    } finally {
+      store.draining = false;
     }
   });
 }
