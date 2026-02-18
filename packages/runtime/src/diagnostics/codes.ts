@@ -42,6 +42,20 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     shape: {},
   },
+  "set.patch.impulseQ.invalid": {
+    description: "set patch impulseQ value must be an object.",
+    severity: "error",
+    shape: {
+      valueType: "string",
+    },
+  },
+  "set.patch.impulseQ.q.forbidden": {
+    description: "set patch must not include impulseQ.q.",
+    severity: "error",
+    shape: {
+      field: "q",
+    },
+  },
   "add.target.required": {
     description: "add call requires at least one target or targets entry.",
     severity: "error",
