@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createRuntime } from "../../src/index.js";
 
 describe("conformance/backfill-run", () => {
-  it("reduces debt by exactly one and re-enqueues when debt remains", () => {
+  it("rotation drains debt within same run", () => {
     const run = createRuntime();
 
     run.add({
@@ -32,10 +32,10 @@ describe("conformance/backfill-run", () => {
       >
     ).get("expr:pending");
 
-    expect(expression?.backfill?.signal?.debt).toBe(1);
+    expect(expression?.backfill?.signal?.debt).toBe(0);
     expect(run.get("backfillQ", { as: "snapshot" })).toEqual({
-      list: ["expr:pending"],
-      map: { "expr:pending": true },
+      list: [],
+      map: {},
     });
   });
 

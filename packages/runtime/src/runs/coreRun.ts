@@ -157,13 +157,42 @@ export const coreRun = (args: {
     coreReference.changedFlags = coreChangedFlagsView;
   }
 
-  const expressionForMatch: RegisteredExpression =
-    gate?.signal === false
-      ? (({
-          signal: _signal,
-          ...rest
-        }: RegisteredExpression): RegisteredExpression => rest)(expression)
-      : expression;
+  const expressionForMatch: RegisteredExpression = ((
+    source: RegisteredExpression,
+  ): RegisteredExpression => {
+    let next: RegisteredExpression = source;
+
+    if (gate?.signal === false) {
+      next = (({
+        signal: _signal,
+        ...rest
+      }: RegisteredExpression): RegisteredExpression => rest)(next);
+    }
+
+    if (gate?.flags === false) {
+      next = (({
+        flags: _flags,
+        required,
+        ...rest
+      }: RegisteredExpression): RegisteredExpression => {
+        if (required === undefined || required.flags === undefined) {
+          return rest;
+        }
+
+        const { flags: _requiredFlags, ...requiredRest } = required;
+        if (Object.keys(requiredRest).length === 0) {
+          return rest;
+        }
+
+        return {
+          ...rest,
+          required: requiredRest,
+        };
+      })(next);
+    }
+
+    return next;
+  })(expression);
 
   const matched = matchExpression({
     expression: expressionForMatch,
