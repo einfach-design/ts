@@ -1,6 +1,6 @@
 ---
 location: packages/runtime/README.md
-version:0.15.0
+version: 0.11.3
 maintainer: Axel Elstermann | einfach.design (e2d)
 scope: Runtime package documentation and configuration.
 description: Runtime package README (usage, contracts, and developer notes).
