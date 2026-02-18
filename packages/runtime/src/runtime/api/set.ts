@@ -22,6 +22,7 @@ import type {
 } from "../store.js";
 import type { RegistryStore } from "../../state/registry.js";
 import type { DiagnosticCollector } from "../../diagnostics/index.js";
+import type { RegisteredExpression } from "../../runs/coreRun.js";
 import { snapshotGetKeys } from "./get.js";
 
 const hydrationRequiredKeys = snapshotGetKeys;
@@ -34,11 +35,6 @@ const allowedPatchKeys = [
   "defaults",
   "impulseQ",
 ] as const;
-
-type RegisteredExpression = { id: string; tombstone?: true } & Record<
-  string,
-  unknown
->;
 
 export function runSet(
   store: RuntimeStore,

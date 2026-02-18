@@ -33,3 +33,10 @@ The snapshot must include the full contract keys:
 - `diagnostics`
 
 Hydration remains strict: incomplete snapshots are rejected with `set.hydration.incomplete` and throw.
+
+## Build output
+
+- Build artifacts are generated into `packages/runtime/dist/` by `tsup`.
+- `dist/` is a local build artifact and is not committed to the source repository.
+- `prepublishOnly` runs clean + lint + typecheck + format:check + test + build before publish.
+- Generate artifacts locally with: `pnpm -C packages/runtime build`.

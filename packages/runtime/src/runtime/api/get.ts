@@ -7,6 +7,7 @@ import { readonlyReference, snapshot } from "../util.js";
 import type { RuntimeStore } from "../store.js";
 import type { DiagnosticCollector } from "../../diagnostics/index.js";
 import type { RegistryStore } from "../../state/registry.js";
+import type { RegisteredExpression } from "../../runs/coreRun.js";
 
 export const snapshotGetKeys = [
   "defaults",
@@ -27,8 +28,6 @@ const allowedGetKeys = ["*", ...snapshotGetKeys] as const;
 
 type AllowedGetKey = (typeof allowedGetKeys)[number];
 type Scope = "applied" | "pending" | "pendingOnly";
-
-type RegisteredExpression = { id: string; tombstone?: true };
 
 type ProjectionState = {
   flags: FlagsView;
