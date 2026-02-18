@@ -10,7 +10,7 @@ type TelemetryCall = {
 };
 
 describe("conformance/telemetry-backfill-relevant", () => {
-  it("reports inBackfillQ=false for backfill-relevant expressions when debt drains in same run", () => {
+  it("debt drain in same run: registered call reports inBackfillQ=false", () => {
     const run = createRuntime();
     const calls: TelemetryCall[] = [];
 
@@ -73,7 +73,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
     );
   });
 
-  it("drains signal and flags debt in one impulse without re-enqueueing backfill", () => {
+  it("debt drain in one impulse: registered call reports inBackfillQ=false and does not re-enqueue", () => {
     const run = createRuntime();
     const calls: TelemetryCall[] = [];
 
@@ -141,7 +141,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
     expect(backfillQ.map["expr:drain-countercase"]).toBeUndefined();
   });
 
-  it("keeps backfill-relevant telemetry stable across backfill and registered runs", () => {
+  it("pending debt after backfill pre-finalization: registered call reports inBackfillQ=true", () => {
     const run = createRuntime();
     const calls: TelemetryCall[] = [];
 
@@ -184,15 +184,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
 
     run.impulse({ signals: ["sig:need"] });
 
-    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
-      list: string[];
-      map: Record<string, true>;
-    };
-
-    expect(backfillQ.list).toContain("expr:pending");
-    expect(backfillQ.map["expr:pending"]).toBe(true);
-    expect(backfillQ.list.filter((id) => id === "expr:pending").length).toBe(1);
-
+    // Backfill pre-finalization telemetry within the same impulse.
     const backfillCall = calls.find((call) => call.q === "backfill");
     expect(backfillCall).toBeDefined();
     expect(backfillCall).toEqual(
@@ -208,6 +200,16 @@ describe("conformance/telemetry-backfill-relevant", () => {
         inBackfillQ: true,
       }),
     );
+
+    // Post-state after the same impulse: entry remains in backfill queue.
+    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
+      list: string[];
+      map: Record<string, true>;
+    };
+
+    expect(backfillQ.list).toContain("expr:pending");
+    expect(backfillQ.map["expr:pending"]).toBe(true);
+    expect(backfillQ.list.filter((id) => id === "expr:pending").length).toBe(1);
   });
 
   it("keeps non-backfill-relevant telemetry fields absent and inBackfillQ=false", () => {
@@ -237,6 +239,11 @@ describe("conformance/telemetry-backfill-relevant", () => {
 
     run.impulse({ addFlags: ["tick"] });
 
+    const registeredCalls = calls.filter((call) => call.q === "registered");
+    expect(registeredCalls).toHaveLength(1);
+    const registeredCall = registeredCalls[0];
+    expect(registeredCall).toBeDefined();
+    expect(registeredCall?.inBackfillQ).toBe(false);
     expect(calls).toContainEqual({ q: "registered", inBackfillQ: false });
   });
 });
