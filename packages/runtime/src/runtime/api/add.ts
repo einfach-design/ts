@@ -16,7 +16,10 @@ type RegisteredExpression = {
   signal?: string;
   flags?: ReturnType<typeof canonFlagSpecInput>;
   required?: { flags?: { min?: number; max?: number; changed?: number } };
-  backfill?: { signal?: { debt?: number }; flags?: { debt?: number } };
+  backfill?: {
+    signal?: { debt?: number; runs?: { used: number; max: number } };
+    flags?: { debt?: number; runs?: { used: number; max: number } };
+  };
   runs?: { used: number; max: number };
   targets: RuntimeTarget[];
 };
@@ -83,8 +86,64 @@ export function runAdd(
         ? Math.max(1, source.runs.max)
         : Number.POSITIVE_INFINITY;
 
+    const readBackfillGateRunsMax = (
+      gate: "signal" | "flags",
+      fallback: number,
+    ): number => {
+      if (!hasOwn(source, "backfill") || !isObject(source.backfill)) {
+        return fallback;
+      }
+
+      const backfill = source.backfill;
+      if (!hasOwn(backfill, gate) || !isObject(backfill[gate])) {
+        return fallback;
+      }
+
+      const gateConfig = backfill[gate];
+      if (!hasOwn(gateConfig, "runs") || !isObject(gateConfig.runs)) {
+        return fallback;
+      }
+
+      return hasOwn(gateConfig.runs, "max") &&
+        typeof gateConfig.runs.max === "number"
+        ? Math.max(1, gateConfig.runs.max)
+        : fallback;
+    };
+
+    const createNormalizedBackfill = (): RegisteredExpression["backfill"] => {
+      if (!hasOwn(source, "backfill")) {
+        return undefined;
+      }
+
+      return {
+        signal: {
+          ...(isObject(source.backfill) &&
+          isObject(source.backfill.signal) &&
+          hasOwn(source.backfill.signal, "debt")
+            ? { debt: source.backfill.signal.debt as number }
+            : {}),
+          runs: {
+            used: 0,
+            max: readBackfillGateRunsMax("signal", Number.POSITIVE_INFINITY),
+          },
+        },
+        flags: {
+          ...(isObject(source.backfill) &&
+          isObject(source.backfill.flags) &&
+          hasOwn(source.backfill.flags, "debt")
+            ? { debt: source.backfill.flags.debt as number }
+            : {}),
+          runs: {
+            used: 0,
+            max: readBackfillGateRunsMax("flags", Number.POSITIVE_INFINITY),
+          },
+        },
+      };
+    };
+
     for (const [index, sig] of signals.entries()) {
       const id = signals.length > 1 ? `${baseId}:${index}` : baseId;
+      const normalizedBackfill = createNormalizedBackfill();
       expressionRegistry.register({
         id,
         ...(sig !== undefined ? { signal: sig } : {}),
@@ -96,12 +155,8 @@ export function runAdd(
               >,
             }
           : {}),
-        ...(hasOwn(source, "backfill")
-          ? {
-              backfill: source.backfill as NonNullable<
-                RegisteredExpression["backfill"]
-              >,
-            }
+        ...(normalizedBackfill !== undefined
+          ? { backfill: normalizedBackfill }
           : {}),
         runs: {
           used: 0,

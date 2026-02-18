@@ -47,6 +47,11 @@ import { runSet } from "./api/set.js";
 import type { ActOccurrence } from "../processing/actImpulse.js";
 import type { RuntimeOnError } from "./store.js";
 
+type RuntimeAddBackfillInput = {
+  signal?: { debt?: number; runs?: { max?: number } };
+  flags?: { debt?: number; runs?: { max?: number } };
+};
+
 type Runtime = Readonly<{
   add: (opts: {
     id?: string;
@@ -56,7 +61,7 @@ type Runtime = Readonly<{
     required?: { flags?: { min?: number; max?: number; changed?: number } };
     target?: RuntimeTarget;
     targets?: readonly RuntimeTarget[];
-    backfill?: RegisteredExpression["backfill"];
+    backfill?: RuntimeAddBackfillInput;
     runs?: { max: number };
   }) => () => void;
   impulse: (opts?: unknown) => void;

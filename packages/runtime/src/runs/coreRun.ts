@@ -28,7 +28,10 @@ export type RegisteredExpression = {
   flags?: unknown;
   required?: { flags?: { min?: number; max?: number; changed?: number } };
   targets: RuntimeTarget[];
-  backfill?: { signal?: { debt?: number }; flags?: { debt?: number } };
+  backfill?: {
+    signal?: { debt?: number; runs?: { used: number; max: number } };
+    flags?: { debt?: number; runs?: { used: number; max: number } };
+  };
   runs?: { used: number; max: number };
   tombstone?: true;
 };
