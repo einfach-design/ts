@@ -13,7 +13,8 @@
     "dev": "node scripts/run.mjs dev",
     "watch": "node scripts/run.mjs watch",
     "test:watch": "node scripts/run.mjs test:watch",
-    "build:watch": "node scripts/run.mjs build:watch"
+    "build:watch": "node scripts/run.mjs build:watch",
+    "check:runtime-headers": "node scripts/check-runtime-version-headers.mjs"
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.3.3",
