@@ -5,6 +5,7 @@ import {
 import { hasOwn, isObject } from "../util.js";
 import type { RuntimeStore } from "../store.js";
 import type { RegistryStore } from "../../state/registry.js";
+import type { DiagnosticCollector } from "../../diagnostics/index.js";
 
 type RuntimeTarget =
   | ((i: unknown, a: unknown, r: unknown) => void)
@@ -28,7 +29,11 @@ export function runAdd(
   store: RuntimeStore,
   {
     expressionRegistry,
-  }: { expressionRegistry: RegistryStore<RegisteredExpression> },
+    diagnostics,
+  }: {
+    expressionRegistry: RegistryStore<RegisteredExpression>;
+    diagnostics: DiagnosticCollector;
+  },
   opts: unknown,
 ): () => void {
   return store.withRuntimeStack(() => {
@@ -43,6 +48,11 @@ export function runAdd(
     ];
 
     if (targets.length === 0) {
+      diagnostics.emit({
+        code: "add.target.required",
+        message: "run.add requires at least one target.",
+        severity: "error",
+      });
       throw new Error("add.target.required");
     }
 

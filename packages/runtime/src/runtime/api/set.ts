@@ -14,6 +14,7 @@ import type { SeenSignals } from "../../state/signals.js";
 import { hasOwn, isObject, measureEntryBytes } from "../util.js";
 import type { RuntimeOnError, RuntimeStore } from "../store.js";
 import type { RegistryStore } from "../../state/registry.js";
+import type { DiagnosticCollector } from "../../diagnostics/index.js";
 
 const hydrationRequiredKeys = [
   "defaults",
@@ -44,7 +45,11 @@ export function runSet(
   store: RuntimeStore,
   {
     expressionRegistry,
-  }: { expressionRegistry: RegistryStore<RegisteredExpression> },
+    diagnostics,
+  }: {
+    expressionRegistry: RegistryStore<RegisteredExpression>;
+    diagnostics: DiagnosticCollector;
+  },
   patch: Record<string, unknown>,
 ): void {
   store.withRuntimeStack(() => {
@@ -57,6 +62,11 @@ export function runSet(
     if (isHydration) {
       for (const key of hydrationRequiredKeys) {
         if (!hasOwn(patch, key)) {
+          diagnostics.emit({
+            code: "set.hydration.incomplete",
+            message: "Hydration patch is missing required keys.",
+            severity: "error",
+          });
           throw new Error("set.hydration.incomplete");
         }
       }
@@ -125,6 +135,11 @@ export function runSet(
 
     for (const key of Object.keys(patch)) {
       if (!(allowedPatchKeys as readonly string[]).includes(key)) {
+        diagnostics.emit({
+          code: "set.patch.forbidden",
+          message: "set patch contains forbidden keys.",
+          severity: "error",
+        });
         throw new Error("set.patch.forbidden");
       }
     }
@@ -137,6 +152,11 @@ export function runSet(
       hasOwn(patch, "backfillQ") ||
       hasOwn(patch, "registeredQ")
     ) {
+      diagnostics.emit({
+        code: "set.patch.forbidden",
+        message: "set patch contains forbidden keys.",
+        severity: "error",
+      });
       throw new Error("set.patch.forbidden");
     }
 
@@ -144,6 +164,11 @@ export function runSet(
       hasOwn(patch, "flags") &&
       (hasOwn(patch, "addFlags") || hasOwn(patch, "removeFlags"))
     ) {
+      diagnostics.emit({
+        code: "set.patch.flags.conflict",
+        message: "flags and add/remove flags cannot be combined.",
+        severity: "error",
+      });
       throw new Error("set.patch.flags.conflict");
     }
 

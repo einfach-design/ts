@@ -136,6 +136,12 @@ export function runGet(
     key !== undefined &&
     !(allowedGetKeys as readonly string[]).includes(resolvedKey)
   ) {
+    diagnostics.emit({
+      code: "get.key.invalid",
+      message: "Unknown run.get key.",
+      severity: "error",
+      data: { key: resolvedKey },
+    });
     throw new Error("get.key.invalid");
   }
 

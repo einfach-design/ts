@@ -407,6 +407,9 @@ export function createRuntime(): Runtime {
         expressionRegistry: deps.expressionRegistry as unknown as Parameters<
           typeof runAdd
         >[1]["expressionRegistry"],
+        diagnostics: deps.diagnostics as unknown as Parameters<
+          typeof runAdd
+        >[1]["diagnostics"],
       };
 
       return runAdd(store, addDeps, opts);
