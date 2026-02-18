@@ -69,6 +69,11 @@ export function runAdd(
       }
 
       if (!isObject(target) || !isObject(target.on)) {
+        diagnostics.emit({
+          code: "add.objectTarget.missingEntrypoint",
+          message: "Object target must expose an object `on` entrypoint.",
+          severity: "error",
+        });
         throw new Error("add.objectTarget.missingEntrypoint");
       }
 
@@ -78,10 +83,25 @@ export function runAdd(
         }
 
         if (sig === "everyRun" || !hasOwn(target.on, sig)) {
+          diagnostics.emit({
+            code: "add.objectTarget.missingHandler",
+            message:
+              sig === "everyRun"
+                ? "Signal `everyRun` is reserved and cannot be used as a signal handler key."
+                : `Object target is missing handler for signal "${sig}".`,
+            severity: "error",
+            data: { signal: sig },
+          });
           throw new Error("add.objectTarget.missingHandler");
         }
 
         if (typeof target.on[sig] !== "function") {
+          diagnostics.emit({
+            code: "add.objectTarget.nonCallableHandler",
+            message: `Object target handler for signal "${sig}" must be callable.`,
+            severity: "error",
+            data: { signal: sig },
+          });
           throw new Error("add.objectTarget.nonCallableHandler");
         }
       }

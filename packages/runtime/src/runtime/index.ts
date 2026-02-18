@@ -193,21 +193,26 @@ export function createRuntime(): Runtime {
     });
 
   const reportDispatchIssue = (issue: DispatchError): void => {
-    store.reportRuntimeError(issue.error, issue.context.phase, {
-      targetKind: issue.context.targetKind,
-      ...(issue.context.handler !== undefined
-        ? { handler: issue.context.handler }
-        : {}),
-      ...(issue.context.signal !== undefined
-        ? { signal: issue.context.signal }
-        : {}),
-      ...(issue.context.expressionId !== undefined
-        ? { expressionId: issue.context.expressionId }
-        : {}),
-      ...(issue.context.occurrenceKind !== undefined
-        ? { occurrenceKind: issue.context.occurrenceKind }
-        : {}),
-    });
+    store.reportRuntimeError(
+      issue.error,
+      issue.context.phase,
+      {
+        targetKind: issue.context.targetKind,
+        ...(issue.context.handler !== undefined
+          ? { handler: issue.context.handler }
+          : {}),
+        ...(issue.context.signal !== undefined
+          ? { signal: issue.context.signal }
+          : {}),
+        ...(issue.context.expressionId !== undefined
+          ? { expressionId: issue.context.expressionId }
+          : {}),
+        ...(issue.context.occurrenceKind !== undefined
+          ? { occurrenceKind: issue.context.occurrenceKind }
+          : {}),
+      },
+      "report",
+    );
   };
 
   const exitExpressionOnLimit = (expression: { id: string }): void => {

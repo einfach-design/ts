@@ -47,6 +47,29 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     shape: {},
   },
+  "add.objectTarget.missingEntrypoint": {
+    description:
+      "Object target must provide an `on` object entrypoint for dispatch.",
+    severity: "error",
+    shape: {
+      signal: "string?",
+    },
+  },
+  "add.objectTarget.missingHandler": {
+    description:
+      "Object target is missing a callable handler for one of the configured signals.",
+    severity: "error",
+    shape: {
+      signal: "string",
+    },
+  },
+  "add.objectTarget.nonCallableHandler": {
+    description: "Object target signal handler exists but is not callable.",
+    severity: "error",
+    shape: {
+      signal: "string",
+    },
+  },
   "get.key.invalid": {
     description: "get was called with an unknown key.",
     severity: "error",

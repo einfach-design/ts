@@ -9,6 +9,13 @@
 import { describe, expect, it } from "vitest";
 import { createRuntime } from "../../src/index.js";
 
+/**
+ * Spec matrix:
+ * - §8.2 onError control flow: report/swallow/throw + function throw-through
+ * - §8.2 scope & wrapping: inner throw must abort regardless of outer onError
+ * - §8.3.1 object-target handler validation and dispatch error policy
+ * - §4.3 diagnostics listener failure routing
+ */
 describe("failure-modes/runtime-errors", () => {
   it("reports target phase via diagnostics when dispatch fails (Spec §8.1, §8.2)", () => {
     const run = createRuntime();
@@ -138,7 +145,182 @@ describe("failure-modes/runtime-errors", () => {
     run.impulse({ addFlags: ["a"] });
 
     expect(seen.length).toBeGreaterThanOrEqual(1);
-    expect(seen[0]).toBeInstanceOf(Error);
-    expect((seen[0] as Error).message).toBe("listener boom");
+    expect(seen.some((error) => error instanceof Error)).toBe(true);
+    expect(
+      seen.some(
+        (error) => error instanceof Error && error.message === "listener boom",
+      ),
+    ).toBe(true);
+  });
+
+  it("distinguishes report vs swallow for target errors", () => {
+    const reportRun = createRuntime();
+    const reportCodes: string[] = [];
+
+    reportRun.onDiagnostic((diagnostic) => {
+      reportCodes.push(diagnostic.code);
+    });
+
+    reportRun.add({
+      id: "expr:report",
+      onError: "report",
+      targets: [
+        () => {
+          throw new Error("report-boom");
+        },
+      ],
+    });
+
+    expect(() => reportRun.impulse({ addFlags: ["a"] })).not.toThrow();
+    expect(reportCodes).toContain("runtime.target.error");
+
+    const swallowRun = createRuntime();
+    const swallowCodes: string[] = [];
+
+    swallowRun.onDiagnostic((diagnostic) => {
+      swallowCodes.push(diagnostic.code);
+    });
+
+    swallowRun.add({
+      id: "expr:swallow",
+      onError: "swallow",
+      targets: [
+        () => {
+          throw new Error("swallow-boom");
+        },
+      ],
+    });
+
+    expect(() => swallowRun.impulse({ addFlags: ["a"] })).not.toThrow();
+    expect(swallowCodes).not.toContain("runtime.target.error");
+  });
+
+  it("inner throw aborts even when outer onError is swallow", () => {
+    const run = createRuntime();
+    const hits: string[] = [];
+
+    run.add({
+      id: "expr:inner-throw",
+      onError: "throw",
+      targets: [
+        () => {
+          hits.push("inner");
+          throw new Error("inner-abort");
+        },
+      ],
+    });
+
+    expect(() =>
+      run.impulse({ addFlags: ["a"], onError: "swallow" } as Record<
+        string,
+        unknown
+      >),
+    ).toThrow("inner-abort");
+    expect(hits).toEqual(["inner"]);
+  });
+
+  it("object target missing handler follows report/swallow/throw modes", () => {
+    const reportRun = createRuntime();
+    const reportCodes: string[] = [];
+    reportRun.onDiagnostic((diagnostic) => {
+      reportCodes.push(diagnostic.code);
+    });
+
+    reportRun.add({
+      id: "expr:obj-report",
+      onError: "report",
+      targets: [{ on: { everyRun: () => {} } }],
+    });
+
+    expect(() => reportRun.impulse({ signals: ["foo"] })).not.toThrow();
+    expect(reportCodes).toContain("runtime.target.error");
+
+    const swallowRun = createRuntime();
+    const swallowCodes: string[] = [];
+    swallowRun.onDiagnostic((diagnostic) => {
+      swallowCodes.push(diagnostic.code);
+    });
+
+    swallowRun.add({
+      id: "expr:obj-swallow",
+      onError: "swallow",
+      targets: [{ on: { everyRun: () => {} } }],
+    });
+
+    expect(() => swallowRun.impulse({ signals: ["foo"] })).not.toThrow();
+    expect(swallowCodes).not.toContain("runtime.target.error");
+
+    const throwRun = createRuntime();
+    throwRun.add({
+      id: "expr:obj-throw",
+      onError: "throw",
+      targets: [{ on: { everyRun: () => {} } }],
+    });
+
+    expect(() => throwRun.impulse({ signals: ["foo"] })).toThrow(
+      'Object target is missing handler for signal "foo".',
+    );
+  });
+
+  it("listener errors obey outer onError modes", () => {
+    const reportRun = createRuntime();
+    const reportCodes: string[] = [];
+
+    reportRun.onDiagnostic((diagnostic) => {
+      reportCodes.push(diagnostic.code);
+    });
+    reportRun.onDiagnostic(() => {
+      throw new Error("listener-report");
+    });
+
+    expect(() =>
+      reportRun.impulse({ signals: "bad", onError: "report" } as Record<
+        string,
+        unknown
+      >),
+    ).not.toThrow();
+    expect(reportCodes).toContain("runtime.diagnostic.listenerError");
+
+    const swallowRun = createRuntime();
+    const swallowCodes: string[] = [];
+
+    swallowRun.onDiagnostic((diagnostic) => {
+      swallowCodes.push(diagnostic.code);
+      if (diagnostic.code === "impulse.input.invalid") {
+        throw new Error("listener-swallow");
+      }
+    });
+
+    expect(() =>
+      swallowRun.impulse({ signals: "bad", onError: "swallow" } as Record<
+        string,
+        unknown
+      >),
+    ).not.toThrow();
+    expect(swallowCodes).not.toContain("runtime.diagnostic.listenerError");
+
+    const throwRun = createRuntime();
+    throwRun.onDiagnostic((diagnostic) => {
+      if (diagnostic.code === "runtime.target.error") {
+        throw new Error("listener-throw");
+      }
+    });
+
+    throwRun.add({
+      id: "expr:listener-throw",
+      onError: "report",
+      targets: [
+        () => {
+          throw new Error("target-throw");
+        },
+      ],
+    });
+
+    expect(() =>
+      throwRun.impulse({ addFlags: ["a"], onError: "throw" } as Record<
+        string,
+        unknown
+      >),
+    ).toThrow("listener-throw");
   });
 });

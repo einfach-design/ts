@@ -53,7 +53,7 @@ export function runImpulse(
 ): void {
   store.withRuntimeStack(() => {
     const canonical = canonImpulseEntry(opts);
-    const mode = canonical.onError ?? "report";
+    const mode = canonical.onError ?? store.impulseQ.config.onError ?? "report";
 
     if (canonical.entry === undefined) {
       handleOuterError(
@@ -72,6 +72,7 @@ export function runImpulse(
       return;
     }
 
+    store.activeOuterOnError = canonical.onError;
     store.draining = true;
 
     try {
@@ -102,6 +103,7 @@ export function runImpulse(
       );
     } finally {
       store.draining = false;
+      store.activeOuterOnError = undefined;
     }
   });
 }

@@ -88,7 +88,7 @@ describe("targets/dispatch", () => {
     expect(onError.mock.calls[0]?.[0].context.phase).toBe("target/object");
   });
 
-  it("swallow mode keeps errors observable via reportError", () => {
+  it("swallow mode is silent and does not call reportError", () => {
     const reportError = vi.fn();
     const result = dispatch({
       targetKind: "callback",
@@ -101,6 +101,34 @@ describe("targets/dispatch", () => {
     });
 
     expect(result.attempted).toBe(0);
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
+  it("report mode reports missing signal handler for object targets", () => {
+    const reportError = vi.fn();
+    const result = dispatch({
+      targetKind: "object",
+      target: { on: { everyRun: vi.fn() } },
+      signal: "foo",
+      args: [],
+      onError: "report",
+      reportError,
+    });
+
+    expect(result.attempted).toBe(1);
     expect(reportError).toHaveBeenCalledOnce();
+    expect(reportError.mock.calls[0]?.[0].context.handler).toBe("foo");
+  });
+
+  it("throw mode throws on missing signal handler for object targets", () => {
+    expect(() =>
+      dispatch({
+        targetKind: "object",
+        target: { on: { everyRun: vi.fn() } },
+        signal: "foo",
+        args: [],
+        onError: "throw",
+      }),
+    ).toThrow('Object target is missing handler for signal "foo".');
   });
 });
