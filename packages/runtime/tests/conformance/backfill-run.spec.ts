@@ -39,6 +39,49 @@ describe("conformance/backfill-run", () => {
     });
   });
 
+  it("re-enqueues when debt remains greater than zero after one gated backfill deployment", () => {
+    const run = createRuntime();
+
+    run.add({
+      id: "expr:pending-gt-zero",
+      signal: "sig:need",
+      flags: { must: true },
+      backfill: {
+        signal: { debt: 1 },
+        flags: { debt: 1 },
+      },
+      targets: [() => {}],
+    });
+
+    const snapshot = run.get("*", { as: "snapshot" }) as {
+      backfillQ: { list: string[]; map: Record<string, true> };
+    } & Record<string, unknown>;
+
+    snapshot.backfillQ = {
+      list: ["expr:pending-gt-zero"],
+      map: { "expr:pending-gt-zero": true },
+    };
+
+    run.set(snapshot);
+    run.impulse({ signals: ["sig:need"] });
+
+    const expression = (
+      run.get("registeredById") as Map<
+        string,
+        {
+          backfill?: { signal?: { debt?: number }; flags?: { debt?: number } };
+        }
+      >
+    ).get("expr:pending-gt-zero");
+
+    expect(expression?.backfill?.signal?.debt).toBe(0);
+    expect(expression?.backfill?.flags?.debt).toBe(1);
+    expect(run.get("backfillQ", { as: "snapshot" })).toEqual({
+      list: ["expr:pending-gt-zero"],
+      map: { "expr:pending-gt-zero": true },
+    });
+  });
+
   it("does not re-enqueue when debt reaches zero", () => {
     const run = createRuntime();
 

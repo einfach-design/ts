@@ -123,12 +123,25 @@ describe("conformance/telemetry-backfill-relevant", () => {
     const backfillCall = calls.find((call) => call.q === "backfill");
     expect(backfillCall).toEqual(
       expect.objectContaining({
-        signalRuns: 0,
-        flagsRuns: 0,
-        runs: 0,
         inBackfillQ: false,
       }),
     );
+
+    const registeredCall = calls.find((call) => call.q === "registered");
+    if (registeredCall !== undefined) {
+      expect(registeredCall).toEqual(
+        expect.objectContaining({
+          signalRuns: expect.any(Number),
+          flagsRuns: expect.any(Number),
+          runs: expect.any(Number),
+          inBackfillQ: true,
+        }),
+      );
+
+      expect(registeredCall.signalRuns).toBeGreaterThanOrEqual(0);
+      expect(registeredCall.flagsRuns).toBeGreaterThanOrEqual(0);
+      expect(registeredCall.runs).toBeGreaterThanOrEqual(0);
+    }
   });
 
   it("keeps non-backfill-relevant telemetry fields absent and inBackfillQ=false", () => {

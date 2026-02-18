@@ -70,20 +70,36 @@ describe("conformance/gate-ignore-dimension", () => {
     const calls: string[] = [];
 
     run.add({
-      id: "expr:no-gate",
+      id: "expr:no-gate:signal-mismatch",
       signal: "sig:expected",
       flags: { must: true },
       required: { flags: { changed: 0 } },
       targets: [
         (i) => {
-          calls.push(i.q);
+          calls.push(`${i.q}:${i.expression.id}`);
         },
       ],
     });
 
-    run.set({ flags: createFlagsView(["must"]) });
+    run.add({
+      id: "expr:no-gate:flags-mismatch",
+      signal: "sig:ok",
+      flags: { must: true },
+      required: { flags: { changed: 0 } },
+      targets: [
+        (i) => {
+          calls.push(`${i.q}:${i.expression.id}`);
+        },
+      ],
+    });
+
+    run.set({ flags: createFlagsView([]) });
     run.impulse({ signals: ["sig:wrong"] });
 
     expect(calls).toEqual([]);
+    expect(run.get("backfillQ", { as: "snapshot" })).toEqual({
+      list: [],
+      map: {},
+    });
   });
 });
