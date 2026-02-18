@@ -40,6 +40,31 @@ type RegisteredExpression = { id: string; tombstone?: true } & Record<
   unknown
 >;
 
+type TrimLikeEvent = { cursorDelta: number; removedCount: number };
+
+const collectTrimmedAppliedEntries = (
+  entries: readonly ImpulseQEntryCanonical[],
+  cursor: number,
+  events: readonly TrimLikeEvent[],
+): ImpulseQEntryCanonical[] => {
+  const applied = entries.slice(0, cursor);
+  const removed: ImpulseQEntryCanonical[] = [];
+  let removedOffset = 0;
+
+  for (const event of events) {
+    if (event.cursorDelta <= 0 || event.removedCount <= 0) {
+      continue;
+    }
+
+    removed.push(
+      ...applied.slice(removedOffset, removedOffset + event.removedCount),
+    );
+    removedOffset += event.removedCount;
+  }
+
+  return removed;
+};
+
 export function runSet(
   store: RuntimeStore,
   {
@@ -89,6 +114,12 @@ export function runSet(
       store.seenFlags = hydration.seenFlags;
       store.signal = hydration.signal;
       store.seenSignals = hydration.seenSignals;
+
+      store.baselineFlagsTruth = createFlagsView([]);
+      store.baselineChangedFlags = undefined;
+      store.baselineSeenFlags = createFlagsView([]);
+      store.baselineSignal = undefined;
+      store.baselineSeenSignals = { list: [], map: {} };
 
       store.impulseQ.q.entries = hydration.impulseQ.q.entries;
       store.impulseQ.q.cursor = hydration.impulseQ.q.cursor;
@@ -215,6 +246,8 @@ export function runSet(
             | undefined;
         }
 
+        const entriesBeforeTrim = [...store.impulseQ.q.entries];
+        const cursorBeforeTrim = store.impulseQ.q.cursor;
         const trimmed = trim({
           entries: store.impulseQ.q.entries,
           cursor: store.impulseQ.q.cursor,
@@ -228,6 +261,13 @@ export function runSet(
             : {}),
         });
 
+        store.advanceProjectionBaseline(
+          collectTrimmedAppliedEntries(
+            entriesBeforeTrim,
+            cursorBeforeTrim,
+            trimmed.events,
+          ),
+        );
         store.impulseQ.q.entries = [...trimmed.entries];
         store.impulseQ.q.cursor = trimmed.cursor;
         store.trimPendingMaxBytes = trimmed.trimPendingMaxBytes;

@@ -35,20 +35,26 @@ const resolveScope = (scope: string | undefined): Scope => {
   return "pending";
 };
 
-const projectFlagsState = (
-  entries: readonly ImpulseQEntryCanonical[],
-): {
+type FlagsProjectionState = {
   flags: FlagsView;
   changedFlags: FlagsView | undefined;
   seenFlags: FlagsView;
   signal: string | undefined;
   seenSignals: RuntimeStore["seenSignals"];
-} => {
-  let flags = createFlagsView([]);
-  let changedFlags: FlagsView | undefined;
-  let seenFlags = createFlagsView([]);
-  let signal: string | undefined;
-  let seenSignals: RuntimeStore["seenSignals"] = { list: [], map: {} };
+};
+
+const projectFlagsState = (
+  entries: readonly ImpulseQEntryCanonical[],
+  initialState?: FlagsProjectionState,
+): FlagsProjectionState => {
+  let flags = initialState?.flags ?? createFlagsView([]);
+  let changedFlags: FlagsView | undefined = initialState?.changedFlags;
+  let seenFlags = initialState?.seenFlags ?? createFlagsView([]);
+  let signal: string | undefined = initialState?.signal;
+  let seenSignals: RuntimeStore["seenSignals"] = initialState?.seenSignals ?? {
+    list: [],
+    map: {},
+  };
 
   for (const entry of entries) {
     const nextMap: Record<string, true> = { ...flags.map };
@@ -140,7 +146,20 @@ export function runGet(
     const hasScopedProjection = opts?.scope !== undefined;
     const scope = resolveScope(opts?.scope);
     const projectedImpulseQ = projectImpulseQ(store.impulseQ, scope);
-    const projectedFlagsState = projectFlagsState(projectedImpulseQ.q.entries);
+    const projectionBaseline =
+      scope === "pendingOnly"
+        ? undefined
+        : {
+            flags: store.baselineFlagsTruth,
+            changedFlags: store.baselineChangedFlags,
+            seenFlags: store.baselineSeenFlags,
+            signal: store.baselineSignal,
+            seenSignals: store.baselineSeenSignals,
+          };
+    const projectedFlagsState = projectFlagsState(
+      projectedImpulseQ.q.entries,
+      projectionBaseline,
+    );
 
     const valueByKey: Record<AllowedGetKey, unknown> = {
       defaults: store.defaults,

@@ -5,9 +5,14 @@ import {
   type BackfillExpression,
   type BackfillQ,
 } from "../state/backfillQ.js";
+import { computeChangedFlags } from "../state/changedFlags.js";
 import { globalDefaults, type Defaults } from "../state/defaults.js";
 import { createFlagsView, type FlagsView } from "../state/flagsView.js";
-import { type SeenSignals } from "../state/signals.js";
+import {
+  extendSeenSignals,
+  projectSignal,
+  type SeenSignals,
+} from "../state/signals.js";
 import { measureEntryBytes } from "./util.js";
 
 type ImpulseQOnTrim = (info: {
@@ -34,6 +39,12 @@ export type RuntimeStore<
   signal: string | undefined;
   seenSignals: SeenSignals;
 
+  baselineFlagsTruth: FlagsView;
+  baselineChangedFlags: FlagsView | undefined;
+  baselineSeenFlags: FlagsView;
+  baselineSignal: string | undefined;
+  baselineSeenSignals: SeenSignals;
+
   backfillQ: BackfillQ<TExpression>;
 
   impulseQ: {
@@ -51,6 +62,9 @@ export type RuntimeStore<
   runtimeStackDepth: number;
 
   withRuntimeStack: <T>(fn: () => T) => T;
+  advanceProjectionBaseline: (
+    entries: readonly ImpulseQEntryCanonical[],
+  ) => void;
 };
 
 export function initRuntimeStore<
@@ -63,6 +77,12 @@ export function initRuntimeStore<
 
   let signal: string | undefined;
   let seenSignals: SeenSignals = { list: [], map: {} };
+
+  let baselineFlagsTruth: FlagsView = createFlagsView([]);
+  let baselineChangedFlags: FlagsView | undefined;
+  let baselineSeenFlags: FlagsView = createFlagsView([]);
+  let baselineSignal: string | undefined;
+  let baselineSeenSignals: SeenSignals = { list: [], map: {} };
 
   let backfillQ = createBackfillQ<TExpression>();
 
@@ -88,6 +108,70 @@ export function initRuntimeStore<
   let trimPendingMaxBytes = false;
   let runtimeStackDepth = 0;
 
+  const advanceProjectionBaseline = (
+    entries: readonly ImpulseQEntryCanonical[],
+  ): void => {
+    for (const entry of entries) {
+      const nextMap: Record<string, true> = { ...baselineFlagsTruth.map };
+      const removeSet = new Set(entry.removeFlags);
+
+      for (const flag of entry.removeFlags) {
+        delete nextMap[flag];
+      }
+
+      for (const flag of entry.addFlags) {
+        if (removeSet.has(flag)) continue;
+        nextMap[flag] = true;
+      }
+
+      const nextFlags = createFlagsView(Object.keys(nextMap));
+      baselineChangedFlags = computeChangedFlags(
+        baselineFlagsTruth,
+        nextFlags,
+        entry.removeFlags,
+        entry.addFlags,
+      );
+      baselineFlagsTruth = nextFlags;
+      baselineSeenFlags = createFlagsView([
+        ...baselineSeenFlags.list,
+        ...baselineFlagsTruth.list,
+      ]);
+
+      baselineSignal = projectSignal(entry.signals);
+      baselineSeenSignals = extendSeenSignals(
+        baselineSeenSignals,
+        entry.signals,
+      );
+    }
+  };
+
+  const collectTrimmedAppliedEntries = (
+    entries: readonly ImpulseQEntryCanonical[],
+    cursor: number,
+    events: readonly { cursorDelta: number; removedCount: number }[],
+  ): ImpulseQEntryCanonical[] => {
+    if (events.length === 0) {
+      return [];
+    }
+
+    const applied = entries.slice(0, cursor);
+    const removed: ImpulseQEntryCanonical[] = [];
+    let removedOffset = 0;
+
+    for (const event of events) {
+      if (event.cursorDelta <= 0 || event.removedCount <= 0) {
+        continue;
+      }
+
+      removed.push(
+        ...applied.slice(removedOffset, removedOffset + event.removedCount),
+      );
+      removedOffset += event.removedCount;
+    }
+
+    return removed;
+  };
+
   const withRuntimeStack = <T>(fn: () => T): T => {
     runtimeStackDepth += 1;
     try {
@@ -95,6 +179,8 @@ export function initRuntimeStore<
     } finally {
       runtimeStackDepth -= 1;
       if (runtimeStackDepth === 0 && trimPendingMaxBytes) {
+        const entriesBeforeTrim = [...impulseQ.q.entries];
+        const cursorBeforeTrim = impulseQ.q.cursor;
         const trimmed = trim({
           entries: impulseQ.q.entries,
           cursor: impulseQ.q.cursor,
@@ -104,6 +190,13 @@ export function initRuntimeStore<
           trimPendingMaxBytes,
           measureBytes: measureEntryBytes,
         });
+        advanceProjectionBaseline(
+          collectTrimmedAppliedEntries(
+            entriesBeforeTrim,
+            cursorBeforeTrim,
+            trimmed.events,
+          ),
+        );
         impulseQ.q.entries = [...trimmed.entries];
         impulseQ.q.cursor = trimmed.cursor;
         trimPendingMaxBytes = trimmed.trimPendingMaxBytes;
@@ -154,6 +247,41 @@ export function initRuntimeStore<
       seenSignals = value;
     },
 
+    get baselineFlagsTruth() {
+      return baselineFlagsTruth;
+    },
+    set baselineFlagsTruth(value) {
+      baselineFlagsTruth = value;
+    },
+
+    get baselineChangedFlags() {
+      return baselineChangedFlags;
+    },
+    set baselineChangedFlags(value) {
+      baselineChangedFlags = value;
+    },
+
+    get baselineSeenFlags() {
+      return baselineSeenFlags;
+    },
+    set baselineSeenFlags(value) {
+      baselineSeenFlags = value;
+    },
+
+    get baselineSignal() {
+      return baselineSignal;
+    },
+    set baselineSignal(value) {
+      baselineSignal = value;
+    },
+
+    get baselineSeenSignals() {
+      return baselineSeenSignals;
+    },
+    set baselineSeenSignals(value) {
+      baselineSeenSignals = value;
+    },
+
     get backfillQ() {
       return backfillQ;
     },
@@ -185,6 +313,7 @@ export function initRuntimeStore<
     },
 
     withRuntimeStack,
+    advanceProjectionBaseline,
   };
 
   return store;

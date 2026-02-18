@@ -142,6 +142,58 @@ describe("conformance/get-set", () => {
     });
   });
 
+  it("A4 — scope applied must remain semantically stable after applied trim", () => {
+    const run = createRuntime();
+
+    run.impulse({ addFlags: ["a"], signals: ["s1"] });
+    run.impulse({ addFlags: ["b"], signals: ["s2"] });
+
+    const before = {
+      flags: run.get("flags" as string | undefined, { scope: "applied" }),
+      seenFlags: run.get("seenFlags" as string | undefined, {
+        scope: "applied",
+      }),
+      signal: run.get("signal" as string | undefined, { scope: "applied" }),
+      seenSignals: run.get("seenSignals" as string | undefined, {
+        scope: "applied",
+      }),
+    };
+
+    run.set({
+      impulseQ: {
+        config: {
+          retain: 1,
+          maxBytes: Number.POSITIVE_INFINITY,
+        },
+      },
+    });
+
+    expect(
+      run.get("flags" as string | undefined, { scope: "applied" }),
+    ).toEqual(before.flags);
+    expect(
+      run.get("seenFlags" as string | undefined, { scope: "applied" }),
+    ).toEqual(before.seenFlags);
+    expect(run.get("signal" as string | undefined, { scope: "applied" })).toBe(
+      before.signal,
+    );
+    expect(
+      run.get("seenSignals" as string | undefined, { scope: "applied" }),
+    ).toEqual(before.seenSignals);
+
+    expect(
+      run.get("impulseQ" as string | undefined, { scope: "applied" }),
+    ).toMatchObject({
+      q: {
+        cursor: 1,
+      },
+      config: {
+        retain: 1,
+        maxBytes: Number.POSITIVE_INFINITY,
+      },
+    });
+  });
+
   it("A3 — snapshot must tolerate opaque/cyclic livePayload values (Spec §4.1)", () => {
     const run = createRuntime();
     const livePayload: {
