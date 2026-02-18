@@ -48,13 +48,9 @@ export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
 ): TDiagnostic {
   const { diagnostic, listeners, collector } = options;
 
-<<<<<<< codex/implement-code-validation-in-emit-path
-  assertKnownDiagnosticCode(diagnostic);
-=======
   if (!(diagnostic.code in DIAGNOSTIC_CODES)) {
     throw new Error("diagnostics.code.unknown");
   }
->>>>>>> main
 
   if (collector) {
     collector.push(diagnostic);
