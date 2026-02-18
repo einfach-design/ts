@@ -53,6 +53,17 @@ export function runSet(
 ): void {
   store.withRuntimeStack(() => {
     if (!isObject(patch)) {
+      const valueType = Array.isArray(patch)
+        ? "array"
+        : patch === null
+          ? "null"
+          : typeof patch;
+      diagnostics.emit({
+        code: "set.patch.invalid",
+        message: "set patch must be an object.",
+        severity: "error",
+        data: { valueType },
+      });
       throw new Error("set.patch.invalid");
     }
 
@@ -188,6 +199,22 @@ export function runSet(
         !Array.isArray(incoming.list) ||
         !isObject(incoming.map)
       ) {
+        const valueType = Array.isArray(incoming)
+          ? "array"
+          : incoming === null
+            ? "null"
+            : typeof incoming;
+        diagnostics.emit({
+          code: "set.patch.flags.invalid",
+          message:
+            "flags patch must be an object with list(array) and map(object).",
+          severity: "error",
+          data: {
+            valueType,
+            hasList: isObject(incoming) ? Array.isArray(incoming.list) : false,
+            hasMap: isObject(incoming) ? isObject(incoming.map) : false,
+          },
+        });
         throw new Error("set.patch.flags.invalid");
       }
       store.flagsTruth = createFlagsView(incoming.list as string[]);

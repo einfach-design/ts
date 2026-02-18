@@ -48,6 +48,26 @@ describe("conformance/diagnostic-codes", () => {
     ).toBe(true);
   });
 
+  it("emits set.patch.invalid for non-object set patch", () => {
+    const run = createRuntime();
+
+    expect(() => run.set(null as unknown as Record<string, unknown>)).toThrow(
+      "set.patch.invalid",
+    );
+
+    const diagnostics = run.get("diagnostics") as Array<{
+      code: string;
+      data?: { valueType?: string };
+    }>;
+
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "set.patch.invalid",
+        data: expect.objectContaining({ valueType: "null" }),
+      }),
+    );
+  });
+
   it("emits set.patch.flags.conflict for conflicting flag patch forms", () => {
     const run = createRuntime();
 
@@ -62,6 +82,32 @@ describe("conformance/diagnostic-codes", () => {
     expect(
       diagnostics.some((entry) => entry.code === "set.patch.flags.conflict"),
     ).toBe(true);
+  });
+
+  it("emits set.patch.flags.invalid for invalid flags patch shape", () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.set({
+        flags: { list: "nope", map: [] } as unknown as Record<string, unknown>,
+      }),
+    ).toThrow("set.patch.flags.invalid");
+
+    const diagnostics = run.get("diagnostics") as Array<{
+      code: string;
+      data?: { valueType?: string; hasList?: boolean; hasMap?: boolean };
+    }>;
+
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "set.patch.flags.invalid",
+        data: expect.objectContaining({
+          valueType: "object",
+          hasList: false,
+          hasMap: true,
+        }),
+      }),
+    );
   });
 
   it("emits set.patch.impulseQ.invalid for invalid impulseQ patch", () => {

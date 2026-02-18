@@ -26,6 +26,13 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     shape: {},
   },
+  "set.patch.invalid": {
+    description: "set patch value must be an object.",
+    severity: "error",
+    shape: {
+      valueType: "string",
+    },
+  },
   "set.patch.forbidden": {
     description: "set patch contains forbidden keys for partial updates.",
     severity: "error",
@@ -36,6 +43,16 @@ export const DIAGNOSTIC_CODES = {
       "set patch must not combine flags with addFlags/removeFlags in one call.",
     severity: "error",
     shape: {},
+  },
+  "set.patch.flags.invalid": {
+    description:
+      "set patch flags value must be an object with list(array) and map(object).",
+    severity: "error",
+    shape: {
+      valueType: "string",
+      hasList: "boolean",
+      hasMap: "boolean",
+    },
   },
   "set.patch.signals.invalid": {
     description: "set patch signals value must be an array of strings.",
