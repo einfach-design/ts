@@ -487,6 +487,240 @@ describe("conformance/get-set", () => {
       }),
     );
   });
+
+  it("A2.6 — retain-trim with cursor>0 keeps applied semantics and preserves pending entries", () => {
+    const run = createRuntime();
+
+    const retainedApplied = {
+      signals: ["applied-2"],
+      addFlags: ["b"],
+      removeFlags: ["a"],
+      useFixedFlags: false,
+    };
+    const pendingEntry = {
+      signals: ["pending-1"],
+      addFlags: ["c"],
+      removeFlags: [],
+      useFixedFlags: false,
+    };
+
+    run.set({
+      defaults: run.get("defaults" as string | undefined, {
+        as: "snapshot",
+      }) as Record<string, unknown>,
+      flags: { list: ["a", "b"], map: { a: true, b: true } },
+      changedFlags: { list: ["b"], map: { b: true } },
+      seenFlags: { list: ["a", "b"], map: { a: true, b: true } },
+      signal: "applied-2",
+      seenSignals: {
+        list: ["applied-1", "applied-2"],
+        map: { "applied-1": true, "applied-2": true },
+      },
+      impulseQ: {
+        q: {
+          entries: [
+            {
+              signals: ["applied-1"],
+              addFlags: ["a"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+            retainedApplied,
+            pendingEntry,
+          ],
+          cursor: 2,
+        },
+        config: {
+          retain: true,
+          maxBytes: Number.POSITIVE_INFINITY,
+        },
+      },
+      backfillQ: { list: [], map: {} },
+      registeredQ: [],
+    });
+
+    const appliedBeforeTrim = run.get("flags" as string | undefined, {
+      scope: "applied",
+      as: "snapshot",
+    });
+
+    run.set({
+      impulseQ: {
+        config: {
+          retain: 1,
+        },
+      },
+    });
+
+    const impulseQAfterTrim = run.get("impulseQ" as string | undefined, {
+      as: "snapshot",
+    }) as {
+      q: {
+        entries: Array<{ addFlags: string[]; signals: string[] }>;
+        cursor: number;
+      };
+    };
+
+    expect(impulseQAfterTrim.q.cursor).toBe(1);
+    expect(impulseQAfterTrim.q.entries).toHaveLength(2);
+    expect(
+      impulseQAfterTrim.q.entries.slice(0, impulseQAfterTrim.q.cursor),
+    ).toEqual([
+      expect.objectContaining({ addFlags: ["b"], signals: ["applied-2"] }),
+    ]);
+    expect(
+      impulseQAfterTrim.q.entries.slice(impulseQAfterTrim.q.cursor),
+    ).toEqual([
+      expect.objectContaining({ addFlags: ["c"], signals: ["pending-1"] }),
+    ]);
+
+    expect(
+      run.get("flags" as string | undefined, {
+        scope: "applied",
+        as: "snapshot",
+      }),
+    ).toEqual(appliedBeforeTrim);
+    expect(
+      run.get("flags" as string | undefined, {
+        scope: "pendingOnly",
+        as: "snapshot",
+      }),
+    ).toEqual({
+      list: ["a", "c"],
+      map: { a: true, c: true },
+    });
+    expect(
+      run.get("flags" as string | undefined, {
+        scope: "pending",
+        as: "snapshot",
+      }),
+    ).toEqual({
+      list: ["b", "c"],
+      map: { b: true, c: true },
+    });
+  });
+
+  it("A2.7 — maxBytes-trim with deterministic entry sizes trims applied only", () => {
+    const run = createRuntime();
+
+    const appliedEntryA = {
+      signals: ["applied-a"],
+      addFlags: ["a"],
+      removeFlags: [],
+      useFixedFlags: false,
+    };
+    const appliedEntryB = {
+      signals: ["applied-b"],
+      addFlags: ["b"],
+      removeFlags: [],
+      useFixedFlags: false,
+    };
+    const appliedEntryC = {
+      signals: ["applied-c"],
+      addFlags: ["c"],
+      removeFlags: [],
+      useFixedFlags: false,
+    };
+    const pendingEntry = {
+      signals: ["pending-d"],
+      addFlags: ["d"],
+      removeFlags: [],
+      useFixedFlags: false,
+    };
+
+    run.set({
+      defaults: run.get("defaults" as string | undefined, {
+        as: "snapshot",
+      }) as Record<string, unknown>,
+      flags: { list: ["a", "b", "c"], map: { a: true, b: true, c: true } },
+      changedFlags: { list: ["c"], map: { c: true } },
+      seenFlags: {
+        list: ["a", "b", "c"],
+        map: { a: true, b: true, c: true },
+      },
+      signal: "applied-c",
+      seenSignals: {
+        list: ["applied-a", "applied-b", "applied-c"],
+        map: { "applied-a": true, "applied-b": true, "applied-c": true },
+      },
+      impulseQ: {
+        q: {
+          entries: [appliedEntryA, appliedEntryB, appliedEntryC, pendingEntry],
+          cursor: 3,
+        },
+        config: {
+          retain: true,
+          maxBytes: Number.POSITIVE_INFINITY,
+        },
+      },
+      backfillQ: { list: [], map: {} },
+      registeredQ: [],
+    });
+
+    const maxBytes =
+      JSON.stringify(appliedEntryB).length +
+      JSON.stringify(appliedEntryC).length;
+    const appliedBeforeTrim = run.get("flags" as string | undefined, {
+      scope: "applied",
+      as: "snapshot",
+    });
+
+    run.set({
+      impulseQ: {
+        config: {
+          maxBytes,
+        },
+      },
+    });
+
+    const impulseQAfterTrim = run.get("impulseQ" as string | undefined, {
+      as: "snapshot",
+    }) as {
+      q: {
+        entries: Array<{ addFlags: string[]; signals: string[] }>;
+        cursor: number;
+      };
+    };
+
+    expect(impulseQAfterTrim.q.cursor).toBe(2);
+    expect(impulseQAfterTrim.q.entries).toHaveLength(3);
+    expect(
+      impulseQAfterTrim.q.entries.slice(0, impulseQAfterTrim.q.cursor),
+    ).toEqual([
+      expect.objectContaining({ addFlags: ["b"], signals: ["applied-b"] }),
+      expect.objectContaining({ addFlags: ["c"], signals: ["applied-c"] }),
+    ]);
+    expect(
+      impulseQAfterTrim.q.entries.slice(impulseQAfterTrim.q.cursor),
+    ).toEqual([
+      expect.objectContaining({ addFlags: ["d"], signals: ["pending-d"] }),
+    ]);
+
+    expect(
+      run.get("flags" as string | undefined, {
+        scope: "applied",
+        as: "snapshot",
+      }),
+    ).toEqual(appliedBeforeTrim);
+    expect(
+      run.get("flags" as string | undefined, {
+        scope: "pendingOnly",
+        as: "snapshot",
+      }),
+    ).toEqual({
+      list: ["a", "d"],
+      map: { a: true, d: true },
+    });
+    expect(
+      run.get("flags" as string | undefined, {
+        scope: "pending",
+        as: "snapshot",
+      }),
+    ).toEqual({
+      list: ["a", "b", "c", "d"],
+      map: { a: true, b: true, c: true, d: true },
+    });
+  });
   it("A3 — snapshot must tolerate opaque/cyclic livePayload values (Spec §4.1)", () => {
     const run = createRuntime();
     const livePayload: {
