@@ -47,7 +47,12 @@ export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
 ): TDiagnostic {
   const { diagnostic, listeners, collector, onListenerError } = options;
 
-  if (!(diagnostic.code in DIAGNOSTIC_CODES)) {
+  const isKnownCode = diagnostic.code in DIAGNOSTIC_CODES;
+  const isTestMode =
+    typeof process !== "undefined" &&
+    (process.env.NODE_ENV === "test" || process.env.VITEST === "true");
+
+  if (!isKnownCode && isTestMode) {
     throw new Error("diagnostics.code.unknown");
   }
 

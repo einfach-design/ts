@@ -49,6 +49,7 @@ export type RunGetKey =
   | "seenFlags"
   | "signal"
   | "seenSignals"
+  | "scopeProjectionBaseline"
   | "impulseQ"
   | "backfillQ"
   | "registeredQ"

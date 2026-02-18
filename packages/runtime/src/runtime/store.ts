@@ -15,6 +15,7 @@ import {
 } from "../state/signals.js";
 import { measureEntryBytes } from "./util.js";
 import type { RuntimeErrorPhase } from "./onError.js";
+import type { DiagnosticCollector } from "../diagnostics/index.js";
 
 type ImpulseQOnTrim = (info: {
   entries: readonly ImpulseQEntryCanonical[];
@@ -29,7 +30,7 @@ export type RuntimeOnError =
 
 type ImpulseQOnError = RuntimeOnError;
 
-type ScopeProjectionBaseline = {
+export type ScopeProjectionBaseline = {
   flags: FlagsView;
   changedFlags: FlagsView | undefined;
   seenFlags: FlagsView;
@@ -71,6 +72,7 @@ export type RuntimeStore<
   runtimeStackDepth: number;
 
   withRuntimeStack: <T>(fn: () => T) => T;
+  diagnostics: DiagnosticCollector | undefined;
   reportRuntimeError: (
     error: unknown,
     phase: RuntimeErrorPhase,
@@ -296,10 +298,35 @@ export function initRuntimeStore<
     },
 
     withRuntimeStack,
+    diagnostics: undefined,
     reportRuntimeError(error, phase, extraData) {
-      void error;
-      void phase;
-      void extraData;
+      const diagnostics = this.diagnostics;
+
+      const isTargetPhase =
+        phase === "target/callback" || phase === "target/object";
+      const code = isTargetPhase
+        ? "runtime.target.error"
+        : "runtime.onError.report";
+
+      diagnostics?.emit({
+        code,
+        message: error instanceof Error ? error.message : "Runtime error",
+        severity: "error",
+        data: {
+          phase,
+          ...(extraData ?? {}),
+        },
+      });
+
+      const mode = this.impulseQ.config.onError ?? "report";
+      if (typeof mode === "function") {
+        mode(error);
+        return;
+      }
+
+      if (mode === "throw") {
+        throw error;
+      }
     },
   };
 

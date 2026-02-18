@@ -44,7 +44,6 @@ import { runMatchExpression as runMatchExpressionApi } from "./api/matchExpressi
 import { runOnDiagnostic } from "./api/onDiagnostic.js";
 import { runSet } from "./api/set.js";
 import type { ActOccurrence } from "../processing/actImpulse.js";
-import { handleRuntimeOnError } from "./onError.js";
 
 type RuntimeAddBackfillInput = {
   signal?: { debt?: number; runs?: { max?: number } };
@@ -136,15 +135,7 @@ export function createRuntime(): Runtime {
     },
   });
 
-  store.reportRuntimeError = (error, phase, extraData): void => {
-    handleRuntimeOnError(
-      store.impulseQ.config.onError,
-      diagnostics,
-      error,
-      phase,
-      extraData,
-    );
-  };
+  store.diagnostics = diagnostics;
 
   const runtimeCore: RuntimeCore = {
     get(key, opts) {
@@ -201,26 +192,20 @@ export function createRuntime(): Runtime {
     });
 
   const reportDispatchIssue = (issue: DispatchError): void => {
-    diagnostics.emit({
-      code: "runtime.target.error",
-      message: issue.error.message,
-      severity: "error",
-      data: {
-        phase: issue.context.phase,
-        targetKind: issue.context.targetKind,
-        ...(issue.context.handler !== undefined
-          ? { handler: issue.context.handler }
-          : {}),
-        ...(issue.context.signal !== undefined
-          ? { signal: issue.context.signal }
-          : {}),
-        ...(issue.context.expressionId !== undefined
-          ? { expressionId: issue.context.expressionId }
-          : {}),
-        ...(issue.context.occurrenceKind !== undefined
-          ? { occurrenceKind: issue.context.occurrenceKind }
-          : {}),
-      },
+    store.reportRuntimeError(issue.error, issue.context.phase, {
+      targetKind: issue.context.targetKind,
+      ...(issue.context.handler !== undefined
+        ? { handler: issue.context.handler }
+        : {}),
+      ...(issue.context.signal !== undefined
+        ? { signal: issue.context.signal }
+        : {}),
+      ...(issue.context.expressionId !== undefined
+        ? { expressionId: issue.context.expressionId }
+        : {}),
+      ...(issue.context.occurrenceKind !== undefined
+        ? { occurrenceKind: issue.context.occurrenceKind }
+        : {}),
     });
   };
 
@@ -236,7 +221,7 @@ export function createRuntime(): Runtime {
       dispatch: (x: unknown) => {
         dispatch({
           ...(x as Omit<DispatchInput, "onError" | "reportError">),
-          onError: store.impulseQ.config.onError ?? "report",
+          onError: "report",
           reportError: reportDispatchIssue,
         });
       },
@@ -329,7 +314,7 @@ export function createRuntime(): Runtime {
                   dispatch: (x: unknown) => {
                     dispatch({
                       ...(x as Omit<DispatchInput, "onError" | "reportError">),
-                      onError: store.impulseQ.config.onError ?? "report",
+                      onError: "report",
                       reportError: reportDispatchIssue,
                     });
                   },

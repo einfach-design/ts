@@ -36,6 +36,13 @@ describe("conformance/get-set", () => {
         list: ["applied-signal"],
         map: { "applied-signal": true },
       },
+      scopeProjectionBaseline: {
+        flags: { list: [], map: {} },
+        changedFlags: undefined,
+        seenFlags: { list: [], map: {} },
+        signal: undefined,
+        seenSignals: { list: [], map: {} },
+      },
       impulseQ: {
         q: {
           entries: [
@@ -205,6 +212,13 @@ describe("conformance/get-set", () => {
         list: ["applied-signal"],
         map: { "applied-signal": true },
       },
+      scopeProjectionBaseline: {
+        flags: { list: [], map: {} },
+        changedFlags: undefined,
+        seenFlags: { list: [], map: {} },
+        signal: undefined,
+        seenSignals: { list: [], map: {} },
+      },
       impulseQ: {
         q: {
           entries: [
@@ -248,6 +262,7 @@ describe("conformance/get-set", () => {
       "seenFlags",
       "signal",
       "seenSignals",
+      "scopeProjectionBaseline",
       "impulseQ",
       "backfillQ",
       "registeredQ",
@@ -276,6 +291,13 @@ describe("conformance/get-set", () => {
       seenSignals: {
         list: ["applied-signal"],
         map: { "applied-signal": true },
+      },
+      scopeProjectionBaseline: {
+        flags: { list: [], map: {} },
+        changedFlags: undefined,
+        seenFlags: { list: [], map: {} },
+        signal: undefined,
+        seenSignals: { list: [], map: {} },
       },
       impulseQ: {
         q: {
@@ -320,6 +342,7 @@ describe("conformance/get-set", () => {
       "seenFlags",
       "signal",
       "seenSignals",
+      "scopeProjectionBaseline",
       "impulseQ",
       "backfillQ",
       "registeredQ",
@@ -348,6 +371,13 @@ describe("conformance/get-set", () => {
       seenSignals: {
         list: ["applied-signal"],
         map: { "applied-signal": true },
+      },
+      scopeProjectionBaseline: {
+        flags: { list: [], map: {} },
+        changedFlags: undefined,
+        seenFlags: { list: [], map: {} },
+        signal: undefined,
+        seenSignals: { list: [], map: {} },
       },
       impulseQ: {
         q: {
@@ -392,6 +422,7 @@ describe("conformance/get-set", () => {
       "seenFlags",
       "signal",
       "seenSignals",
+      "scopeProjectionBaseline",
       "impulseQ",
       "backfillQ",
       "registeredQ",
@@ -427,6 +458,13 @@ describe("conformance/get-set", () => {
       seenFlags: { list: [], map: {} },
       signal: undefined,
       seenSignals: { list: [], map: {} },
+      scopeProjectionBaseline: {
+        flags: { list: [], map: {} },
+        changedFlags: undefined,
+        seenFlags: { list: [], map: {} },
+        signal: undefined,
+        seenSignals: { list: [], map: {} },
+      },
       impulseQ: {
         q: {
           entries: [entry],
@@ -525,6 +563,13 @@ describe("conformance/get-set", () => {
       seenSignals: {
         list: ["applied-1", "applied-2"],
         map: { "applied-1": true, "applied-2": true },
+      },
+      scopeProjectionBaseline: {
+        flags: { list: [], map: {} },
+        changedFlags: undefined,
+        seenFlags: { list: [], map: {} },
+        signal: undefined,
+        seenSignals: { list: [], map: {} },
       },
       impulseQ: {
         q: {
@@ -654,6 +699,13 @@ describe("conformance/get-set", () => {
       seenSignals: {
         list: ["applied-a", "applied-b", "applied-c"],
         map: { "applied-a": true, "applied-b": true, "applied-c": true },
+      },
+      scopeProjectionBaseline: {
+        flags: { list: [], map: {} },
+        changedFlags: undefined,
+        seenFlags: { list: [], map: {} },
+        signal: undefined,
+        seenSignals: { list: [], map: {} },
       },
       impulseQ: {
         q: {
@@ -937,6 +989,13 @@ describe("conformance/get-set", () => {
       seenFlags: { list: ["base"], map: { base: true } },
       signal: "applied-a",
       seenSignals: { list: ["applied-a"], map: { "applied-a": true } },
+      scopeProjectionBaseline: {
+        flags: { list: [], map: {} },
+        changedFlags: undefined,
+        seenFlags: { list: [], map: {} },
+        signal: undefined,
+        seenSignals: { list: [], map: {} },
+      },
       impulseQ: {
         q: {
           entries: [
@@ -1030,5 +1089,43 @@ describe("conformance/get-set", () => {
     expect(star.impulseQ).toEqual(
       run.get("impulseQ", { scope: "pendingOnly", as: "snapshot" }),
     );
+  });
+  it("A2.hydration.trim — snapshot roundtrip preserves scoped projections after trim", () => {
+    const run = createRuntime();
+
+    run.impulse({ signals: ["applied-a"], addFlags: ["a"] });
+    run.impulse({ signals: ["applied-b"], addFlags: ["b"] });
+    run.impulse({ signals: ["pending-c"], addFlags: ["c"] });
+
+    run.set({
+      impulseQ: {
+        config: {
+          maxBytes: JSON.stringify({
+            signals: ["applied-b"],
+            addFlags: ["b"],
+            removeFlags: [],
+            useFixedFlags: false,
+          }).length,
+        },
+      },
+    });
+
+    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+      string,
+      unknown
+    >;
+
+    const rehydrated = createRuntime();
+    rehydrated.set(snapshot);
+
+    expect(
+      rehydrated.get("flags", { scope: "applied", as: "snapshot" }),
+    ).toEqual(run.get("flags", { scope: "applied", as: "snapshot" }));
+    expect(
+      rehydrated.get("flags", { scope: "pending", as: "snapshot" }),
+    ).toEqual(run.get("flags", { scope: "pending", as: "snapshot" }));
+    expect(
+      rehydrated.get("flags", { scope: "pendingOnly", as: "snapshot" }),
+    ).toEqual(run.get("flags", { scope: "pendingOnly", as: "snapshot" }));
   });
 });

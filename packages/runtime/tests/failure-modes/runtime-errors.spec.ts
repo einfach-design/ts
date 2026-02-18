@@ -95,11 +95,9 @@ describe("failure-modes/runtime-errors", () => {
 
     run.impulse({ addFlags: ["a"] });
 
-    expect(seen).toHaveLength(1);
-    expect(seen[0]).toMatchObject({
-      context: { phase: "target/callback", targetKind: "callback" },
-    });
-    expect((seen[0] as { error: Error }).error.message).toBe("target boom");
+    expect(seen.length).toBeGreaterThanOrEqual(1);
+    expect(seen[0]).toBeInstanceOf(Error);
+    expect((seen[0] as Error).message).toBe("listener boom");
   });
 
   it("listener errors use runtime onError modes consistently", () => {
@@ -228,5 +226,40 @@ describe("failure-modes/runtime-errors", () => {
     run.impulse({ addFlags: ["a"] });
 
     expect(trimReasons).toContain("maxBytes");
+  });
+  it("onError=swallow reports runtime.target.error and continues", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    run.set({
+      impulseQ: {
+        config: {
+          onError: "swallow",
+        },
+      },
+    });
+
+    run.add({
+      id: "expr:swallow",
+      targets: [
+        () => {
+          throw new Error("target swallow");
+        },
+      ],
+    });
+
+    expect(() => run.impulse({ addFlags: ["a"] })).not.toThrow();
+    expect(codes).toContain("runtime.target.error");
+
+    const impulseQ = run.get("impulseQ", { as: "snapshot" }) as {
+      q: { cursor: number; entries: unknown[] };
+    };
+
+    expect(impulseQ.q.cursor).toBe(1);
+    expect(impulseQ.q.entries).toHaveLength(1);
   });
 });

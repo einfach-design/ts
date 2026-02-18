@@ -8,6 +8,9 @@
 
 import { describe, expect, it } from "vitest";
 import { createRuntime } from "../../src/index.js";
+import { DIAGNOSTIC_CODES } from "../../src/diagnostics/index.js";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 describe("conformance/diagnostic-codes", () => {
   it("emits set.hydration.incomplete on incomplete hydration patch", () => {
@@ -106,5 +109,28 @@ describe("conformance/diagnostic-codes", () => {
     expect(() => run.get("unknown-key")).toThrow("get.key.invalid");
 
     expect(seen).toContain("runtime.diagnostic.listenerError");
+  });
+  it("uses only registered diagnostic codes in runtime emits", () => {
+    const runtimeFiles = [
+      "src/runtime/api/add.ts",
+      "src/runtime/api/get.ts",
+      "src/runtime/api/impulse.ts",
+      "src/runtime/api/set.ts",
+      "src/runtime/store.ts",
+    ];
+
+    const knownCodes = new Set(Object.keys(DIAGNOSTIC_CODES));
+
+    for (const file of runtimeFiles) {
+      const source = readFileSync(resolve(process.cwd(), file), "utf8");
+      const matches = [...source.matchAll(/code:\s*"([^"]+)"/g)];
+      for (const match of matches) {
+        const code = match[1];
+        if (code === undefined) {
+          continue;
+        }
+        expect(knownCodes.has(code)).toBe(true);
+      }
+    }
   });
 });
