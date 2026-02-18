@@ -150,6 +150,12 @@ export function createRuntime(): Runtime {
     },
   };
 
+  type ExpressionTelemetry = {
+    backfillSignalRuns: number;
+    backfillFlagsRuns: number;
+    inBackfillQ?: boolean;
+  };
+
   type RunOccurrenceContext = {
     signal?: string;
     changedFlags: Parameters<typeof coreRunImpl>[0]["store"]["changedFlags"];
@@ -157,13 +163,22 @@ export function createRuntime(): Runtime {
     removeFlags: readonly string[];
     occurrenceHasPayload: boolean;
     payload?: unknown;
+    occurrenceSeq: number;
+    occurrenceId: string;
+    expressionTelemetryById: Map<string, ExpressionTelemetry>;
+    currentBackfillGate?: "signal" | "flags";
   };
+
+  let nextOccurrenceSeq = 0;
 
   let runOccurrenceContext: RunOccurrenceContext = {
     changedFlags: undefined,
     addFlags: [],
     removeFlags: [],
     occurrenceHasPayload: false,
+    occurrenceSeq: 0,
+    occurrenceId: "occ:0",
+    expressionTelemetryById: new Map(),
   };
 
   const toCoreStoreView = (): Parameters<typeof coreRunImpl>[0]["store"] => ({
@@ -180,6 +195,12 @@ export function createRuntime(): Runtime {
     occurrenceHasPayload: runOccurrenceContext.occurrenceHasPayload,
     ...(runOccurrenceContext.occurrenceHasPayload
       ? { payload: runOccurrenceContext.payload }
+      : {}),
+    occurrenceSeq: runOccurrenceContext.occurrenceSeq,
+    occurrenceId: runOccurrenceContext.occurrenceId,
+    expressionTelemetryById: runOccurrenceContext.expressionTelemetryById,
+    ...(runOccurrenceContext.currentBackfillGate !== undefined
+      ? { currentBackfillGate: runOccurrenceContext.currentBackfillGate }
       : {}),
   });
 
@@ -245,19 +266,36 @@ export function createRuntime(): Runtime {
   const runCoreExpression = (
     expression: RegisteredExpression,
     occurrenceKind: "registered" | "backfill" = "registered",
-  ) =>
-    coreRunImpl({
-      expression,
-      store: toCoreStoreView(),
-      runtimeCore,
-      dispatch: dispatchForCoreRun,
-      matchExpression: matchExpressionForCoreRun,
-      toMatchFlagsView,
-      createFlagsView,
-      onLimitReached: exitExpressionOnLimit,
-      onRunsLimitReached: reportRunsLimitReached,
-      occurrenceKind,
-    });
+    backfillGate?: "signal" | "flags",
+  ) => {
+    const previousGate = runOccurrenceContext.currentBackfillGate;
+    if (backfillGate !== undefined) {
+      runOccurrenceContext.currentBackfillGate = backfillGate;
+    } else {
+      delete runOccurrenceContext.currentBackfillGate;
+    }
+
+    try {
+      return coreRunImpl({
+        expression,
+        store: toCoreStoreView(),
+        runtimeCore,
+        dispatch: dispatchForCoreRun,
+        matchExpression: matchExpressionForCoreRun,
+        toMatchFlagsView,
+        createFlagsView,
+        onLimitReached: exitExpressionOnLimit,
+        onRunsLimitReached: reportRunsLimitReached,
+        occurrenceKind,
+      });
+    } finally {
+      if (previousGate !== undefined) {
+        runOccurrenceContext.currentBackfillGate = previousGate;
+      } else {
+        delete runOccurrenceContext.currentBackfillGate;
+      }
+    }
+  };
 
   const coreRun = (expression: RegisteredExpression) =>
     runCoreExpression(expression, "registered");
@@ -300,19 +338,27 @@ export function createRuntime(): Runtime {
 
     const toOccurrenceContext = (
       occurrence: ActOccurrence,
-    ): RunOccurrenceContext => ({
-      ...(occurrence.signal !== undefined ? { signal: occurrence.signal } : {}),
-      changedFlags: store.changedFlags,
-      addFlags: entry.addFlags,
-      removeFlags: entry.removeFlags,
-      occurrenceHasPayload: Object.prototype.hasOwnProperty.call(
-        occurrence,
-        "payload",
-      ),
-      ...(Object.prototype.hasOwnProperty.call(occurrence, "payload")
-        ? { payload: occurrence.payload }
-        : {}),
-    });
+    ): RunOccurrenceContext => {
+      nextOccurrenceSeq += 1;
+      return {
+        ...(occurrence.signal !== undefined
+          ? { signal: occurrence.signal }
+          : {}),
+        changedFlags: store.changedFlags,
+        addFlags: entry.addFlags,
+        removeFlags: entry.removeFlags,
+        occurrenceHasPayload: Object.prototype.hasOwnProperty.call(
+          occurrence,
+          "payload",
+        ),
+        ...(Object.prototype.hasOwnProperty.call(occurrence, "payload")
+          ? { payload: occurrence.payload }
+          : {}),
+        occurrenceSeq: nextOccurrenceSeq,
+        occurrenceId: `occ:${nextOccurrenceSeq}`,
+        expressionTelemetryById: new Map(),
+      };
+    };
 
     const withOccurrenceContext = (
       occurrence: ActOccurrence,
@@ -336,18 +382,56 @@ export function createRuntime(): Runtime {
           backfillRun({
             backfillQ: store.backfillQ,
             registeredById: expressionRegistry.registeredById,
-            attempt(expression) {
+            attempt(expression, gate) {
+              const current = runOccurrenceContext.expressionTelemetryById.get(
+                expression.id,
+              ) ?? { backfillSignalRuns: 0, backfillFlagsRuns: 0 };
+
+              const result = runCoreExpression(expression, "backfill", gate);
+              if (result.status === "deploy") {
+                runOccurrenceContext.expressionTelemetryById.set(
+                  expression.id,
+                  {
+                    ...current,
+                    ...(gate === "signal"
+                      ? { backfillSignalRuns: current.backfillSignalRuns + 1 }
+                      : { backfillFlagsRuns: current.backfillFlagsRuns + 1 }),
+                  },
+                );
+              }
+
               return {
-                status: runCoreExpression(expression, "backfill").status,
+                status: result.status,
                 pending: false,
               };
             },
             onLimitReached: exitExpressionOnLimit,
+            onEnqueue: (expressionId) => {
+              const current = runOccurrenceContext.expressionTelemetryById.get(
+                expressionId,
+              ) ?? { backfillSignalRuns: 0, backfillFlagsRuns: 0 };
+              runOccurrenceContext.expressionTelemetryById.set(expressionId, {
+                ...current,
+                inBackfillQ: true,
+              });
+            },
           });
         });
       },
       runRegistered: (occurrence) => {
         withOccurrenceContext(occurrence, () => {
+          for (const [
+            expressionId,
+            telemetry,
+          ] of runOccurrenceContext.expressionTelemetryById.entries()) {
+            if (telemetry.inBackfillQ === undefined) {
+              runOccurrenceContext.expressionTelemetryById.set(expressionId, {
+                ...telemetry,
+                inBackfillQ: false,
+              });
+            }
+          }
+
           registeredRun({
             registeredQ: expressionRegistry.registeredQ,
             registeredById: expressionRegistry.registeredById,
@@ -382,6 +466,15 @@ export function createRuntime(): Runtime {
               });
             },
             coreRun,
+            onEnqueue: (expressionId) => {
+              const current = runOccurrenceContext.expressionTelemetryById.get(
+                expressionId,
+              ) ?? { backfillSignalRuns: 0, backfillFlagsRuns: 0 };
+              runOccurrenceContext.expressionTelemetryById.set(expressionId, {
+                ...current,
+                inBackfillQ: true,
+              });
+            },
           });
         });
       },

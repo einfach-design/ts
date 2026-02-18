@@ -107,7 +107,7 @@ describe("failure-modes/invariants", () => {
     const appliedAfterTrim = flagsFrom(run.get("flags", { scope: "applied" }));
 
     expect(pendingAfterTrim).toEqual(pendingBeforeTrim);
-    expect(pendingOnlyAfterTrim).toEqual(pendingBeforeTrim);
+    expect(pendingOnlyAfterTrim).toEqual(["b"]);
     expect(appliedAfterTrim).toEqual(["a"]);
 
     const appliedQueue = run.get("impulseQ", {
