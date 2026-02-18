@@ -14,33 +14,41 @@ import {
 } from "../../src/diagnostics/emit.js";
 
 describe("diagnostics/emit", () => {
-  it("emits to onDiagnostic and collector", () => {
+  it("emits to listeners and collector", () => {
     const collector: Array<{ code: string; message: string }> = [];
-    const onDiagnostic = vi.fn();
+    const listener = vi.fn();
+    const listeners = new Set([listener]);
 
     const diagnostic = emitDiagnostic({
       diagnostic: { code: "x", message: "hello" },
       collector,
-      onDiagnostic,
+      listeners,
     });
 
     expect(diagnostic).toEqual({ code: "x", message: "hello" });
     expect(collector).toEqual([{ code: "x", message: "hello" }]);
-    expect(onDiagnostic).toHaveBeenCalledWith({ code: "x", message: "hello" });
+    expect(listener).toHaveBeenCalledWith({ code: "x", message: "hello" });
   });
 
-  it("supports a reusable diagnostic collector", () => {
-    const onDiagnostic = vi.fn();
-    const collector = createDiagnosticCollector(onDiagnostic);
+  it("supports a reusable diagnostic collector with subscribe/remove", () => {
+    const handlerA = vi.fn();
+    const handlerB = vi.fn();
+    const collector = createDiagnosticCollector();
+
+    const removeA = collector.subscribe(handlerA);
+    collector.subscribe(handlerB);
 
     collector.emit({ code: "a", message: "A" });
+    removeA();
     collector.emit({ code: "b", message: "B" });
 
     expect(collector.list()).toEqual([
       { code: "a", message: "A" },
       { code: "b", message: "B" },
     ]);
-    expect(onDiagnostic).toHaveBeenCalledTimes(2);
+    expect(handlerA).toHaveBeenCalledTimes(1);
+    expect(handlerA).toHaveBeenCalledWith({ code: "a", message: "A" });
+    expect(handlerB).toHaveBeenCalledTimes(2);
 
     collector.clear();
     expect(collector.list()).toEqual([]);

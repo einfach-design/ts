@@ -9,14 +9,5 @@ export function runOnDiagnostic(
   { diagnostics }: { diagnostics: DiagnosticCollector },
   handler: (diagnostic: RuntimeDiagnostic) => void,
 ): () => void {
-  return store.withRuntimeStack(() => {
-    const prev = diagnostics.list();
-    diagnostics.clear();
-    for (const item of prev) {
-      handler(item);
-      diagnostics.emit(item);
-    }
-
-    return () => undefined;
-  });
+  return store.withRuntimeStack(() => diagnostics.subscribe(handler));
 }
