@@ -142,6 +142,213 @@ describe("conformance/get-set", () => {
     });
   });
 
+  it("A2.1 — scope projection consistency for all RunGetKey at applied scope", () => {
+    const run = createRuntime();
+
+    run.set({
+      defaults: run.get("defaults" as string | undefined, {
+        as: "snapshot",
+      }) as Record<string, unknown>,
+      flags: { list: ["a"], map: { a: true } },
+      changedFlags: { list: ["a"], map: { a: true } },
+      seenFlags: { list: ["a"], map: { a: true } },
+      signal: "applied-signal",
+      seenSignals: {
+        list: ["applied-signal"],
+        map: { "applied-signal": true },
+      },
+      impulseQ: {
+        q: {
+          entries: [
+            {
+              signals: ["applied-signal"],
+              addFlags: ["a"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+            {
+              signals: ["pending-signal"],
+              addFlags: ["b"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+          ],
+          cursor: 1,
+        },
+        config: {
+          retain: 0,
+          maxBytes: Number.POSITIVE_INFINITY,
+        },
+      },
+      backfillQ: { list: [], map: {} },
+      registeredQ: [],
+    });
+
+    const scoped = run.get("*" as string | undefined, {
+      scope: "applied",
+      as: "snapshot",
+    }) as Record<string, unknown>;
+
+    const keys: Array<
+      Exclude<import("../../src/index.types.js").RunGetKey, "*">
+    > = [
+      "defaults",
+      "flags",
+      "changedFlags",
+      "seenFlags",
+      "signal",
+      "seenSignals",
+      "impulseQ",
+      "backfillQ",
+      "registeredQ",
+      "diagnostics",
+    ];
+
+    for (const key of keys) {
+      expect(scoped[key]).toEqual(
+        run.get(key, { scope: "applied", as: "snapshot" }),
+      );
+    }
+  });
+
+  it("A2.2 — scope projection consistency for all RunGetKey at pending scope", () => {
+    const run = createRuntime();
+
+    run.set({
+      defaults: run.get("defaults" as string | undefined, {
+        as: "snapshot",
+      }) as Record<string, unknown>,
+      flags: { list: ["a"], map: { a: true } },
+      changedFlags: { list: ["a"], map: { a: true } },
+      seenFlags: { list: ["a"], map: { a: true } },
+      signal: "applied-signal",
+      seenSignals: {
+        list: ["applied-signal"],
+        map: { "applied-signal": true },
+      },
+      impulseQ: {
+        q: {
+          entries: [
+            {
+              signals: ["applied-signal"],
+              addFlags: ["a"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+            {
+              signals: ["pending-signal"],
+              addFlags: ["b"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+          ],
+          cursor: 1,
+        },
+        config: {
+          retain: 0,
+          maxBytes: Number.POSITIVE_INFINITY,
+        },
+      },
+      backfillQ: { list: [], map: {} },
+      registeredQ: [],
+    });
+
+    const scoped = run.get("*" as string | undefined, {
+      scope: "pending",
+      as: "snapshot",
+    }) as Record<string, unknown>;
+
+    const keys: Array<
+      Exclude<import("../../src/index.types.js").RunGetKey, "*">
+    > = [
+      "defaults",
+      "flags",
+      "changedFlags",
+      "seenFlags",
+      "signal",
+      "seenSignals",
+      "impulseQ",
+      "backfillQ",
+      "registeredQ",
+      "diagnostics",
+    ];
+
+    for (const key of keys) {
+      expect(scoped[key]).toEqual(
+        run.get(key, { scope: "pending", as: "snapshot" }),
+      );
+    }
+  });
+
+  it("A2.3 — scope projection consistency for all RunGetKey at pendingOnly scope", () => {
+    const run = createRuntime();
+
+    run.set({
+      defaults: run.get("defaults" as string | undefined, {
+        as: "snapshot",
+      }) as Record<string, unknown>,
+      flags: { list: ["a"], map: { a: true } },
+      changedFlags: { list: ["a"], map: { a: true } },
+      seenFlags: { list: ["a"], map: { a: true } },
+      signal: "applied-signal",
+      seenSignals: {
+        list: ["applied-signal"],
+        map: { "applied-signal": true },
+      },
+      impulseQ: {
+        q: {
+          entries: [
+            {
+              signals: ["applied-signal"],
+              addFlags: ["a"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+            {
+              signals: ["pending-signal"],
+              addFlags: ["b"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+          ],
+          cursor: 1,
+        },
+        config: {
+          retain: 0,
+          maxBytes: Number.POSITIVE_INFINITY,
+        },
+      },
+      backfillQ: { list: [], map: {} },
+      registeredQ: [],
+    });
+
+    const scoped = run.get("*" as string | undefined, {
+      scope: "pendingOnly",
+      as: "snapshot",
+    }) as Record<string, unknown>;
+
+    const keys: Array<
+      Exclude<import("../../src/index.types.js").RunGetKey, "*">
+    > = [
+      "defaults",
+      "flags",
+      "changedFlags",
+      "seenFlags",
+      "signal",
+      "seenSignals",
+      "impulseQ",
+      "backfillQ",
+      "registeredQ",
+      "diagnostics",
+    ];
+
+    for (const key of keys) {
+      expect(scoped[key]).toEqual(
+        run.get(key, { scope: "pendingOnly", as: "snapshot" }),
+      );
+    }
+  });
+
   it("A3 — snapshot must tolerate opaque/cyclic livePayload values (Spec §4.1)", () => {
     const run = createRuntime();
     const livePayload: {
