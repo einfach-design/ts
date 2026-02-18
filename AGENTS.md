@@ -31,6 +31,8 @@ This repository is an AI-first workspace. Agents must produce PR-ready changes w
 - pnpm -C packages/runtime test
 - pnpm -C packages/runtime build
 
+Also run all checks/tests listed in `.github/workflows/runtime.yaml` and ensure they are green before finishing.
+
 If any command fails:
 
 1. Read the error output.
