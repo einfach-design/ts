@@ -31,4 +31,16 @@ describe("conformance: public contract (types entrypoint)", () => {
       expect(source.includes("type RegisteredExpression =")).toBe(false);
     }
   });
+
+  it("tsup entrypoints and dts stay aligned with dist release contract", () => {
+    const tsupConfig = readFileSync(
+      resolve(process.cwd(), "tsup.config.ts"),
+      "utf8",
+    );
+
+    expect(tsupConfig).toContain(
+      'entry: ["src/index.ts", "src/index.types.ts"]',
+    );
+    expect(tsupConfig).toContain("dts: true");
+  });
 });

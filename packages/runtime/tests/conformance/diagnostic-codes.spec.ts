@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { createRuntime } from "../../src/index.js";
 import { DIAGNOSTIC_CODES } from "../../src/diagnostics/index.js";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
 describe("conformance/diagnostic-codes", () => {
@@ -284,27 +284,48 @@ describe("conformance/diagnostic-codes", () => {
   });
 
   it("uses only registered diagnostic codes in runtime sources", () => {
-    const runtimeFiles = [
-      "src/runtime/api/add.ts",
-      "src/runtime/api/get.ts",
-      "src/runtime/api/impulse.ts",
-      "src/runtime/api/set.ts",
-      "src/runtime/store.ts",
-      "src/targets/dispatch.ts",
-      "src/diagnostics/emit.ts",
-    ];
+    const runtimeSourceRoot = resolve(process.cwd(), "src");
+
+    const listRuntimeSourceFiles = (directory: string): string[] => {
+      const entries = readdirSync(directory).sort((a, b) => a.localeCompare(b));
+      const files: string[] = [];
+
+      for (const entry of entries) {
+        const absolutePath = resolve(directory, entry);
+        const stats = statSync(absolutePath);
+
+        if (stats.isDirectory()) {
+          files.push(...listRuntimeSourceFiles(absolutePath));
+          continue;
+        }
+
+        if (absolutePath.endsWith(".ts")) {
+          files.push(absolutePath);
+        }
+      }
+
+      return files;
+    };
+
+    const filesWithCodeFields = listRuntimeSourceFiles(runtimeSourceRoot)
+      .map((absolutePath) => {
+        const source = readFileSync(absolutePath, "utf8");
+        return { absolutePath, source };
+      })
+      .filter(({ source }) => /code:\s*"([^"]+)"/g.test(source));
 
     const knownCodes = new Set(Object.keys(DIAGNOSTIC_CODES));
 
-    for (const file of runtimeFiles) {
-      const source = readFileSync(resolve(process.cwd(), file), "utf8");
-      const matches = [...source.matchAll(/code:\s*"([^"]+)"/g)];
+    for (const file of filesWithCodeFields) {
+      const relativePath = file.absolutePath.replace(`${process.cwd()}/`, "");
+      const matches = [...file.source.matchAll(/code:\s*"([^"]+)"/g)];
       for (const match of matches) {
         const code = match[1];
         if (code === undefined) {
           continue;
         }
-        expect(knownCodes.has(code)).toBe(true);
+
+        expect(knownCodes.has(code), `${relativePath} -> ${code}`).toBe(true);
       }
     }
   });

@@ -48,8 +48,8 @@ Single Source of Truth für Implementierungs-Ownership, Parallelisierung, PR-Reg
 4. **Keine neuen Dependencies** ohne explizite Freigabe durch Team 0 (Test-only Ausnahme siehe unten).
 5. Änderungen an `src/**` brauchen mindestens **einen Unit-Test** **oder** eine **explizite Begründung** im PR; für Conformance-Trigger-Pfade zusätzlich **`pnpm test:conformance`**.
 6. Keine “Repo-weiten” Format-Änderungen in fachlichen PRs (nur scopebezogen).
-
-7. **Neue Files brauchen Ownership.** Jede neue Datei muss in dieser WORKMAP einem Team zugeordnet werden (Owner), bevor sie gemerged wird.
+7. **Invariant Suite ist Pflicht-Gate.** `tests/failure-modes/invariants.spec.ts` muss in relevanten Änderungen grün bleiben.
+8. **Neue Files brauchen Ownership.** Jede neue Datei muss in dieser WORKMAP einem Team zugeordnet werden (Owner), bevor sie gemerged wird.
 
 ### Integrationsänderungen durch Team 0 (Ausnahme)
 
@@ -274,11 +274,13 @@ Regel:
 - `tests/conformance/**` ist **owned by Team 0** (Review required).
 - Andere Teams dürfen PRs beisteuern, aber **Merge erfolgt durch Team 0**.
 - Conformance-Tests sind das Release-Gate und dürfen nicht pro Team auseinanderdriften.
+- `tests/failure-modes/**` ist ebenfalls Gate-nah und wird von Team 0 betreut.
 
 ### Teststruktur (normativ)
 
 - **Unit-Tests gehören nach** `tests/unit/<team>/**`
 - **Conformance-Tests gehören nach** `tests/conformance/**` (Gate-Ownership Team 0)
+- **Failure-Mode Invariants gehören nach** `tests/failure-modes/**` (Gate-Ownership Team 0)
 
 ---
 
@@ -383,6 +385,7 @@ Ein Task/PR gilt als Done, wenn:
 - `pnpm typecheck` ✅
 - `pnpm lint` ✅
 - `pnpm test` ✅ (oder mindestens die betroffenen Unit-Tests; Conformance wenn relevant)
+- Matrix + Failure-Modes + Invariant Suite ✅ (`tests/conformance/public-method-matrix.spec.ts`, `tests/failure-modes/runtime-errors.spec.ts`, `tests/failure-modes/invariants.spec.ts`)
 - `pnpm -s prepublishOnly` ✅ (für Release-Kandidaten lokal grün)
 - Tests decken Kerninvarianten ab (Edgecases)
 - Keine Änderungen an nicht-owned Files (außer explizit durch Team 0 als Integration)
