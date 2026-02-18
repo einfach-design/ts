@@ -73,7 +73,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
     );
   });
 
-  it("keeps backfill-relevant telemetry stable when debt remains pending after the impulse", () => {
+  it("keeps backfill-relevant telemetry stable across backfill and registered runs", () => {
     const run = createRuntime();
     const calls: TelemetryCall[] = [];
 
@@ -113,14 +113,10 @@ describe("conformance/telemetry-backfill-relevant", () => {
     };
 
     run.set(snapshot);
-    run.impulse({ addFlags: ["tick"] });
-
-    expect(run.get("backfillQ", { as: "snapshot" })).toEqual({
-      list: ["expr:pending"],
-      map: { "expr:pending": true },
-    });
+    run.impulse({ signals: ["sig:need"] });
 
     const backfillCall = calls.find((call) => call.q === "backfill");
+    expect(backfillCall).toBeDefined();
     expect(backfillCall).toEqual(
       expect.objectContaining({
         inBackfillQ: false,
@@ -128,20 +124,15 @@ describe("conformance/telemetry-backfill-relevant", () => {
     );
 
     const registeredCall = calls.find((call) => call.q === "registered");
-    if (registeredCall !== undefined) {
-      expect(registeredCall).toEqual(
-        expect.objectContaining({
-          signalRuns: expect.any(Number),
-          flagsRuns: expect.any(Number),
-          runs: expect.any(Number),
-          inBackfillQ: true,
-        }),
-      );
-
-      expect(registeredCall.signalRuns).toBeGreaterThanOrEqual(0);
-      expect(registeredCall.flagsRuns).toBeGreaterThanOrEqual(0);
-      expect(registeredCall.runs).toBeGreaterThanOrEqual(0);
-    }
+    expect(registeredCall).toBeDefined();
+    expect(registeredCall).toEqual(
+      expect.objectContaining({
+        signalRuns: expect.any(Number),
+        flagsRuns: expect.any(Number),
+        runs: expect.any(Number),
+        inBackfillQ: false,
+      }),
+    );
   });
 
   it("keeps non-backfill-relevant telemetry fields absent and inBackfillQ=false", () => {

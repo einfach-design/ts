@@ -76,10 +76,19 @@ describe("conformance/backfill-run", () => {
 
     expect(expression?.backfill?.signal?.debt).toBe(0);
     expect(expression?.backfill?.flags?.debt).toBe(1);
-    expect(run.get("backfillQ", { as: "snapshot" })).toEqual({
+    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
+      list: string[];
+      map: Record<string, true>;
+    };
+
+    expect(backfillQ).toEqual({
       list: ["expr:pending-gt-zero"],
       map: { "expr:pending-gt-zero": true },
     });
+    expect(
+      backfillQ.list.filter((id) => id === "expr:pending-gt-zero"),
+    ).toHaveLength(1);
+    expect(Object.keys(backfillQ.map)).toEqual(["expr:pending-gt-zero"]);
   });
 
   it("does not re-enqueue when debt reaches zero", () => {
