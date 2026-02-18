@@ -21,16 +21,126 @@ describe("conformance/get-set", () => {
     expect(() => run.get("unknown-key" as string | undefined)).toThrow();
   });
 
-  it.todo(
-    "A2 — scope projection: applied vs pending vs pendingOnly (Spec §4.1)",
-    () => {
-      // TODO(Spec §4.1): Create a public-API-only scenario with pending state:
-      // - applied state differs from pending
-      // - pendingOnly returns only pending entries
-      // Current public API always drains impulses immediately; once a non-draining option exists,
-      // replace this todo with a runnable state-machine test.
-    },
-  );
+  it("A2 — scope projection: applied vs pending vs pendingOnly (Spec §4.1)", () => {
+    const run = createRuntime();
+
+    run.set({
+      defaults: run.get("defaults" as string | undefined, {
+        as: "snapshot",
+      }) as Record<string, unknown>,
+      flags: { list: ["a"], map: { a: true } },
+      changedFlags: { list: ["a"], map: { a: true } },
+      seenFlags: { list: ["a"], map: { a: true } },
+      signal: "applied-signal",
+      seenSignals: {
+        list: ["applied-signal"],
+        map: { "applied-signal": true },
+      },
+      impulseQ: {
+        q: {
+          entries: [
+            {
+              signals: ["applied-signal"],
+              addFlags: ["a"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+            {
+              signals: ["pending-signal"],
+              addFlags: ["b"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+          ],
+          cursor: 1,
+        },
+        config: {
+          retain: 0,
+          maxBytes: Number.POSITIVE_INFINITY,
+        },
+      },
+      backfillQ: { list: [], map: {} },
+      registeredQ: [],
+    });
+
+    expect(
+      run.get("flags" as string | undefined, { scope: "applied" }),
+    ).toEqual({
+      list: ["a"],
+      map: { a: true },
+    });
+    expect(
+      run.get("flags" as string | undefined, { scope: "pending" }),
+    ).toEqual({
+      list: ["a", "b"],
+      map: { a: true, b: true },
+    });
+    expect(
+      run.get("flags" as string | undefined, { scope: "pendingOnly" }),
+    ).toEqual({
+      list: ["b"],
+      map: { b: true },
+    });
+
+    expect(
+      run.get("seenFlags" as string | undefined, { scope: "pendingOnly" }),
+    ).toEqual({
+      list: ["b"],
+      map: { b: true },
+    });
+
+    expect(run.get("signal" as string | undefined, { scope: "applied" })).toBe(
+      "applied-signal",
+    );
+    expect(run.get("signal" as string | undefined, { scope: "pending" })).toBe(
+      "pending-signal",
+    );
+    expect(
+      run.get("signal" as string | undefined, { scope: "pendingOnly" }),
+    ).toBe("pending-signal");
+
+    expect(
+      run.get("seenSignals" as string | undefined, { scope: "pendingOnly" }),
+    ).toEqual({
+      list: ["pending-signal"],
+      map: { "pending-signal": true },
+    });
+
+    const pendingQ = run.get("impulseQ" as string | undefined, {
+      scope: "pending",
+      as: "snapshot",
+    }) as {
+      q: {
+        cursor: number;
+        entries: readonly unknown[];
+      };
+    };
+
+    expect(
+      run.get("impulseQ" as string | undefined, { scope: "applied" }),
+    ).toEqual({
+      q: {
+        cursor: pendingQ.q.cursor,
+        entries: pendingQ.q.entries.slice(0, pendingQ.q.cursor),
+      },
+      config: {
+        retain: 0,
+        maxBytes: Number.POSITIVE_INFINITY,
+      },
+    });
+    expect(
+      run.get("impulseQ" as string | undefined, { scope: "pendingOnly" }),
+    ).toEqual({
+      q: {
+        cursor: 0,
+        entries: pendingQ.q.entries.slice(pendingQ.q.cursor),
+      },
+      config: {
+        retain: 0,
+        maxBytes: Number.POSITIVE_INFINITY,
+      },
+    });
+  });
 
   it("B1 — set(flagsTruth) must not compute changedFlags implicitly (Spec §4.2)", () => {
     const run = createRuntime();
