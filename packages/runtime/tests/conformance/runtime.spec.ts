@@ -128,6 +128,57 @@ describe("conformance/runtime", () => {
     }
   });
 
+  it("E3 — runs.max limits deployments and tombstones expression (Spec §4.4, §7.4)", () => {
+    const run = createRuntime();
+    const calls: string[] = [];
+
+    run.add({
+      id: "expr:runs-max-1",
+      runs: { max: 1 },
+      targets: [() => calls.push("hit")],
+    });
+
+    run.impulse({ addFlags: ["a"] });
+    run.impulse({ addFlags: ["b"] });
+
+    // Spec §7.4: once used >= max, expression must not deploy again.
+    expect(calls).toEqual(["hit"]);
+  });
+
+  it("E4 — runs.max values <= 0 are clamped to 1 (Spec §4.4)", () => {
+    const run = createRuntime();
+    const calls: string[] = [];
+
+    run.add({
+      id: "expr:runs-max-clamp",
+      runs: { max: 0 },
+      targets: [() => calls.push("hit")],
+    });
+
+    run.impulse({ addFlags: ["a"] });
+    run.impulse({ addFlags: ["b"] });
+
+    // Spec §4.4: canonicalization of add opts must keep runs.max runtime-safe.
+    expect(calls).toEqual(["hit"]);
+  });
+
+  it("E5 — default runs.max stays unbounded for repeated matches (Spec §2.11.3, §4.4)", () => {
+    const run = createRuntime();
+    const calls: string[] = [];
+
+    run.add({
+      id: "expr:runs-max-default",
+      targets: [() => calls.push("hit")],
+    });
+
+    run.impulse({ addFlags: ["a"] });
+    run.impulse({ addFlags: ["b"] });
+    run.impulse({ addFlags: ["c"] });
+
+    // Spec §2.11.3: runs counters exist, but default max must not prematurely cap execution.
+    expect(calls).toHaveLength(3);
+  });
+
   it("run.onDiagnostic subscribes to future diagnostics and remove deregisters", () => {
     const run = createRuntime();
     const seen: string[] = [];

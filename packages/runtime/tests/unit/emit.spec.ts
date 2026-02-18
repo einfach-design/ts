@@ -31,17 +31,43 @@ describe("diagnostics/emit", () => {
     const listeners = new Set([listener]);
 
     const diagnostic = emitDiagnostic({
+<<<<<<< codex/implement-code-validation-in-emit-path
       diagnostic: { code: "dispatch.error", message: "hello" },
+=======
+      diagnostic: { code: "impulse.input.invalid", message: "hello" },
+>>>>>>> main
       collector,
       listeners,
     });
 
+<<<<<<< codex/implement-code-validation-in-emit-path
     expect(diagnostic).toEqual({ code: "dispatch.error", message: "hello" });
     expect(collector).toEqual([{ code: "dispatch.error", message: "hello" }]);
     expect(listener).toHaveBeenCalledWith({
       code: "dispatch.error",
       message: "hello",
     });
+=======
+    expect(diagnostic).toEqual({
+      code: "impulse.input.invalid",
+      message: "hello",
+    });
+    expect(collector).toEqual([
+      { code: "impulse.input.invalid", message: "hello" },
+    ]);
+    expect(listener).toHaveBeenCalledWith({
+      code: "impulse.input.invalid",
+      message: "hello",
+    });
+  });
+
+  it("throws for unknown diagnostic codes", () => {
+    expect(() =>
+      emitDiagnostic({
+        diagnostic: { code: "unknown.code.value", message: "x" },
+      }),
+    ).toThrow("diagnostics.code.unknown");
+>>>>>>> main
   });
 
   it("supports a reusable diagnostic collector with subscribe/remove", () => {
@@ -54,11 +80,19 @@ describe("diagnostics/emit", () => {
 
     collector.emit({ code: "dispatch.error", message: "A" });
     removeA();
+<<<<<<< codex/implement-code-validation-in-emit-path
     collector.emit({ code: "impulse.input.invalid", message: "B" });
 
     expect(collector.list()).toEqual([
       { code: "dispatch.error", message: "A" },
       { code: "impulse.input.invalid", message: "B" },
+=======
+    collector.emit({ code: "runtime.onError.report", message: "B" });
+
+    expect(collector.list()).toEqual([
+      { code: "dispatch.error", message: "A" },
+      { code: "runtime.onError.report", message: "B" },
+>>>>>>> main
     ]);
     expect(handlerA).toHaveBeenCalledTimes(1);
     expect(handlerA).toHaveBeenCalledWith({

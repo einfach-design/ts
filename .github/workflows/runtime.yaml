@@ -1,5 +1,5 @@
 # location: .github/workflows/runtime.yaml
-# version: 0.15.0
+# version: 0.11.3
 # maintainer: Axel Elstermann | einfach.design (e2d)
 # scope: CI workflow for the runtime package.
 # description: CI workflow for the runtime package (lint/format/typecheck/test/build).
@@ -62,6 +62,9 @@ jobs:
 
       - name: Install
         run: pnpm install --frozen-lockfile
+
+      - name: Check runtime header versions
+        run: pnpm check:runtime-headers
 
       - name: Format (check)
         run: pnpm format:check
