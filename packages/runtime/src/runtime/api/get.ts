@@ -139,43 +139,100 @@ export function runGet(
     const as = opts?.as ?? "snapshot";
     const hasScopedProjection = opts?.scope !== undefined;
     const scope = resolveScope(opts?.scope);
-    const projectedImpulseQ = projectImpulseQ(store.impulseQ, scope);
-    const projectedFlagsState = projectFlagsState(projectedImpulseQ.q.entries);
+    let projectedImpulseQ: RuntimeStore["impulseQ"] | undefined;
+    let projectedFlagsState: ReturnType<typeof projectFlagsState> | undefined;
 
-    const valueByKey: Record<AllowedGetKey, unknown> = {
-      defaults: store.defaults,
-      flags: hasScopedProjection ? projectedFlagsState.flags : store.flagsTruth,
-      changedFlags: hasScopedProjection
-        ? projectedFlagsState.changedFlags
-        : store.changedFlags,
-      seenFlags: hasScopedProjection
-        ? projectedFlagsState.seenFlags
-        : store.seenFlags,
-      signal: hasScopedProjection ? projectedFlagsState.signal : store.signal,
-      seenSignals: hasScopedProjection
-        ? projectedFlagsState.seenSignals
-        : store.seenSignals,
-      impulseQ: hasScopedProjection ? projectedImpulseQ : store.impulseQ,
-      backfillQ: toBackfillQSnapshot(store.backfillQ),
-      registeredQ: expressionRegistry.registeredQ,
-      diagnostics: diagnostics.list(),
-      "*": {
-        defaults: store.defaults,
-        flags: store.flagsTruth,
-        changedFlags: store.changedFlags,
-        seenFlags: store.seenFlags,
-        signal: store.signal,
-        seenSignals: store.seenSignals,
-        impulseQ: store.impulseQ,
-        backfillQ: toBackfillQSnapshot(store.backfillQ),
-        registeredQ: expressionRegistry.registeredQ,
-      },
+    const readProjectedImpulseQ = (): RuntimeStore["impulseQ"] => {
+      if (!hasScopedProjection) {
+        return store.impulseQ;
+      }
+
+      projectedImpulseQ ??= projectImpulseQ(store.impulseQ, scope);
+      return projectedImpulseQ;
     };
 
-    const selected =
-      key !== undefined
-        ? valueByKey[resolvedKey as AllowedGetKey]
-        : valueByKey["*"];
+    const readProjectedFlagsState = (): ReturnType<
+      typeof projectFlagsState
+    > => {
+      projectedFlagsState ??= projectFlagsState(
+        readProjectedImpulseQ().q.entries,
+      );
+      return projectedFlagsState;
+    };
+
+    const selectedKey = (key ?? "*") as AllowedGetKey;
+    let selected: unknown;
+
+    switch (selectedKey) {
+      case "defaults":
+        selected = store.defaults;
+        break;
+      case "flags":
+        selected = hasScopedProjection
+          ? readProjectedFlagsState().flags
+          : store.flagsTruth;
+        break;
+      case "changedFlags":
+        selected = hasScopedProjection
+          ? readProjectedFlagsState().changedFlags
+          : store.changedFlags;
+        break;
+      case "seenFlags":
+        selected = hasScopedProjection
+          ? readProjectedFlagsState().seenFlags
+          : store.seenFlags;
+        break;
+      case "signal":
+        selected = hasScopedProjection
+          ? readProjectedFlagsState().signal
+          : store.signal;
+        break;
+      case "seenSignals":
+        selected = hasScopedProjection
+          ? readProjectedFlagsState().seenSignals
+          : store.seenSignals;
+        break;
+      case "impulseQ":
+        selected = hasScopedProjection
+          ? readProjectedImpulseQ()
+          : store.impulseQ;
+        break;
+      case "backfillQ":
+        selected = toBackfillQSnapshot(store.backfillQ);
+        break;
+      case "registeredQ":
+        selected = expressionRegistry.registeredQ;
+        break;
+      case "diagnostics":
+        selected = diagnostics.list();
+        break;
+      case "*":
+        selected = {
+          defaults: store.defaults,
+          flags: hasScopedProjection
+            ? readProjectedFlagsState().flags
+            : store.flagsTruth,
+          changedFlags: hasScopedProjection
+            ? readProjectedFlagsState().changedFlags
+            : store.changedFlags,
+          seenFlags: hasScopedProjection
+            ? readProjectedFlagsState().seenFlags
+            : store.seenFlags,
+          signal: hasScopedProjection
+            ? readProjectedFlagsState().signal
+            : store.signal,
+          seenSignals: hasScopedProjection
+            ? readProjectedFlagsState().seenSignals
+            : store.seenSignals,
+          impulseQ: hasScopedProjection
+            ? readProjectedImpulseQ()
+            : store.impulseQ,
+          backfillQ: toBackfillQSnapshot(store.backfillQ),
+          registeredQ: expressionRegistry.registeredQ,
+        };
+        break;
+    }
+
     if (as === "reference") {
       return readonlyReference(selected);
     }

@@ -142,6 +142,77 @@ describe("conformance/get-set", () => {
     });
   });
 
+  it("A2a — unscoped get uses direct store snapshot (no scope projection)", () => {
+    const run = createRuntime();
+
+    run.set({
+      defaults: run.get("defaults" as string | undefined, {
+        as: "snapshot",
+      }) as Record<string, unknown>,
+      flags: { list: ["store-only"], map: { "store-only": true } },
+      changedFlags: {
+        list: ["store-changed"],
+        map: { "store-changed": true },
+      },
+      seenFlags: {
+        list: ["store-seen"],
+        map: { "store-seen": true },
+      },
+      signal: "store-signal",
+      seenSignals: {
+        list: ["store-seen-signal"],
+        map: { "store-seen-signal": true },
+      },
+      impulseQ: {
+        q: {
+          entries: [
+            {
+              signals: ["projected-signal"],
+              addFlags: ["projected-flag"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+          ],
+          cursor: 0,
+        },
+        config: {
+          retain: 0,
+          maxBytes: Number.POSITIVE_INFINITY,
+        },
+      },
+      backfillQ: { list: [], map: {} },
+      registeredQ: [],
+    });
+
+    expect(run.get("flags" as string | undefined)).toEqual({
+      list: ["store-only"],
+      map: { "store-only": true },
+    });
+    expect(run.get("changedFlags" as string | undefined)).toEqual({
+      list: ["store-changed"],
+      map: { "store-changed": true },
+    });
+    expect(run.get("seenFlags" as string | undefined)).toEqual({
+      list: ["store-seen"],
+      map: { "store-seen": true },
+    });
+    expect(run.get("signal" as string | undefined)).toBe("store-signal");
+    expect(run.get("seenSignals" as string | undefined)).toEqual({
+      list: ["store-seen-signal"],
+      map: { "store-seen-signal": true },
+    });
+
+    expect(
+      run.get("flags" as string | undefined, { scope: "pendingOnly" }),
+    ).toEqual({
+      list: ["projected-flag"],
+      map: { "projected-flag": true },
+    });
+    expect(
+      run.get("signal" as string | undefined, { scope: "pendingOnly" }),
+    ).toBe("projected-signal");
+  });
+
   it("A3 — snapshot must tolerate opaque/cyclic livePayload values (Spec §4.1)", () => {
     const run = createRuntime();
     const livePayload: {
