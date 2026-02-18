@@ -97,21 +97,31 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
     );
     expect(gateRegisteredCalls).toHaveLength(0);
 
-    const telemetryBackfillCall = calls.find(
-      (call) =>
-        call.id === "expr:integration:telemetry-pending" &&
-        call.q === "backfill",
-    );
-    const telemetryRegisteredCall = calls.find(
+    const telemetryBackfillCalls = calls
+      .filter(
+        (call) =>
+          call.id === "expr:integration:telemetry-pending" &&
+          call.q === "backfill",
+      )
+      .filter(
+        (call, index, all) =>
+          all.findIndex(
+            (candidate) =>
+              candidate.id === call.id &&
+              candidate.q === call.q &&
+              candidate.inBackfillQ === call.inBackfillQ,
+          ) === index,
+      );
+    const telemetryRegisteredCalls = calls.filter(
       (call) =>
         call.id === "expr:integration:telemetry-pending" &&
         call.q === "registered",
     );
 
-    expect(telemetryBackfillCall).toBeDefined();
-    expect(telemetryBackfillCall?.inBackfillQ).toBe(false);
-    expect(telemetryRegisteredCall).toBeDefined();
-    expect(telemetryRegisteredCall?.inBackfillQ).toBe(true);
+    expect(telemetryBackfillCalls).toHaveLength(1);
+    expect(telemetryBackfillCalls[0]!.inBackfillQ).toBe(false);
+    expect(telemetryRegisteredCalls).toHaveLength(1);
+    expect(telemetryRegisteredCalls[0]!.inBackfillQ).toBe(true);
 
     const registeredById = run.get("registeredById") as Map<
       string,
