@@ -22,6 +22,22 @@ Single Source of Truth für Implementierungs-Ownership, Parallelisierung, PR-Reg
 - `../../docs/runtime/RunTime-0.11.3-Impl.md`
 - `../../docs/styleguide/typescript.md`
 
+## Runtime invariants (SSoT)
+
+- Scope projection invariants:
+  - `applied` enthält nur bereits angewendete Einträge; keine pending-only Impulse (Spec §4.1).
+  - `pending` enthält applied + aktuell noch ausstehende Einträge als Projektionssicht (Spec §4.1).
+  - `pendingOnly` enthält ausschließlich noch nicht angewendete Einträge, ohne applied-Anteil (Spec §4.1).
+- Trim invariants:
+  - Trimming betrifft ausschließlich applied-Einträge; pending-only Einträge bleiben ungetrimmt (Spec §2.11.3).
+  - Nach dem Trim wird die Baseline auf den getrimmten Zustand aktualisiert (Spec §2.11.3).
+- onError wrapping invariants:
+  - Klare Trennung zwischen innerem Fehler (Ursache) und äußerem Fehlerkontext (Wrapper) (Spec §8.2).
+  - Bereits klassifizierte Fehler werden beim Wrapping nicht erneut interpretiert oder umklassifiziert (Spec §8.2).
+- runs.max lifecycle invariants:
+  - Beim Erreichen des Limits erfolgt der definierte Lifecycle-Übergang gemäß Limit-Semantik (Spec §8.1, §8.3).
+  - Stop-Semantik gilt sowohl für die laufende als auch die folgende Realisierung gemäß Runs-Lifecycle (Spec §8.1, §8.3).
+
 ---
 
 ## Goldene Regeln (müssen)
