@@ -92,6 +92,7 @@ export function runSet(
 
       store.impulseQ.q.entries = hydration.impulseQ.q.entries;
       store.impulseQ.q.cursor = hydration.impulseQ.q.cursor;
+      store.resetScopeProjectionBaseline();
 
       if (hasOwn(hydration.impulseQ.config, "retain")) {
         store.impulseQ.config.retain = hydration.impulseQ.config.retain ?? 0;
@@ -215,9 +216,12 @@ export function runSet(
             | undefined;
         }
 
+        const prevEntries = store.impulseQ.q.entries;
+        const prevCursor = store.impulseQ.q.cursor;
+
         const trimmed = trim({
-          entries: store.impulseQ.q.entries,
-          cursor: store.impulseQ.q.cursor,
+          entries: prevEntries,
+          cursor: prevCursor,
           retain: store.impulseQ.config.retain,
           maxBytes: store.impulseQ.config.maxBytes,
           runtimeStackActive: store.runtimeStackDepth > 0,
@@ -227,6 +231,13 @@ export function runSet(
             ? { onTrim: store.impulseQ.config.onTrim }
             : {}),
         });
+
+        const removedCount = Math.max(0, prevCursor - trimmed.cursor);
+        if (removedCount > 0) {
+          store.applyTrimmedAppliedEntriesToScopeBaseline(
+            prevEntries.slice(0, removedCount),
+          );
+        }
 
         store.impulseQ.q.entries = [...trimmed.entries];
         store.impulseQ.q.cursor = trimmed.cursor;

@@ -395,6 +395,95 @@ describe("conformance/get-set", () => {
     }
   });
 
+  it("A2.4 — get without scope must not execute scope projection path (Spec §4.1)", () => {
+    const run = createRuntime();
+
+    const entry = {
+      signals: [] as string[],
+      removeFlags: [] as string[],
+      useFixedFlags: false,
+      get addFlags(): string[] {
+        throw new Error("projection.path.should.not.run");
+      },
+    };
+
+    run.set({
+      defaults: run.get("defaults" as string | undefined, {
+        as: "snapshot",
+      }) as Record<string, unknown>,
+      flags: { list: [], map: {} },
+      changedFlags: undefined,
+      seenFlags: { list: [], map: {} },
+      signal: undefined,
+      seenSignals: { list: [], map: {} },
+      impulseQ: {
+        q: {
+          entries: [entry],
+          cursor: 1,
+        },
+        config: {
+          retain: 1,
+          maxBytes: Number.POSITIVE_INFINITY,
+        },
+      },
+      backfillQ: { list: [], map: {} },
+      registeredQ: [],
+    });
+
+    expect(() => run.get("flags" as string | undefined)).not.toThrow();
+    expect(() =>
+      run.get("flags" as string | undefined, { scope: "applied" }),
+    ).toThrow("projection.path.should.not.run");
+  });
+
+  it("A2.5 — scope applied projection preserves state across trim via baseline (Spec §2.11.3, §4.1)", () => {
+    const run = createRuntime();
+
+    run.impulse({ addFlags: ["a"] });
+    run.impulse({ addFlags: ["b"] });
+
+    const scopedBeforeTrim = run.get("flags" as string | undefined, {
+      scope: "applied",
+      as: "snapshot",
+    });
+
+    run.set({
+      impulseQ: {
+        config: {
+          retain: 1,
+          maxBytes: Number.POSITIVE_INFINITY,
+        },
+      },
+    });
+
+    expect(
+      run.get("impulseQ" as string | undefined, { as: "snapshot" }),
+    ).toMatchObject({
+      q: {
+        cursor: 1,
+        entries: [{ addFlags: ["b"] }],
+      },
+    });
+
+    expect(
+      run.get("flags" as string | undefined, {
+        scope: "applied",
+        as: "snapshot",
+      }),
+    ).toEqual(scopedBeforeTrim);
+
+    const scopedStar = run.get("*" as string | undefined, {
+      scope: "applied",
+      as: "snapshot",
+    }) as Record<string, unknown>;
+
+    expect(scopedStar.flags).toEqual(
+      run.get("flags" as string | undefined, {
+        scope: "applied",
+        as: "snapshot",
+      }),
+    );
+  });
   it("A3 — snapshot must tolerate opaque/cyclic livePayload values (Spec §4.1)", () => {
     const run = createRuntime();
     const livePayload: {

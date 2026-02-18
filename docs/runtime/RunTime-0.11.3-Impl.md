@@ -6,6 +6,26 @@ scope: Runtime specification and implementation notes.
 description: Runtime documentation (specification and implementation notes).
 ---
 
+## Zentrale Aufgabe (Agentenauftrag) — `RT-GET-CENTRAL-001`
+
+Diese Aufgabe bündelt alle offenen `get.ts`-Änderungen, die in parallelen Branches teilweise verloren gegangen sind.
+
+**Agentenauftrag (einzelner Integrations-Owner):**
+
+1. `run.get("*", { scope })` auf volle Scope-Konsistenz zu Einzel-Gettern bringen.
+2. Scope-Projektion nur ausführen, wenn `opts.scope` gesetzt ist (kein unnötiger O(n)-Pfad ohne Scope).
+3. Scope-Projektion trim-sicher machen (Baseline + verbleibende Entries).
+4. Conformance-Tests für `scope: "applied" | "pending" | "pendingOnly"` ergänzen/abschließen.
+
+**Akzeptanzkriterien:**
+
+- Für jedes `k` aus `RunGetKey` gilt bei gesetztem Scope: `run.get("*", { scope })[k]` ist semantisch identisch zu `run.get(k, { scope })`.
+- Ohne `scope` werden keine Scope-Projektionspfade ausgeführt.
+- Nach Trim bleibt die Scope-Projektion semantisch korrekt.
+- `pnpm -C packages/runtime test:conformance` ist grün.
+
+---
+
 # RunTime 0.11.3 – Impl (pre-release)
 
 # Implementierungsplan (final, konsolidiert) — RunTime 0.11.3 (conformance-first)

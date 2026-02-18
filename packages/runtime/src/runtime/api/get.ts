@@ -27,6 +27,14 @@ type Scope = "applied" | "pending" | "pendingOnly";
 
 type RegisteredExpression = { id: string; tombstone?: true };
 
+type ProjectionState = {
+  flags: FlagsView;
+  changedFlags: FlagsView | undefined;
+  seenFlags: FlagsView;
+  signal: string | undefined;
+  seenSignals: RuntimeStore["seenSignals"];
+};
+
 const resolveScope = (scope: string | undefined): Scope => {
   if (scope === "applied" || scope === "pendingOnly") {
     return scope;
@@ -37,18 +45,13 @@ const resolveScope = (scope: string | undefined): Scope => {
 
 const projectFlagsState = (
   entries: readonly ImpulseQEntryCanonical[],
-): {
-  flags: FlagsView;
-  changedFlags: FlagsView | undefined;
-  seenFlags: FlagsView;
-  signal: string | undefined;
-  seenSignals: RuntimeStore["seenSignals"];
-} => {
-  let flags = createFlagsView([]);
-  let changedFlags: FlagsView | undefined;
-  let seenFlags = createFlagsView([]);
-  let signal: string | undefined;
-  let seenSignals: RuntimeStore["seenSignals"] = { list: [], map: {} };
+  initialState: ProjectionState,
+): ProjectionState => {
+  let flags = initialState.flags;
+  let changedFlags = initialState.changedFlags;
+  let seenFlags = initialState.seenFlags;
+  let signal = initialState.signal;
+  let seenSignals = initialState.seenSignals;
 
   for (const entry of entries) {
     const nextMap: Record<string, true> = { ...flags.map };
@@ -138,27 +141,30 @@ export function runGet(
   return store.withRuntimeStack(() => {
     const as = opts?.as ?? "snapshot";
     const hasScopedProjection = opts?.scope !== undefined;
-    const scope = resolveScope(opts?.scope);
-    const projectedImpulseQ = projectImpulseQ(store.impulseQ, scope);
-    const projectedFlagsState = projectFlagsState(projectedImpulseQ.q.entries);
-    const selectedFlags = hasScopedProjection
-      ? projectedFlagsState.flags
-      : store.flagsTruth;
-    const selectedChangedFlags = hasScopedProjection
-      ? projectedFlagsState.changedFlags
-      : store.changedFlags;
-    const selectedSeenFlags = hasScopedProjection
-      ? projectedFlagsState.seenFlags
-      : store.seenFlags;
-    const selectedSignal = hasScopedProjection
-      ? projectedFlagsState.signal
-      : store.signal;
-    const selectedSeenSignals = hasScopedProjection
-      ? projectedFlagsState.seenSignals
-      : store.seenSignals;
-    const selectedImpulseQ = hasScopedProjection
-      ? projectedImpulseQ
-      : store.impulseQ;
+
+    let selectedFlags = store.flagsTruth;
+    let selectedChangedFlags = store.changedFlags;
+    let selectedSeenFlags = store.seenFlags;
+    let selectedSignal = store.signal;
+    let selectedSeenSignals = store.seenSignals;
+    let selectedImpulseQ = store.impulseQ;
+
+    if (hasScopedProjection) {
+      const scope = resolveScope(opts?.scope);
+      const projectedImpulseQ = projectImpulseQ(store.impulseQ, scope);
+      const projectedFlagsState = projectFlagsState(
+        projectedImpulseQ.q.entries,
+        store.scopeProjectionBaseline,
+      );
+
+      selectedFlags = projectedFlagsState.flags;
+      selectedChangedFlags = projectedFlagsState.changedFlags;
+      selectedSeenFlags = projectedFlagsState.seenFlags;
+      selectedSignal = projectedFlagsState.signal;
+      selectedSeenSignals = projectedFlagsState.seenSignals;
+      selectedImpulseQ = projectedImpulseQ;
+    }
+
     const selectedDiagnostics = diagnostics.list();
 
     const valueByKey: Record<AllowedGetKey, unknown> = {
@@ -174,20 +180,12 @@ export function runGet(
       diagnostics: selectedDiagnostics,
       "*": {
         defaults: store.defaults,
-        flags: hasScopedProjection
-          ? projectedFlagsState.flags
-          : store.flagsTruth,
-        changedFlags: hasScopedProjection
-          ? projectedFlagsState.changedFlags
-          : store.changedFlags,
-        seenFlags: hasScopedProjection
-          ? projectedFlagsState.seenFlags
-          : store.seenFlags,
-        signal: hasScopedProjection ? projectedFlagsState.signal : store.signal,
-        seenSignals: hasScopedProjection
-          ? projectedFlagsState.seenSignals
-          : store.seenSignals,
-        impulseQ: hasScopedProjection ? projectedImpulseQ : store.impulseQ,
+        flags: selectedFlags,
+        changedFlags: selectedChangedFlags,
+        seenFlags: selectedSeenFlags,
+        signal: selectedSignal,
+        seenSignals: selectedSeenSignals,
+        impulseQ: selectedImpulseQ,
         backfillQ: toBackfillQSnapshot(store.backfillQ),
         registeredQ: expressionRegistry.registeredQ,
         diagnostics: selectedDiagnostics,
