@@ -42,6 +42,10 @@ export const coreRun = (args: {
     signal?: string;
     flagsTruth: FlagsView;
     changedFlags?: FlagsView;
+    addFlags: readonly string[];
+    removeFlags: readonly string[];
+    occurrenceHasPayload: boolean;
+    payload?: unknown;
     defaults: unknown;
   };
   toMatchFlagsView: (
@@ -107,8 +111,9 @@ export const coreRun = (args: {
     ...(store.signal !== undefined ? { signal: store.signal } : {}),
     flags: store.flagsTruth,
     changedFlags: store.changedFlags ?? createFlagsView([]),
-    addFlags: [],
-    removeFlags: [],
+    addFlags: store.addFlags,
+    removeFlags: store.removeFlags,
+    ...(store.occurrenceHasPayload ? { payload: store.payload } : {}),
   };
 
   for (const target of expression.targets) {
