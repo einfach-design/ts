@@ -128,18 +128,271 @@ describe("conformance/get-set", () => {
         maxBytes: Number.POSITIVE_INFINITY,
       },
     });
+    // Spec §4.1 + §4.3: scoped run.get("*") must project the same pending/applied state as keyed reads.
     expect(
-      run.get("impulseQ" as string | undefined, { scope: "pendingOnly" }),
-    ).toEqual({
-      q: {
-        cursor: 0,
-        entries: pendingQ.q.entries.slice(pendingQ.q.cursor),
-      },
-      config: {
-        retain: 0,
-        maxBytes: Number.POSITIVE_INFINITY,
+      run.get("*" as string | undefined, { scope: "applied" }),
+    ).toMatchObject({
+      flags: { list: ["a"], map: { a: true } },
+      signal: "applied-signal",
+      seenSignals: {
+        list: ["applied-signal"],
+        map: { "applied-signal": true },
       },
     });
+    expect(
+      run.get("*" as string | undefined, { scope: "pendingOnly" }),
+    ).toMatchObject({
+      flags: { list: ["b"], map: { b: true } },
+      signal: "pending-signal",
+      seenSignals: {
+        list: ["pending-signal"],
+        map: { "pending-signal": true },
+      },
+    });
+  });
+
+  it("A2b — scoped get('*') must be trim-safe and side-effect free (Spec §4.1, §4.3)", () => {
+    const run = createRuntime();
+    const trims: Array<{ reason: string }> = [];
+
+    run.impulse({ addFlags: ["a"] });
+    run.impulse({ addFlags: ["b"] });
+
+    run.set({
+      impulseQ: {
+        config: {
+          maxBytes: 0,
+          onTrim: (info: { stats: { reason: "retain" | "maxBytes" } }) => {
+            trims.push({ reason: info.stats.reason });
+          },
+        },
+      },
+    });
+
+    const before = run.get("impulseQ" as string | undefined, {
+      as: "snapshot",
+    });
+
+    const projected = run.get("*" as string | undefined, {
+      scope: "pendingOnly",
+      as: "snapshot",
+    }) as { impulseQ: { q: { entries: unknown[]; cursor: number } } };
+
+    const after = run.get("impulseQ" as string | undefined, {
+      as: "snapshot",
+    });
+
+    // Spec §4.1 + §4.3: scoped reads must not mutate queue state or trigger extra trim work.
+    expect(projected.impulseQ.q.cursor).toBe(0);
+    expect(trims.length).toBeGreaterThan(0);
+    expect(after).toEqual(before);
+  });
+
+  it("A2.1 — scope projection consistency for all RunGetKey at applied scope", () => {
+    const run = createRuntime();
+
+    run.set({
+      defaults: run.get("defaults" as string | undefined, {
+        as: "snapshot",
+      }) as Record<string, unknown>,
+      flags: { list: ["a"], map: { a: true } },
+      changedFlags: { list: ["a"], map: { a: true } },
+      seenFlags: { list: ["a"], map: { a: true } },
+      signal: "applied-signal",
+      seenSignals: {
+        list: ["applied-signal"],
+        map: { "applied-signal": true },
+      },
+      impulseQ: {
+        q: {
+          entries: [
+            {
+              signals: ["applied-signal"],
+              addFlags: ["a"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+            {
+              signals: ["pending-signal"],
+              addFlags: ["b"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+          ],
+          cursor: 1,
+        },
+        config: {
+          retain: 0,
+          maxBytes: Number.POSITIVE_INFINITY,
+        },
+      },
+      backfillQ: { list: [], map: {} },
+      registeredQ: [],
+    });
+
+    const scoped = run.get("*" as string | undefined, {
+      scope: "applied",
+      as: "snapshot",
+    }) as Record<string, unknown>;
+
+    const keys: Array<
+      Exclude<import("../../src/index.types.js").RunGetKey, "*">
+    > = [
+      "defaults",
+      "flags",
+      "changedFlags",
+      "seenFlags",
+      "signal",
+      "seenSignals",
+      "impulseQ",
+      "backfillQ",
+      "registeredQ",
+      "diagnostics",
+    ];
+
+    for (const key of keys) {
+      expect(scoped[key]).toEqual(
+        run.get(key, { scope: "applied", as: "snapshot" }),
+      );
+    }
+  });
+
+  it("A2.2 — scope projection consistency for all RunGetKey at pending scope", () => {
+    const run = createRuntime();
+
+    run.set({
+      defaults: run.get("defaults" as string | undefined, {
+        as: "snapshot",
+      }) as Record<string, unknown>,
+      flags: { list: ["a"], map: { a: true } },
+      changedFlags: { list: ["a"], map: { a: true } },
+      seenFlags: { list: ["a"], map: { a: true } },
+      signal: "applied-signal",
+      seenSignals: {
+        list: ["applied-signal"],
+        map: { "applied-signal": true },
+      },
+      impulseQ: {
+        q: {
+          entries: [
+            {
+              signals: ["applied-signal"],
+              addFlags: ["a"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+            {
+              signals: ["pending-signal"],
+              addFlags: ["b"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+          ],
+          cursor: 1,
+        },
+        config: {
+          retain: 0,
+          maxBytes: Number.POSITIVE_INFINITY,
+        },
+      },
+      backfillQ: { list: [], map: {} },
+      registeredQ: [],
+    });
+
+    const scoped = run.get("*" as string | undefined, {
+      scope: "pending",
+      as: "snapshot",
+    }) as Record<string, unknown>;
+
+    const keys: Array<
+      Exclude<import("../../src/index.types.js").RunGetKey, "*">
+    > = [
+      "defaults",
+      "flags",
+      "changedFlags",
+      "seenFlags",
+      "signal",
+      "seenSignals",
+      "impulseQ",
+      "backfillQ",
+      "registeredQ",
+      "diagnostics",
+    ];
+
+    for (const key of keys) {
+      expect(scoped[key]).toEqual(
+        run.get(key, { scope: "pending", as: "snapshot" }),
+      );
+    }
+  });
+
+  it("A2.3 — scope projection consistency for all RunGetKey at pendingOnly scope", () => {
+    const run = createRuntime();
+
+    run.set({
+      defaults: run.get("defaults" as string | undefined, {
+        as: "snapshot",
+      }) as Record<string, unknown>,
+      flags: { list: ["a"], map: { a: true } },
+      changedFlags: { list: ["a"], map: { a: true } },
+      seenFlags: { list: ["a"], map: { a: true } },
+      signal: "applied-signal",
+      seenSignals: {
+        list: ["applied-signal"],
+        map: { "applied-signal": true },
+      },
+      impulseQ: {
+        q: {
+          entries: [
+            {
+              signals: ["applied-signal"],
+              addFlags: ["a"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+            {
+              signals: ["pending-signal"],
+              addFlags: ["b"],
+              removeFlags: [],
+              useFixedFlags: false,
+            },
+          ],
+          cursor: 1,
+        },
+        config: {
+          retain: 0,
+          maxBytes: Number.POSITIVE_INFINITY,
+        },
+      },
+      backfillQ: { list: [], map: {} },
+      registeredQ: [],
+    });
+
+    const scoped = run.get("*" as string | undefined, {
+      scope: "pendingOnly",
+      as: "snapshot",
+    }) as Record<string, unknown>;
+
+    const keys: Array<
+      Exclude<import("../../src/index.types.js").RunGetKey, "*">
+    > = [
+      "defaults",
+      "flags",
+      "changedFlags",
+      "seenFlags",
+      "signal",
+      "seenSignals",
+      "impulseQ",
+      "backfillQ",
+      "registeredQ",
+      "diagnostics",
+    ];
+
+    for (const key of keys) {
+      expect(scoped[key]).toEqual(
+        run.get(key, { scope: "pendingOnly", as: "snapshot" }),
+      );
+    }
   });
 
   it("A3 — snapshot must tolerate opaque/cyclic livePayload values (Spec §4.1)", () => {

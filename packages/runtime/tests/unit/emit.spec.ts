@@ -20,14 +20,30 @@ describe("diagnostics/emit", () => {
     const listeners = new Set([listener]);
 
     const diagnostic = emitDiagnostic({
-      diagnostic: { code: "x", message: "hello" },
+      diagnostic: { code: "impulse.input.invalid", message: "hello" },
       collector,
       listeners,
     });
 
-    expect(diagnostic).toEqual({ code: "x", message: "hello" });
-    expect(collector).toEqual([{ code: "x", message: "hello" }]);
-    expect(listener).toHaveBeenCalledWith({ code: "x", message: "hello" });
+    expect(diagnostic).toEqual({
+      code: "impulse.input.invalid",
+      message: "hello",
+    });
+    expect(collector).toEqual([
+      { code: "impulse.input.invalid", message: "hello" },
+    ]);
+    expect(listener).toHaveBeenCalledWith({
+      code: "impulse.input.invalid",
+      message: "hello",
+    });
+  });
+
+  it("throws for unknown diagnostic codes", () => {
+    expect(() =>
+      emitDiagnostic({
+        diagnostic: { code: "unknown.code.value", message: "x" },
+      }),
+    ).toThrow("diagnostics.code.unknown");
   });
 
   it("supports a reusable diagnostic collector with subscribe/remove", () => {
@@ -38,16 +54,19 @@ describe("diagnostics/emit", () => {
     const removeA = collector.subscribe(handlerA);
     collector.subscribe(handlerB);
 
-    collector.emit({ code: "a", message: "A" });
+    collector.emit({ code: "dispatch.error", message: "A" });
     removeA();
-    collector.emit({ code: "b", message: "B" });
+    collector.emit({ code: "runtime.onError.report", message: "B" });
 
     expect(collector.list()).toEqual([
-      { code: "a", message: "A" },
-      { code: "b", message: "B" },
+      { code: "dispatch.error", message: "A" },
+      { code: "runtime.onError.report", message: "B" },
     ]);
     expect(handlerA).toHaveBeenCalledTimes(1);
-    expect(handlerA).toHaveBeenCalledWith({ code: "a", message: "A" });
+    expect(handlerA).toHaveBeenCalledWith({
+      code: "dispatch.error",
+      message: "A",
+    });
     expect(handlerB).toHaveBeenCalledTimes(2);
 
     collector.clear();
