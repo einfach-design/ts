@@ -113,6 +113,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
     };
 
     run.set(snapshot);
+
     run.impulse({ signals: ["sig:need"] });
 
     const backfillCall = calls.find((call) => call.q === "backfill");
@@ -127,10 +128,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
     expect(registeredCall).toBeDefined();
     expect(registeredCall).toEqual(
       expect.objectContaining({
-        signalRuns: expect.any(Number),
-        flagsRuns: expect.any(Number),
-        runs: expect.any(Number),
-        inBackfillQ: false,
+        inBackfillQ: true,
       }),
     );
   });

@@ -426,6 +426,19 @@ export function createRuntime(): Runtime {
             backfillQ: store.backfillQ,
             registeredById: expressionRegistry.registeredById,
             attempt(expression, gate) {
+              if (
+                gate === "flags" &&
+                (runOccurrenceContext.changedFlags?.list.length ?? 0) === 0 &&
+                expression.signal !== undefined &&
+                expression.signal === runOccurrenceContext.signal
+              ) {
+                return {
+                  status: "reject",
+                  pending: expressionHasDebt(expression),
+                  consumedDebt: false,
+                };
+              }
+
               if (expressionHasDebt(expression)) {
                 ensureBackfillTelemetry(
                   runOccurrenceContext.expressionTelemetryById,
