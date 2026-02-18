@@ -67,7 +67,7 @@ describe("conformance/gate-ignore-dimension", () => {
 
   it("rejects without gate when one dimension does not match", () => {
     const run = createRuntime();
-    const calls: string[] = [];
+    const calls: Array<{ q: string; id: string }> = [];
 
     run.add({
       id: "expr:no-gate:signal-mismatch",
@@ -76,7 +76,7 @@ describe("conformance/gate-ignore-dimension", () => {
       required: { flags: { changed: 0 } },
       targets: [
         (i) => {
-          calls.push(`${i.q}:${i.expression.id}`);
+          calls.push({ q: i.q, id: i.expression.id });
         },
       ],
     });
@@ -88,7 +88,7 @@ describe("conformance/gate-ignore-dimension", () => {
       required: { flags: { changed: 0 } },
       targets: [
         (i) => {
-          calls.push(`${i.q}:${i.expression.id}`);
+          calls.push({ q: i.q, id: i.expression.id });
         },
       ],
     });
@@ -97,6 +97,9 @@ describe("conformance/gate-ignore-dimension", () => {
     run.impulse({ signals: ["sig:wrong"] });
 
     expect(calls).toEqual([]);
+    const registeredById = run.get("registeredById") as Map<string, unknown>;
+    expect(registeredById.has("expr:no-gate:signal-mismatch")).toBe(true);
+    expect(registeredById.has("expr:no-gate:flags-mismatch")).toBe(true);
     expect(run.get("backfillQ", { as: "snapshot" })).toEqual({
       list: [],
       map: {},
