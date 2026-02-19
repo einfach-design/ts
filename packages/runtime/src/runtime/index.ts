@@ -426,6 +426,9 @@ export function createRuntime(): Runtime {
             backfillQ: store.backfillQ,
             registeredById: expressionRegistry.registeredById,
             attempt(expression, gate) {
+              // Deterministic guard: a flags-gated backfill attempt with no changed flags
+              // must reject early even when the signal matches, so gate semantics stay stable.
+              // This preserves reject/no-reenqueue invariants from spec sections 7.2.1 and 9.6.
               if (
                 gate === "flags" &&
                 (runOccurrenceContext.changedFlags?.list.length ?? 0) === 0 &&
