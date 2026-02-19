@@ -67,7 +67,7 @@ describe("conformance/diagnostic-codes", () => {
     );
   });
 
-  it("emits set.patch.flags.conflict for conflicting flag patch forms", () => {
+  it("emits set.flags.addRemoveConflict for conflicting flag patch forms", () => {
     const run = createRuntime();
 
     expect(() =>
@@ -75,22 +75,22 @@ describe("conformance/diagnostic-codes", () => {
         flags: { list: ["a"], map: { a: true } },
         addFlags: ["b"],
       }),
-    ).toThrow("set.patch.flags.conflict");
+    ).toThrow("set.flags.addRemoveConflict");
 
     const diagnostics = run.get("diagnostics") as Array<{ code: string }>;
     expect(
-      diagnostics.some((entry) => entry.code === "set.patch.flags.conflict"),
+      diagnostics.some((entry) => entry.code === "set.flags.addRemoveConflict"),
     ).toBe(true);
   });
 
-  it("emits set.patch.flags.invalid for invalid flags patch shape", () => {
+  it("emits set.flags.invalid for invalid flags patch shape", () => {
     const run = createRuntime();
 
     expect(() =>
       run.set({
         flags: { list: "nope", map: [] } as unknown as Record<string, unknown>,
       }),
-    ).toThrow("set.patch.flags.invalid");
+    ).toThrow("set.flags.invalid");
 
     const diagnostics = run.get("diagnostics") as Array<{
       code: string;
@@ -99,7 +99,7 @@ describe("conformance/diagnostic-codes", () => {
 
     expect(diagnostics).toContainEqual(
       expect.objectContaining({
-        code: "set.patch.flags.invalid",
+        code: "set.flags.invalid",
         data: expect.objectContaining({
           valueType: "object",
           hasList: false,
@@ -109,14 +109,14 @@ describe("conformance/diagnostic-codes", () => {
     );
   });
 
-  it("emits set.patch.impulseQ.invalid for invalid impulseQ patch", () => {
+  it("emits set.impulseQ.invalid for invalid impulseQ patch", () => {
     const run = createRuntime();
 
     expect(() =>
       run.set({
         impulseQ: 123 as unknown as object,
       }),
-    ).toThrow("set.patch.impulseQ.invalid");
+    ).toThrow("set.impulseQ.invalid");
 
     const diagnostics = run.get("diagnostics") as Array<{
       code: string;
@@ -125,13 +125,13 @@ describe("conformance/diagnostic-codes", () => {
 
     expect(diagnostics).toContainEqual(
       expect.objectContaining({
-        code: "set.patch.impulseQ.invalid",
+        code: "set.impulseQ.invalid",
         data: expect.objectContaining({ valueType: "number" }),
       }),
     );
   });
 
-  it("emits set.patch.impulseQ.q.forbidden for impulseQ q patch", () => {
+  it("emits set.impulseQ.qForbidden for impulseQ q patch", () => {
     const run = createRuntime();
 
     expect(() =>
@@ -140,7 +140,7 @@ describe("conformance/diagnostic-codes", () => {
           q: { entries: [], cursor: 0 },
         } as unknown as object,
       }),
-    ).toThrow("set.patch.impulseQ.q.forbidden");
+    ).toThrow("set.impulseQ.qForbidden");
 
     const diagnostics = run.get("diagnostics") as Array<{
       code: string;
@@ -149,7 +149,7 @@ describe("conformance/diagnostic-codes", () => {
 
     expect(diagnostics).toContainEqual(
       expect.objectContaining({
-        code: "set.patch.impulseQ.q.forbidden",
+        code: "set.impulseQ.qForbidden",
         data: expect.objectContaining({ field: "q" }),
       }),
     );
@@ -279,6 +279,13 @@ describe("conformance/diagnostic-codes", () => {
 
     for (const code of seenCodes) {
       expect(code in DIAGNOSTIC_CODES).toBe(true);
+    }
+  });
+
+  it("registry codes match <source>.<domain>.<event> schema", () => {
+    for (const code of Object.keys(DIAGNOSTIC_CODES)) {
+      expect((code.match(/\./g) ?? []).length).toBe(2);
+      expect(code).toMatch(/^[a-z]+\.[a-zA-Z0-9]+\.[a-zA-Z0-9]+$/);
     }
   });
 

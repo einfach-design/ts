@@ -38,13 +38,13 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     shape: {},
   },
-  "set.patch.flags.conflict": {
+  "set.flags.addRemoveConflict": {
     description:
       "set patch must not combine flags with addFlags/removeFlags in one call.",
     severity: "error",
     shape: {},
   },
-  "set.patch.flags.invalid": {
+  "set.flags.invalid": {
     description:
       "set patch flags value must be an object with list(array) and map(object).",
     severity: "error",
@@ -54,19 +54,19 @@ export const DIAGNOSTIC_CODES = {
       hasMap: "boolean",
     },
   },
-  "set.patch.signals.invalid": {
+  "set.signals.invalid": {
     description: "set patch signals value must be an array of strings.",
     severity: "error",
     shape: {},
   },
-  "set.patch.impulseQ.invalid": {
+  "set.impulseQ.invalid": {
     description: "set patch impulseQ value must be an object.",
     severity: "error",
     shape: {
       valueType: "string",
     },
   },
-  "set.patch.impulseQ.q.forbidden": {
+  "set.impulseQ.qForbidden": {
     description: "set patch must not include impulseQ.q.",
     severity: "error",
     shape: {

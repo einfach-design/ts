@@ -21,7 +21,11 @@ import { actImpulse } from "../processing/actImpulse.js";
 import { backfillRun } from "../runs/backfillRun.js";
 import { registeredRun } from "../runs/registeredRun.js";
 import { computeChangedFlags } from "../state/changedFlags.js";
-import { createFlagsView } from "../state/flagsView.js";
+import {
+  applyFlagDeltas,
+  createFlagsView,
+  extendSeenFlags,
+} from "../state/flagsView.js";
 import { registry } from "../state/registry.js";
 import { extendSeenSignals, projectSignal } from "../state/signals.js";
 import {
@@ -139,6 +143,14 @@ export function createRuntime(): Runtime {
 
   store.diagnostics = diagnostics;
 
+  const gcExpressionId = (id: string): void => {
+    expressionRegistry.remove(id);
+    delete store.backfillQ.map[id];
+    store.backfillQ.list = store.backfillQ.list.filter(
+      (entry) => entry.id !== id,
+    );
+  };
+
   const runtimeCore: RuntimeCore = {
     get(key, opts) {
       return runtime.get(
@@ -150,7 +162,7 @@ export function createRuntime(): Runtime {
       return runtime.matchExpression(opts as MatchExpressionInput);
     },
     remove(id) {
-      return expressionRegistry.remove(id as string);
+      gcExpressionId(id as string);
     },
   };
 
@@ -248,7 +260,7 @@ export function createRuntime(): Runtime {
   };
 
   const exitExpressionOnLimit = (expression: { id: string }): void => {
-    expressionRegistry.remove(expression.id);
+    gcExpressionId(expression.id);
   };
 
   const dispatchForCoreRun: Parameters<typeof coreRunImpl>[0]["dispatch"] = (
@@ -348,30 +360,18 @@ export function createRuntime(): Runtime {
     const before = store.flagsTruth;
     const referenceFlags =
       entry.useFixedFlags !== false ? entry.useFixedFlags : before;
-    const nextMap: Record<string, true> = { ...before.map };
-
-    const removeSet = new Set(entry.removeFlags);
-
-    for (const flag of entry.removeFlags) {
-      delete nextMap[flag];
-    }
-
-    for (const flag of entry.addFlags) {
-      if (removeSet.has(flag)) continue;
-      nextMap[flag] = true;
-    }
-
-    store.flagsTruth = createFlagsView(Object.keys(nextMap));
+    store.flagsTruth = applyFlagDeltas(
+      before,
+      entry.addFlags,
+      entry.removeFlags,
+    );
     store.changedFlags = computeChangedFlags(
       before,
       store.flagsTruth,
       entry.removeFlags,
       entry.addFlags,
     );
-    store.seenFlags = createFlagsView([
-      ...store.seenFlags.list,
-      ...store.flagsTruth.list,
-    ]);
+    store.seenFlags = extendSeenFlags(store.seenFlags, store.flagsTruth.list);
 
     store.signal = projectSignal(entry.signals);
     store.seenSignals = extendSeenSignals(store.seenSignals, entry.signals);
@@ -692,7 +692,11 @@ export function createRuntime(): Runtime {
       if (added.retroactive) {
         runRetroactiveValidation(added.ids);
       }
-      return added.remove;
+      return () => {
+        for (const id of added.ids) {
+          gcExpressionId(id);
+        }
+      };
     },
 
     impulse(opts) {

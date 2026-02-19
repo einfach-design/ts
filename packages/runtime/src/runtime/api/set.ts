@@ -9,7 +9,12 @@ import {
   type Defaults,
   type SetDefaults,
 } from "../../state/defaults.js";
-import { createFlagsView, type FlagsView } from "../../state/flagsView.js";
+import {
+  applyFlagDeltas,
+  createFlagsView,
+  extendSeenFlags,
+  type FlagsView,
+} from "../../state/flagsView.js";
 import {
   signals as patchSignals,
   type SeenSignals,
@@ -144,7 +149,13 @@ export function runSet(
       store.impulseQ.config.onError = hydration.impulseQ.config.onError;
 
       store.backfillQ = createBackfillQ();
-      for (const id of hydration.backfillQ.list) {
+      const hydrationBackfillIds = createFlagsView(
+        hydration.backfillQ.list.filter(
+          (id) => hydration.backfillQ.map[id] === true,
+        ),
+      ).list;
+
+      for (const id of hydrationBackfillIds) {
         const expression = expressionRegistry.resolve(id);
         if (expression) {
           store.backfillQ.list.push(expression);
@@ -154,8 +165,8 @@ export function runSet(
 
         store.reportRuntimeError(
           new Error(`Hydration backfill id could not be resolved: ${id}`),
-          "set/hydration",
-          { id },
+          "set/hydration/backfillQ",
+          { regExpressionId: id },
         );
       }
 
@@ -194,11 +205,11 @@ export function runSet(
       (hasOwn(patch, "addFlags") || hasOwn(patch, "removeFlags"))
     ) {
       diagnostics.emit({
-        code: "set.patch.flags.conflict",
+        code: "set.flags.addRemoveConflict",
         message: "flags and add/remove flags cannot be combined.",
         severity: "error",
       });
-      throw new Error("set.patch.flags.conflict");
+      throw new Error("set.flags.addRemoveConflict");
     }
 
     if (hasOwn(patch, "flags")) {
@@ -214,7 +225,7 @@ export function runSet(
             ? "null"
             : typeof incoming;
         diagnostics.emit({
-          code: "set.patch.flags.invalid",
+          code: "set.flags.invalid",
           message:
             "flags patch must be an object with list(array) and map(object).",
           severity: "error",
@@ -224,9 +235,13 @@ export function runSet(
             hasMap: isObject(incoming) ? isObject(incoming.map) : false,
           },
         });
-        throw new Error("set.patch.flags.invalid");
+        throw new Error("set.flags.invalid");
       }
-      store.flagsTruth = createFlagsView(incoming.list as string[]);
+      const normalizedFlags = (incoming.list as string[]).map((flag) =>
+        String(flag),
+      );
+      store.flagsTruth = createFlagsView(normalizedFlags);
+      store.seenFlags = extendSeenFlags(store.seenFlags, normalizedFlags);
     }
 
     if (hasOwn(patch, "addFlags") || hasOwn(patch, "removeFlags")) {
@@ -235,15 +250,32 @@ export function runSet(
         ? patch.removeFlags
         : [];
 
-      const map = { ...store.flagsTruth.map };
-      for (const flag of removeFlags) delete map[String(flag)];
-      for (const flag of addFlags) map[String(flag)] = true;
-      store.flagsTruth = createFlagsView(Object.keys(map));
+      const normalizedAddFlags = addFlags.map((flag) => String(flag));
+      const normalizedRemoveFlags = removeFlags.map((flag) => String(flag));
+
+      const overlap = new Set(
+        normalizedAddFlags.filter((flag) =>
+          normalizedRemoveFlags.includes(flag),
+        ),
+      );
+      if (overlap.size > 0) {
+        diagnostics.emit({
+          code: "set.flags.addRemoveConflict",
+          message: "addFlags and removeFlags cannot overlap.",
+          severity: "error",
+        });
+        throw new Error("set.flags.addRemoveConflict");
+      }
+
+      store.flagsTruth = applyFlagDeltas(
+        store.flagsTruth,
+        normalizedAddFlags,
+        normalizedRemoveFlags,
+      );
       store.changedFlags = undefined;
-      store.seenFlags = createFlagsView([
-        ...store.seenFlags.list,
-        ...store.flagsTruth.list,
-      ]);
+
+      const seenInput = [...normalizedAddFlags, ...normalizedRemoveFlags];
+      store.seenFlags = extendSeenFlags(store.seenFlags, seenInput);
     }
 
     if (hasOwn(patch, "signals")) {
@@ -252,11 +284,11 @@ export function runSet(
         !patch.signals.every((signal) => typeof signal === "string")
       ) {
         diagnostics.emit({
-          code: "set.patch.signals.invalid",
+          code: "set.signals.invalid",
           message: "signals patch must be an array of strings.",
           severity: "error",
         });
-        throw new Error("set.patch.signals.invalid");
+        throw new Error("set.signals.invalid");
       }
 
       const nextSignals = patchSignals({
@@ -285,22 +317,22 @@ export function runSet(
             ? "null"
             : typeof impulsePatch;
         diagnostics.emit({
-          code: "set.patch.impulseQ.invalid",
+          code: "set.impulseQ.invalid",
           message: "impulseQ patch must be an object.",
           severity: "error",
           data: { valueType },
         });
-        throw new Error("set.patch.impulseQ.invalid");
+        throw new Error("set.impulseQ.invalid");
       }
 
       if (hasOwn(impulsePatch, "q")) {
         diagnostics.emit({
-          code: "set.patch.impulseQ.q.forbidden",
+          code: "set.impulseQ.qForbidden",
           message: "impulseQ.q cannot be patched via set().",
           severity: "error",
           data: { field: "q" },
         });
-        throw new Error("set.patch.impulseQ.q.forbidden");
+        throw new Error("set.impulseQ.qForbidden");
       }
 
       if (isObject(impulsePatch.config)) {

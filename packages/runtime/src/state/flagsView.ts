@@ -34,3 +34,51 @@ export function createFlagsView(input: readonly Flag[]): FlagsView {
     map,
   };
 }
+
+/**
+ * Apply remove/add deltas deterministically using list order (not Object.keys(map)).
+ */
+export function applyFlagDeltas(
+  previous: FlagsView,
+  addFlags: readonly Flag[],
+  removeFlags: readonly Flag[],
+): FlagsView {
+  const removeSet = new Set(removeFlags);
+  const nextList: Flag[] = [];
+  const nextMap: Record<Flag, true> = {};
+
+  for (const flag of previous.list) {
+    if (removeSet.has(flag)) {
+      continue;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(nextMap, flag)) {
+      continue;
+    }
+
+    nextMap[flag] = true;
+    nextList.push(flag);
+  }
+
+  for (const flag of addFlags) {
+    if (removeSet.has(flag)) {
+      continue;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(nextMap, flag)) {
+      continue;
+    }
+
+    nextMap[flag] = true;
+    nextList.push(flag);
+  }
+
+  return createFlagsView(nextList);
+}
+
+export function extendSeenFlags(
+  current: FlagsView,
+  incoming: readonly Flag[],
+): FlagsView {
+  return createFlagsView([...current.list, ...incoming]);
+}

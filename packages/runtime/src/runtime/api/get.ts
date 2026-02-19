@@ -1,6 +1,11 @@
 import { toBackfillQSnapshot } from "../../state/backfillQ.js";
 import { computeChangedFlags } from "../../state/changedFlags.js";
-import { createFlagsView, type FlagsView } from "../../state/flagsView.js";
+import {
+  applyFlagDeltas,
+  createFlagsView,
+  extendSeenFlags,
+  type FlagsView,
+} from "../../state/flagsView.js";
 import { extendSeenSignals, projectSignal } from "../../state/signals.js";
 import type { ImpulseQEntryCanonical } from "../../canon/impulseEntry.js";
 import { snapshot } from "../util.js";
@@ -59,19 +64,7 @@ const projectFlagsState = (
   let seenSignals = initialState.seenSignals;
 
   for (const entry of entries) {
-    const nextMap: Record<string, true> = { ...flags.map };
-    const removeSet = new Set(entry.removeFlags);
-
-    for (const flag of entry.removeFlags) {
-      delete nextMap[flag];
-    }
-
-    for (const flag of entry.addFlags) {
-      if (removeSet.has(flag)) continue;
-      nextMap[flag] = true;
-    }
-
-    const nextFlags = createFlagsView(Object.keys(nextMap));
+    const nextFlags = applyFlagDeltas(flags, entry.addFlags, entry.removeFlags);
 
     changedFlags = computeChangedFlags(
       flags,
@@ -80,7 +73,7 @@ const projectFlagsState = (
       entry.addFlags,
     );
     flags = nextFlags;
-    seenFlags = createFlagsView([...seenFlags.list, ...flags.list]);
+    seenFlags = extendSeenFlags(seenFlags, flags.list);
 
     signal = projectSignal(entry.signals);
     seenSignals = extendSeenSignals(seenSignals, entry.signals);
