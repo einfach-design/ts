@@ -211,7 +211,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
     expect(backfillQ.map["expr:pending"]).toBeUndefined();
   });
 
-  it("sets registered inBackfillQ=true when pending re-enqueue occurs", () => {
+  it("drains re-enqueued debt and keeps registered inBackfillQ=false", () => {
     const run = createRuntime();
     const calls: TelemetryCall[] = [];
     const pendingId = "expr:pending-reenqueue";
@@ -220,7 +220,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
       id: pendingId,
       signal: "sig:need",
       backfill: {
-        signal: { debt: 2, runs: { max: 2 } },
+        signal: { debt: 2 },
         flags: { debt: 1 },
       },
       targets: [
@@ -241,21 +241,6 @@ describe("conformance/telemetry-backfill-relevant", () => {
 
     run.set({ ...snapshot, flags: createFlagsView([]) });
 
-    const registeredById = run.get("registeredById") as Map<
-      string,
-      {
-        backfill?: {
-          signal?: { debt?: number; runs?: { used: number; max: number } };
-          flags?: { debt?: number; runs?: { used: number; max: number } };
-        };
-      }
-    >;
-    const pendingExpression = registeredById.get(pendingId);
-    expect(pendingExpression).toBeDefined();
-    expect(pendingExpression?.backfill?.signal?.runs).toBeDefined();
-    pendingExpression!.backfill!.signal!.runs!.used =
-      pendingExpression!.backfill!.signal!.runs!.max;
-
     run.impulse({ signals: ["sig:need"] });
 
     const backfillCalls = calls.filter(
@@ -265,27 +250,31 @@ describe("conformance/telemetry-backfill-relevant", () => {
       (call) => call.id === pendingId && call.q === "registered",
     );
 
-    expect(backfillCalls).toHaveLength(2);
+    expect(backfillCalls).toHaveLength(3);
     expect(registeredCalls).toHaveLength(1);
     for (const backfillCall of backfillCalls) {
       expect(backfillCall.inBackfillQ).toBe(false);
     }
     const registeredCall = registeredCalls[0]!;
-    expect(registeredCall.inBackfillQ).toBe(true);
+    expect(registeredCall.inBackfillQ).toBe(false);
     expect(typeof registeredCall.inBackfillQ).toBe("boolean");
 
-    expect(
-      registeredById.get(pendingId)?.backfill?.signal?.debt,
-    ).toBeGreaterThan(0);
+    const registeredById = run.get("registeredById") as Map<
+      string,
+      {
+        backfill?: { signal?: { debt?: number }; flags?: { debt?: number } };
+      }
+    >;
+    expect(registeredById.get(pendingId)?.backfill?.signal?.debt).toBe(0);
+    expect(registeredById.get(pendingId)?.backfill?.flags?.debt).toBe(0);
 
     const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
       list: string[];
       map: Record<string, true>;
     };
 
-    expect(backfillQ.list).toContain(pendingId);
-    expect(backfillQ.map[pendingId]).toBe(true);
-    expect(backfillQ.list.filter((id) => id === pendingId)).toHaveLength(1);
+    expect(backfillQ.list).not.toContain(pendingId);
+    expect(backfillQ.map[pendingId]).toBeUndefined();
   });
 
   it("keeps non-backfill-relevant telemetry fields absent and inBackfillQ=false", () => {
