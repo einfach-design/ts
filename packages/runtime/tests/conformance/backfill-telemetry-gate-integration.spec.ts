@@ -68,6 +68,7 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
     run.add({
       id: "expr:integration:telemetry-pending",
       signal: "sig:need",
+      required: { flags: { changed: 1 } },
       backfill: {
         signal: { debt: 1 },
         flags: { debt: 1 },
@@ -112,7 +113,7 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
 
     run.set({ ...snapshot, flags: createFlagsView([]) });
 
-    run.impulse({ signals: ["sig:need"] });
+    run.impulse({ signals: ["sig:need"], addFlags: ["flag:up"] });
 
     const gateBackfillCalls = calls.filter(
       (call) =>
@@ -143,7 +144,9 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
 
     expect(telemetryBackfillCalls).toHaveLength(2);
     expect(telemetryRegisteredCalls).toHaveLength(1);
-    expect(telemetryBackfillCalls[0]!.inBackfillQ).toBe(false);
+    expect(
+      telemetryBackfillCalls.every((call) => call.inBackfillQ === false),
+    ).toBe(true);
     expect(telemetryRegisteredCalls[0]!.inBackfillQ).toBe(false);
     expect(typeof telemetryRegisteredCalls[0]!.inBackfillQ).toBe("boolean");
 
@@ -179,6 +182,10 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
         ?.debt,
     ).toBe(0);
     expect(
+      registeredById.get("expr:integration:telemetry-pending")?.backfill?.signal
+        ?.debt,
+    ).toBe(0);
+    expect(
       registeredById.get("expr:integration:drain")?.backfill?.signal?.debt,
     ).toBe(0);
     expect(
@@ -194,6 +201,10 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
 
     expect(backfillQ.list).not.toContain("expr:integration:telemetry-pending");
     expect(backfillQ.map["expr:integration:telemetry-pending"]).toBeUndefined();
+
+    const listSet = new Set(backfillQ.list);
+    const mapKeys = Object.keys(backfillQ.map);
+    expect(listSet).toEqual(new Set(mapKeys));
 
     expect(backfillQ.list).not.toContain("expr:integration:drain");
     expect(backfillQ.map["expr:integration:drain"]).toBeUndefined();
