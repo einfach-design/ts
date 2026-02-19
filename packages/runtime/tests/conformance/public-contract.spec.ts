@@ -37,4 +37,67 @@ describe("conformance: public contract (values)", () => {
 
     expect(typeof remove).toBe("function");
   });
+
+  it("target receives appliedExpression with remove() that removes expression immediately", async () => {
+    const { createRuntime } = await import("../../src/index.js");
+    const run = createRuntime();
+
+    const calls: string[] = [];
+
+    run.add({
+      id: "expr:remove-via-applied",
+      backfill: { signal: { debt: 1 } },
+      targets: [
+        (_i, appliedExpression) => {
+          calls.push("first");
+          (appliedExpression as { remove: () => void }).remove();
+        },
+        () => {
+          calls.push("second");
+        },
+      ],
+    });
+
+    run.impulse({ addFlags: ["tick:1"] });
+
+    const registeredById = run.get("registeredById") as Map<string, unknown>;
+    expect(registeredById.has("expr:remove-via-applied")).toBe(false);
+
+    expect(calls).toEqual(["first"]);
+
+    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
+      list: string[];
+      map: Record<string, true>;
+    };
+    expect(backfillQ.list).not.toContain("expr:remove-via-applied");
+    expect(backfillQ.map["expr:remove-via-applied"]).toBeUndefined();
+
+    run.impulse({ addFlags: ["tick:2"] });
+    expect(calls).toEqual(["first"]);
+  });
+
+  it("target receives appliedExpression.matchFlags(...) bound to runtime flags matching", async () => {
+    const { createRuntime } = await import("../../src/index.js");
+    const run = createRuntime();
+
+    const matchResults: boolean[] = [];
+
+    run.add({
+      id: "expr:match-flags-applied",
+      targets: [
+        (_i, appliedExpression) => {
+          const a = appliedExpression as {
+            matchFlags: (input: unknown) => boolean;
+          };
+          matchResults.push(a.matchFlags("flag:on"));
+          matchResults.push(a.matchFlags({ "flag:off": false }));
+          matchResults.push(a.matchFlags({ "flag:missing": true }));
+        },
+      ],
+    });
+
+    run.impulse({ addFlags: ["flag:on"] });
+
+    expect(matchResults).toEqual([true, false, false]);
+  });
 });

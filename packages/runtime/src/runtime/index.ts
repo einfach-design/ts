@@ -148,6 +148,9 @@ export function createRuntime(): Runtime {
     matchExpression(opts) {
       return runtime.matchExpression(opts as MatchExpressionInput);
     },
+    remove(id) {
+      return expressionRegistry.remove(id as string);
+    },
   };
 
   type ExpressionTelemetry = {
