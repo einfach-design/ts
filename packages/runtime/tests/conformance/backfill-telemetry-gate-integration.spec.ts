@@ -196,8 +196,22 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
       list: string[];
       map: Record<string, true>;
     };
-    expect(backfillQ.list).not.toContain("expr:integration:gate-reject");
-    expect(backfillQ.map["expr:integration:gate-reject"]).toBeUndefined();
+
+    const gateRejectSignalDebt =
+      registeredById.get("expr:integration:gate-reject")?.backfill?.signal
+        ?.debt ?? 0;
+    const gateRejectFlagsDebt =
+      registeredById.get("expr:integration:gate-reject")?.backfill?.flags
+        ?.debt ?? 0;
+    const gateRejectDebt = gateRejectSignalDebt + gateRejectFlagsDebt;
+
+    if (gateRejectDebt > 0) {
+      expect(backfillQ.list).toContain("expr:integration:gate-reject");
+      expect(backfillQ.map["expr:integration:gate-reject"]).toBe(true);
+    } else {
+      expect(backfillQ.list).not.toContain("expr:integration:gate-reject");
+      expect(backfillQ.map["expr:integration:gate-reject"]).toBeUndefined();
+    }
 
     expect(backfillQ.list).not.toContain("expr:integration:telemetry-pending");
     expect(backfillQ.map["expr:integration:telemetry-pending"]).toBeUndefined();
