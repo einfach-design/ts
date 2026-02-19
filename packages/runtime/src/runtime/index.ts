@@ -62,6 +62,7 @@ type Runtime = Readonly<{
     backfill?: RuntimeAddBackfillInput;
     runs?: { max: number };
     onError?: "throw" | "report" | "swallow" | ((error: unknown) => void);
+    retroactive?: boolean;
   }) => () => void;
   impulse: (opts?: unknown) => void;
   get: (
@@ -602,6 +603,73 @@ export function createRuntime(): Runtime {
     });
   };
 
+  const runRetroactiveValidation = (ids: readonly string[]): void => {
+    if (ids.length === 0) {
+      return;
+    }
+
+    const previous = runOccurrenceContext;
+    nextOccurrenceSeq += 1;
+
+    try {
+      runOccurrenceContext = {
+        referenceFlags: store.flagsTruth,
+        changedFlags: createFlagsView([]),
+        addFlags: [],
+        removeFlags: [],
+        occurrenceHasPayload: false,
+        occurrenceSeq: nextOccurrenceSeq,
+        occurrenceId: `occ:${nextOccurrenceSeq}`,
+        expressionTelemetryById: new Map(),
+        skipRegisteredById: new Set(),
+      };
+
+      for (const id of ids) {
+        const expression = expressionRegistry.resolve(id);
+        if (expression === undefined || expression.tombstone === true) {
+          continue;
+        }
+
+        if (
+          expression.signal !== undefined &&
+          store.seenSignals.map[expression.signal] !== true
+        ) {
+          continue;
+        }
+
+        const reference: {
+          signal?: string;
+          flags: { map: Record<string, true>; list: string[] };
+          changedFlags: { map: Record<string, true>; list: string[] };
+        } = {
+          flags: toMatchFlagsView(runOccurrenceContext.referenceFlags)!,
+          changedFlags: { map: {}, list: [] },
+        };
+
+        if (expression.signal !== undefined) {
+          reference.signal = expression.signal;
+          runOccurrenceContext.signal = expression.signal;
+        } else {
+          delete runOccurrenceContext.signal;
+        }
+
+        const matched = runMatchExpression({
+          expression: toMatcherExpression(expression),
+          defaults: store.defaults,
+          reference,
+        });
+
+        if (!matched) {
+          continue;
+        }
+
+        runCoreExpression(expression, "registered");
+      }
+    } finally {
+      runOccurrenceContext = previous;
+    }
+  };
+
   const deps = {
     expressionRegistry,
     diagnostics,
@@ -620,7 +688,11 @@ export function createRuntime(): Runtime {
         >[1]["diagnostics"],
       };
 
-      return runAdd(store, addDeps, opts);
+      const added = runAdd(store, addDeps, opts);
+      if (added.retroactive) {
+        runRetroactiveValidation(added.ids);
+      }
+      return added.remove;
     },
 
     impulse(opts) {

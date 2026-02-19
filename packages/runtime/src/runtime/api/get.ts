@@ -3,7 +3,7 @@ import { computeChangedFlags } from "../../state/changedFlags.js";
 import { createFlagsView, type FlagsView } from "../../state/flagsView.js";
 import { extendSeenSignals, projectSignal } from "../../state/signals.js";
 import type { ImpulseQEntryCanonical } from "../../canon/impulseEntry.js";
-import { readonlyReference, snapshot } from "../util.js";
+import { snapshot } from "../util.js";
 import type { RuntimeStore } from "../store.js";
 import type { DiagnosticCollector } from "../../diagnostics/index.js";
 import type { RegistryStore } from "../../state/registry.js";
@@ -16,15 +16,18 @@ export const snapshotGetKeys = [
   "seenFlags",
   "signal",
   "seenSignals",
-  "scopeProjectionBaseline",
   "impulseQ",
   "backfillQ",
+] as const;
+
+export const debugGetKeys = [
+  "scopeProjectionBaseline",
   "registeredQ",
   "registeredById",
   "diagnostics",
 ] as const;
 
-const allowedGetKeys = ["*", ...snapshotGetKeys] as const;
+const allowedGetKeys = ["*", ...snapshotGetKeys, ...debugGetKeys] as const;
 
 type AllowedGetKey = (typeof allowedGetKeys)[number];
 type Scope = "applied" | "pending" | "pendingOnly";
@@ -222,12 +225,8 @@ export function runGet(
         seenFlags: selectedSeenFlags,
         signal: selectedSignal,
         seenSignals: selectedSeenSignals,
-        scopeProjectionBaseline: store.scopeProjectionBaseline,
         impulseQ: selectedImpulseQ,
         backfillQ: toBackfillQSnapshot(store.backfillQ),
-        registeredQ: expressionRegistry.registeredQ,
-        registeredById: expressionRegistry.registeredById,
-        diagnostics: selectedDiagnostics,
       },
     };
 
@@ -236,7 +235,7 @@ export function runGet(
         ? valueByKey[resolvedKey as AllowedGetKey]
         : valueByKey["*"];
     if (as === "reference") {
-      return readonlyReference(selected);
+      return selected;
     }
 
     return snapshot(selected);

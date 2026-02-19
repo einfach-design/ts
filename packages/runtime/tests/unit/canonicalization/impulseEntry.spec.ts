@@ -84,4 +84,27 @@ describe("canon/impulseEntry", () => {
       entry: undefined,
     });
   });
+
+  it("rejects non-string entries in string-list fields", () => {
+    expect(
+      canonImpulseEntry({ signals: ["ok", 1] as unknown as string[] }),
+    ).toEqual({
+      onError: undefined,
+      entry: undefined,
+    });
+
+    expect(
+      canonImpulseEntry({ addFlags: ["ok", null] as unknown as string[] }),
+    ).toEqual({
+      onError: undefined,
+      entry: undefined,
+    });
+
+    expect(
+      canonImpulseEntry({ removeFlags: ["ok", {}] as unknown as string[] }),
+    ).toEqual({
+      onError: undefined,
+      entry: undefined,
+    });
+  });
 });

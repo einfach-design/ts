@@ -353,4 +353,43 @@ describe("conformance/runtime", () => {
       }),
     ]);
   });
+
+  it("run.add retroactive=true performs onboarding validation run", () => {
+    const run = createRuntime();
+    const retroTrue: string[] = [];
+    const retroFalse: string[] = [];
+
+    run.impulse({ signals: ["ready"], addFlags: ["on"] });
+
+    run.add({
+      id: "expr:retro:true",
+      signal: "ready",
+      flags: { on: true },
+      required: { flags: { changed: 0 } },
+      retroactive: true,
+      targets: [() => retroTrue.push("hit")],
+    });
+
+    run.add({
+      id: "expr:retro:false",
+      signal: "ready",
+      flags: { on: true },
+      required: { flags: { changed: 0 } },
+      retroactive: false,
+      targets: [() => retroFalse.push("hit")],
+    });
+
+    expect(retroTrue).toEqual(["hit"]);
+    expect(retroFalse).toEqual([]);
+  });
+
+  it("trim byte measurement must not throw for unserializable payloads", () => {
+    const run = createRuntime();
+
+    run.impulse({ livePayload: 1n as unknown as number, addFlags: ["a"] });
+
+    expect(() =>
+      run.set({ impulseQ: { config: { maxBytes: 1 } } }),
+    ).not.toThrow();
+  });
 });

@@ -63,11 +63,7 @@ export function runSet(
       throw new Error("set.patch.invalid");
     }
 
-    const isHydration =
-      hasOwn(patch, "backfillQ") ||
-      hasOwn(patch, "registeredQ") ||
-      hasOwn(patch, "registeredById") ||
-      hasOwn(patch, "diagnostics");
+    const isHydration = hasOwn(patch, "backfillQ");
 
     if (isHydration) {
       for (const key of hydrationRequiredKeys) {
@@ -88,7 +84,7 @@ export function runSet(
         seenFlags: FlagsView;
         signal?: string;
         seenSignals: SeenSignals;
-        scopeProjectionBaseline: ScopeProjectionBaseline;
+        scopeProjectionBaseline?: ScopeProjectionBaseline;
         impulseQ: {
           q: { entries: ImpulseQEntryCanonical[]; cursor: number };
           config: {
@@ -102,9 +98,6 @@ export function runSet(
           };
         };
         backfillQ: BackfillQSnapshot;
-        registeredQ: readonly string[];
-        registeredById: Record<string, unknown>;
-        diagnostics: readonly unknown[];
       };
 
       store.defaults = hydration.defaults;
@@ -118,7 +111,20 @@ export function runSet(
       store.impulseQ.q.cursor = hydration.impulseQ.q.cursor;
 
       store.resetScopeProjectionBaseline();
-      store.scopeProjectionBaseline = hydration.scopeProjectionBaseline;
+      if (
+        hasOwn(hydration, "scopeProjectionBaseline") &&
+        hydration.scopeProjectionBaseline !== undefined
+      ) {
+        store.scopeProjectionBaseline = hydration.scopeProjectionBaseline;
+      } else {
+        store.scopeProjectionBaseline = {
+          flags: hydration.flags,
+          changedFlags: hydration.changedFlags,
+          seenFlags: hydration.seenFlags,
+          signal: hydration.signal,
+          seenSignals: hydration.seenSignals,
+        };
+      }
 
       if (hasOwn(hydration.impulseQ.config, "retain")) {
         store.impulseQ.config.retain = hydration.impulseQ.config.retain ?? 0;
@@ -143,7 +149,14 @@ export function runSet(
         if (expression) {
           store.backfillQ.list.push(expression);
           store.backfillQ.map[id] = true;
+          continue;
         }
+
+        store.reportRuntimeError(
+          new Error(`Hydration backfill id could not be resolved: ${id}`),
+          "set/hydration",
+          { id },
+        );
       }
 
       return;

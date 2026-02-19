@@ -21,6 +21,7 @@ export type RuntimeErrorPhase =
   | "impulse/canon"
   | "diagnostic/listener"
   | "trim/onTrim"
+  | "set/hydration"
   | "target/callback"
   | "target/object";
 

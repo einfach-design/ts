@@ -21,7 +21,7 @@ export function runAdd(
     diagnostics: DiagnosticCollector;
   },
   opts: unknown,
-): () => void {
+): { remove: () => void; ids: readonly string[]; retroactive: boolean } {
   return store.withRuntimeStack(() => {
     const source = isObject(opts) ? opts : {};
     const baseId =
@@ -97,6 +97,7 @@ export function runAdd(
       : undefined;
 
     const ids: string[] = [];
+    const retroactive = source.retroactive === true;
     const runsMax =
       isObject(source.runs) && typeof source.runs.max === "number"
         ? Math.max(1, source.runs.max)
@@ -186,10 +187,14 @@ export function runAdd(
       ids.push(id);
     }
 
-    return () => {
-      for (const id of ids) {
-        expressionRegistry.remove(id);
-      }
+    return {
+      ids,
+      retroactive,
+      remove: () => {
+        for (const id of ids) {
+          expressionRegistry.remove(id);
+        }
+      },
     };
   });
 }
