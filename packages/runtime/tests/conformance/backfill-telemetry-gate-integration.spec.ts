@@ -122,6 +122,7 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
     expect(gateBackfillCalls[0]).toEqual(
       expect.objectContaining({ gate: "signal", inBackfillQ: false }),
     );
+    expect(gateBackfillCalls.map((call) => call.gate)).toEqual(["signal"]);
 
     const gateRegisteredCalls = calls.filter(
       (call) =>
@@ -144,6 +145,7 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
 
     expect(telemetryBackfillCalls).toHaveLength(1);
     expect(telemetryBackfillCalls[0]!.inBackfillQ).toBe(false);
+    expect(telemetryBackfillCalls[0]!.signalRuns ?? 0).toBeGreaterThan(0);
     expect(telemetryRegisteredCalls).toHaveLength(1);
     expect(telemetryRegisteredCalls[0]!.inBackfillQ).toBe(true);
     expect(typeof telemetryRegisteredCalls[0]!.inBackfillQ).toBe("boolean");

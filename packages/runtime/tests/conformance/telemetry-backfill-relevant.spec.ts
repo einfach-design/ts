@@ -208,7 +208,12 @@ describe("conformance/telemetry-backfill-relevant", () => {
 
     expect(backfillQ.list).toContain("expr:pending");
     expect(backfillQ.map["expr:pending"]).toBe(true);
-    expect(backfillQ.list.filter((id) => id === "expr:pending").length).toBe(1);
+    expect(backfillQ.list.filter((id) => id === "expr:pending")).toHaveLength(
+      1,
+    );
+    expect(
+      Object.keys(backfillQ.map).filter((id) => id === "expr:pending"),
+    ).toHaveLength(1);
   });
 
   it("keeps non-backfill-relevant telemetry fields absent and inBackfillQ=false", () => {
@@ -239,5 +244,10 @@ describe("conformance/telemetry-backfill-relevant", () => {
       q: "registered",
       inBackfillQ: false,
     });
+    expect(
+      calls.filter(
+        (call) => call.id === "expr:plain" && call.q === "registered",
+      ),
+    ).toHaveLength(1);
   });
 });
