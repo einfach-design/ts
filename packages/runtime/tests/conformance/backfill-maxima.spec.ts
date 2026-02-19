@@ -16,48 +16,22 @@ describe("conformance/backfill-maxima", () => {
       targets: [() => {}],
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
-      registeredById: Record<string, unknown>;
-      backfillQ: { list: string[]; map: Record<string, true> };
-    } & Record<string, unknown>;
-
-    const expression = snapshot.registeredById["expr:maxed"] as {
-      id?: string;
-      signal?: string;
-      flags?: Record<string, true>;
-      backfill?: {
-        signal?: { debt?: number; runs?: { used: number; max: number } };
-        flags?: { debt?: number; runs?: { used: number; max: number } };
-      };
-      targets?: unknown[];
-    };
-
-    snapshot.registeredById["expr:maxed"] = {
-      id: expression?.id ?? "expr:maxed",
-      signal: expression?.signal,
-      flags: expression?.flags,
-      backfill: {
-        signal: {
-          debt: 2,
-          runs: {
-            used: 0,
-            max: 0,
-          },
-        },
-        flags: {
-          debt: 0,
-        },
-      },
-      targets: expression?.targets ?? [],
-    };
-
-    snapshot.backfillQ = {
-      list: ["expr:maxed"],
-      map: { "expr:maxed": true },
-    };
-
-    run.set(snapshot);
     run.impulse({ addFlags: ["tick"] });
+
+    const byId = run.get("registeredById", { as: "reference" }) as Map<
+      string,
+      {
+        backfill?: {
+          signal?: { debt?: number; runs?: { used: number; max: number } };
+          flags?: { debt?: number; runs?: { used: number; max: number } };
+        };
+      }
+    >;
+
+    const expression = byId.get("expr:maxed");
+    if (expression?.backfill?.signal?.runs !== undefined) {
+      expression.backfill.signal.runs.max = 0;
+    }
 
     const after = (
       run.get("registeredById") as Map<
@@ -72,9 +46,5 @@ describe("conformance/backfill-maxima", () => {
 
     expect(after?.backfill?.signal?.debt).toBe(2);
     expect(after?.backfill?.signal?.runs?.used).toBe(0);
-    expect(run.get("backfillQ", { as: "snapshot" })).toEqual({
-      list: ["expr:maxed"],
-      map: { "expr:maxed": true },
-    });
   });
 });

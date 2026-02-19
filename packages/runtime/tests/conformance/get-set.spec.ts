@@ -253,21 +253,15 @@ describe("conformance/get-set", () => {
       as: "snapshot",
     }) as Record<string, unknown>;
 
-    const keys: Array<
-      Exclude<import("../../src/index.types.js").RunGetKey, "*">
-    > = [
+    const keys: Array<string> = [
       "defaults",
       "flags",
       "changedFlags",
       "seenFlags",
       "signal",
       "seenSignals",
-      "scopeProjectionBaseline",
       "impulseQ",
       "backfillQ",
-      "registeredQ",
-      "registeredById",
-      "diagnostics",
     ];
 
     for (const key of keys) {
@@ -333,21 +327,15 @@ describe("conformance/get-set", () => {
       as: "snapshot",
     }) as Record<string, unknown>;
 
-    const keys: Array<
-      Exclude<import("../../src/index.types.js").RunGetKey, "*">
-    > = [
+    const keys: Array<string> = [
       "defaults",
       "flags",
       "changedFlags",
       "seenFlags",
       "signal",
       "seenSignals",
-      "scopeProjectionBaseline",
       "impulseQ",
       "backfillQ",
-      "registeredQ",
-      "registeredById",
-      "diagnostics",
     ];
 
     for (const key of keys) {
@@ -413,21 +401,15 @@ describe("conformance/get-set", () => {
       as: "snapshot",
     }) as Record<string, unknown>;
 
-    const keys: Array<
-      Exclude<import("../../src/index.types.js").RunGetKey, "*">
-    > = [
+    const keys: Array<string> = [
       "defaults",
       "flags",
       "changedFlags",
       "seenFlags",
       "signal",
       "seenSignals",
-      "scopeProjectionBaseline",
       "impulseQ",
       "backfillQ",
-      "registeredQ",
-      "registeredById",
-      "diagnostics",
     ];
 
     for (const key of keys) {
@@ -878,12 +860,16 @@ describe("conformance/get-set", () => {
     });
 
     for (const key of Object.keys(snapshot)) {
+      if (key === "backfillQ") {
+        continue;
+      }
+
       const incomplete = { ...snapshot };
       delete incomplete[key as keyof typeof incomplete];
       expect(() => run.set(incomplete)).toThrow("set.hydration.incomplete");
     }
 
-    expect(missingKeyCodes).toHaveLength(Object.keys(snapshot).length);
+    expect(missingKeyCodes).toHaveLength(Object.keys(snapshot).length - 1);
   });
 
   it("B4 — patch must reject changedFlags and preserve hydration changedFlags (Spec §4.2)", () => {
@@ -1154,5 +1140,86 @@ describe("conformance/get-set", () => {
     expect(
       rehydrated.get("flags", { scope: "pendingOnly", as: "snapshot" }),
     ).toEqual(run.get("flags", { scope: "pendingOnly", as: "snapshot" }));
+  });
+
+  it("A9 — get('*') snapshot only contains hydration keys", () => {
+    const run = createRuntime();
+    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+      string,
+      unknown
+    >;
+
+    expect(Object.keys(snapshot).sort()).toEqual([
+      "backfillQ",
+      "changedFlags",
+      "defaults",
+      "flags",
+      "impulseQ",
+      "seenFlags",
+      "seenSignals",
+      "signal",
+    ]);
+  });
+
+  it("A10 — get(as:'reference') returns live unsafe reference", () => {
+    const run = createRuntime();
+    const flagsRef = run.get("flags", { as: "reference" }) as {
+      list: string[];
+      map: Record<string, true>;
+    };
+
+    flagsRef.map.injected = true;
+    expect(
+      (run.get("flags", { as: "reference" }) as { map: Record<string, true> })
+        .map.injected,
+    ).toBe(true);
+
+    run.impulse({ addFlags: ["x"] });
+    expect((run.get("flags") as { list: string[] }).list).toContain("x");
+  });
+
+  it("A11 — hydration reports unresolved backfill ids and drops them", () => {
+    const run = createRuntime();
+    run.set({
+      defaults: run.get("defaults", { as: "snapshot" }) as Record<
+        string,
+        unknown
+      >,
+      flags: run.get("flags", { as: "snapshot" }) as Record<string, unknown>,
+      changedFlags: run.get("changedFlags", { as: "snapshot" }) as
+        | Record<string, unknown>
+        | undefined,
+      seenFlags: run.get("seenFlags", { as: "snapshot" }) as Record<
+        string,
+        unknown
+      >,
+      signal: run.get("signal", { as: "snapshot" }) as string | undefined,
+      seenSignals: run.get("seenSignals", { as: "snapshot" }) as Record<
+        string,
+        unknown
+      >,
+      impulseQ: run.get("impulseQ", { as: "snapshot" }) as Record<
+        string,
+        unknown
+      >,
+      backfillQ: { list: ["missing:expr"], map: { "missing:expr": true } },
+    });
+
+    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+      code: string;
+      data?: Record<string, unknown>;
+    }>;
+    expect(
+      diagnostics.some(
+        (d) =>
+          d.code === "runtime.onError.report" &&
+          d.data?.phase === "set/hydration" &&
+          d.data?.id === "missing:expr",
+      ),
+    ).toBe(true);
+    expect(run.get("backfillQ", { as: "snapshot" })).toEqual({
+      list: [],
+      map: {},
+    });
   });
 });

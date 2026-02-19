@@ -63,44 +63,12 @@ function snapshot<T>(value: T): T {
   return cloneValue(value) as T;
 }
 
-function readonlyReference<T>(value: T): T {
-  if (!isObject(value)) {
-    return value;
-  }
-
-  const base: Record<string, unknown> = {};
-  for (const [key, nested] of Object.entries(value)) {
-    base[key] = readonlyReference(nested);
-  }
-
-  return new Proxy(base, {
-    set() {
-      throw new Error("read-only reference");
-    },
-    deleteProperty() {
-      throw new Error("read-only reference");
-    },
-    defineProperty() {
-      throw new Error("read-only reference");
-    },
-    setPrototypeOf() {
-      throw new Error("read-only reference");
-    },
-    preventExtensions() {
-      throw new Error("read-only reference");
-    },
-  }) as T;
-}
-
 function measureEntryBytes(entry: ImpulseQEntryCanonical): number {
-  return JSON.stringify(entry).length;
+  try {
+    return JSON.stringify(entry).length;
+  } catch {
+    return Number.MAX_SAFE_INTEGER;
+  }
 }
 
-export {
-  hasOwn,
-  isObject,
-  toMatchFlagsView,
-  snapshot,
-  readonlyReference,
-  measureEntryBytes,
-};
+export { hasOwn, isObject, toMatchFlagsView, snapshot, measureEntryBytes };

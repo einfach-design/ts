@@ -91,17 +91,26 @@ export function canonImpulseEntry(
       : undefined;
 
   const signals = hasOwn(source, "signals") ? source.signals : [];
-  if (!Array.isArray(signals)) {
+  if (
+    !Array.isArray(signals) ||
+    !signals.every((signal) => typeof signal === "string")
+  ) {
     return { entry: undefined, onError };
   }
 
   const addFlags = hasOwn(source, "addFlags") ? source.addFlags : [];
-  if (!Array.isArray(addFlags)) {
+  if (
+    !Array.isArray(addFlags) ||
+    !addFlags.every((flag) => typeof flag === "string")
+  ) {
     return { entry: undefined, onError };
   }
 
   const removeFlags = hasOwn(source, "removeFlags") ? source.removeFlags : [];
-  if (!Array.isArray(removeFlags)) {
+  if (
+    !Array.isArray(removeFlags) ||
+    !removeFlags.every((flag) => typeof flag === "string")
+  ) {
     return { entry: undefined, onError };
   }
 

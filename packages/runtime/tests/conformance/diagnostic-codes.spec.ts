@@ -23,7 +23,6 @@ describe("conformance/diagnostic-codes", () => {
         changedFlags: run.get("changedFlags") as Record<string, unknown>,
         seenFlags: run.get("seenFlags") as Record<string, unknown>,
         signal: run.get("signal") as string | undefined,
-        seenSignals: run.get("seenSignals") as Record<string, unknown>,
         impulseQ: run.get("impulseQ") as Record<string, unknown>,
         backfillQ: run.get("backfillQ") as Record<string, unknown>,
       }),

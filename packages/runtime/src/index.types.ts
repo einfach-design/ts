@@ -36,6 +36,7 @@ export type AddOpts = Readonly<{
   backfill?: { signal?: { debt?: number }; flags?: { debt?: number } };
   runs?: { max: number };
   onError?: OnError;
+  retroactive?: boolean;
 }>;
 
 export type ImpulseOpts = Readonly<{
