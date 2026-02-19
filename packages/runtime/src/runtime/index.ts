@@ -529,7 +529,7 @@ export function createRuntime(): Runtime {
             }
           }
 
-          for (const expression of store.backfillQ.list) {
+          for (const expression of expressionRegistry.registeredQ) {
             if (expressionHasDebt(expression)) {
               const current = ensureBackfillTelemetry(
                 runOccurrenceContext.expressionTelemetryById,

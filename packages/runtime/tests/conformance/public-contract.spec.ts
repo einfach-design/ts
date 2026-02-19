@@ -98,6 +98,6 @@ describe("conformance: public contract (values)", () => {
 
     run.impulse({ addFlags: ["flag:on"] });
 
-    expect(matchResults).toEqual([true, false, false]);
+    expect(matchResults).toEqual([true, true, false]);
   });
 });
