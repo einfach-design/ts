@@ -359,4 +359,59 @@ describe("conformance/telemetry-backfill-relevant", () => {
       ),
     ).toHaveLength(1);
   });
+
+  it("telemetry reads are projection-only and never mutate backfillQ membership", () => {
+    const run = createRuntime();
+    const calls: TelemetryCall[] = [];
+    const expressionId = "expr:telemetry-projection";
+
+    run.add({
+      id: expressionId,
+      signal: "sig:need",
+      flags: { "flag:required": true },
+      backfill: {
+        signal: { debt: 1 },
+        flags: { debt: 1 },
+      },
+      targets: [
+        (i) => {
+          pushCall(calls, i);
+        },
+      ],
+    });
+
+    const snapshot = run.get("*", { as: "snapshot" }) as {
+      backfillQ: { list: string[]; map: Record<string, true> };
+    } & Record<string, unknown>;
+
+    snapshot.backfillQ = {
+      list: [expressionId],
+      map: { [expressionId]: true },
+    };
+
+    run.set(snapshot);
+    run.impulse({ signals: ["sig:need"] });
+
+    const beforeTelemetryRead = run.get("backfillQ", { as: "snapshot" }) as {
+      list: string[];
+      map: Record<string, true>;
+    };
+
+    const backfillCalls = calls.filter(
+      (call) => call.id === expressionId && call.q === "backfill",
+    );
+    expect(backfillCalls.length).toBeGreaterThanOrEqual(1);
+    expect(backfillCalls.every((call) => call.inBackfillQ === false)).toBe(
+      true,
+    );
+
+    const afterTelemetryRead = run.get("backfillQ", { as: "snapshot" }) as {
+      list: string[];
+      map: Record<string, true>;
+    };
+
+    expect(afterTelemetryRead).toEqual(beforeTelemetryRead);
+    expect(afterTelemetryRead.list).toEqual([expressionId]);
+    expect(afterTelemetryRead.map).toEqual({ [expressionId]: true });
+  });
 });

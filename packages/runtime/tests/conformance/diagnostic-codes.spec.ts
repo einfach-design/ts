@@ -289,6 +289,13 @@ describe("conformance/diagnostic-codes", () => {
     }
   });
 
+  it("all DIAGNOSTIC_CODES use exactly 3 segments (2 dots)", () => {
+    for (const code of Object.keys(DIAGNOSTIC_CODES)) {
+      expect(code).toMatch(/^[^.]+\.[^.]+\.[^.]+$/);
+      expect(code.split(".")).toHaveLength(3);
+    }
+  });
+
   it("uses only registered diagnostic codes in runtime sources", () => {
     const runtimeSourceRoot = resolve(process.cwd(), "src");
 
