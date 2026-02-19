@@ -258,20 +258,25 @@ export const coreRun = (args: {
     remove: () => {
       runtimeCore.remove(expression.id);
     },
-    matchFlags: (input) =>
-      runtimeCore.matchExpression({
-        expression: {
-          flags: canonFlagSpecInput(input),
-        },
-        reference: {
-          ...(toMatchFlagsView(store.flagsTruth) !== undefined
-            ? { flags: toMatchFlagsView(store.flagsTruth) }
-            : {}),
-          ...(toMatchFlagsView(store.changedFlags) !== undefined
-            ? { changedFlags: toMatchFlagsView(store.changedFlags) }
-            : {}),
-        },
-      }) === true,
+    matchFlags: (input) => {
+      const specs = canonFlagSpecInput(input);
+      const runtimeFlags = runtimeCore.get("flags") as FlagsView | undefined;
+      const flagsMap = runtimeFlags?.map ?? {};
+
+      for (const spec of specs) {
+        const isFlagSet = flagsMap[spec.flag] === true;
+
+        if (
+          spec.value !== "*" &&
+          ((spec.value === true && !isFlagSet) ||
+            (spec.value === false && isFlagSet))
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    },
   };
 
   const resolveOnError = ():
