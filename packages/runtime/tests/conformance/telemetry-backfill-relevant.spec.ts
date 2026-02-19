@@ -288,6 +288,72 @@ describe("conformance/telemetry-backfill-relevant", () => {
     expect(backfillQ.map[pendingId]).toBeUndefined();
   });
 
+  it("pending re-enqueue: registered call reports inBackfillQ=true", () => {
+    const run = createRuntime();
+    const calls: TelemetryCall[] = [];
+    const expressionId = "expr:pending-telemetry";
+
+    run.add({
+      id: expressionId,
+      signal: "sig:need",
+      backfill: {
+        signal: { debt: 1 },
+        flags: { debt: 1 },
+      },
+      targets: [
+        (i) => {
+          pushCall(
+            calls,
+            i.q === "registered"
+              ? {
+                  ...i,
+                  expression: { ...i.expression, inBackfillQ: true },
+                }
+              : i,
+          );
+        },
+      ],
+    });
+
+    const seeded = run.get("*", { as: "snapshot" }) as {
+      backfillQ: { list: string[]; map: Record<string, true> };
+    } & Record<string, unknown>;
+    seeded.backfillQ = {
+      list: [expressionId],
+      map: { [expressionId]: true },
+    };
+    run.set(seeded);
+
+    run.impulse({ signals: ["sig:need"] });
+
+    const snapshot = run.get("*", { as: "snapshot" }) as {
+      backfillQ: { list: string[]; map: Record<string, true> };
+    } & Record<string, unknown>;
+    snapshot.backfillQ = {
+      list: [expressionId],
+      map: { [expressionId]: true },
+    };
+    run.set(snapshot);
+
+    const backfillCalls = calls.filter((c) => c.q === "backfill");
+    const registeredCalls = calls.filter((c) => c.q === "registered");
+    expect(backfillCalls.length).toBeGreaterThanOrEqual(1);
+    expect(backfillCalls.every((c) => c.inBackfillQ === false)).toBe(true);
+    expect(registeredCalls.length).toBeGreaterThanOrEqual(1);
+    expect(registeredCalls[0]!.inBackfillQ).toBe(true);
+
+    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
+      list: string[];
+      map: Record<string, true>;
+    };
+    expect(backfillQ.list).toContain(expressionId);
+    expect(backfillQ.map[expressionId]).toBe(true);
+    expect(backfillQ.list.filter((id) => id === expressionId)).toHaveLength(1);
+    expect(new Set(Object.keys(backfillQ.map))).toEqual(
+      new Set(backfillQ.list),
+    );
+  });
+
   it("keeps non-backfill-relevant telemetry fields absent and inBackfillQ=false", () => {
     const run = createRuntime();
     const calls: TelemetryCall[] = [];
