@@ -263,6 +263,14 @@ export const coreRun = (args: {
         expression: {
           flags: canonFlagSpecInput(input),
         },
+        reference: {
+          ...(toMatchFlagsView(store.flagsTruth) !== undefined
+            ? { flags: toMatchFlagsView(store.flagsTruth) }
+            : {}),
+          ...(toMatchFlagsView(store.changedFlags) !== undefined
+            ? { changedFlags: toMatchFlagsView(store.changedFlags) }
+            : {}),
+        },
       }) === true,
   };
 
