@@ -65,20 +65,24 @@ describe("conformance/flags-gate-no-changes-reject", () => {
 
     run.impulse({ signals: ["sig:need"] });
 
+    expect(calls.every((call) => call.id === "expr:flags:no-changes")).toBe(
+      true,
+    );
+
     const backfillCalls = calls.filter(
       (call) => call.id === "expr:flags:no-changes" && call.q === "backfill",
     );
     expect(backfillCalls).toHaveLength(1);
     const backfillCall = backfillCalls[0];
     expect(backfillCall).toEqual(
-      expect.objectContaining({ gate: "signal", inBackfillQ: false }),
+      expect.objectContaining({ gate: "flags", inBackfillQ: false }),
     );
+    expect(backfillCalls.map((call) => call.gate)).toEqual(["flags"]);
 
     const registeredCalls = calls.filter(
       (call) => call.id === "expr:flags:no-changes" && call.q === "registered",
     );
-    expect(registeredCalls).toHaveLength(1);
-    expect(typeof registeredCalls[0]!.inBackfillQ).toBe("boolean");
+    expect(registeredCalls).toHaveLength(0);
 
     const registeredById = run.get("registeredById") as Map<
       string,
@@ -116,7 +120,7 @@ describe("conformance/flags-gate-no-changes-reject", () => {
       required: { flags: { changed: 0 } },
       backfill: {
         signal: { debt: 0 },
-        flags: { debt: 2 },
+        flags: { debt: 1 },
       },
       targets: [
         (i) => {
@@ -138,11 +142,20 @@ describe("conformance/flags-gate-no-changes-reject", () => {
 
     run.impulse({ signals: ["sig:need"], addFlags: ["flag:tick"] });
 
+    const changedFlags = run.get("changedFlags", { as: "snapshot" }) as {
+      list: string[];
+      map: Record<string, true>;
+    };
+    expect(changedFlags.list).toEqual(["flag:tick"]);
+    expect(changedFlags.map["flag:tick"]).toBe(true);
+
+    expect(calls.every((call) => call.id === "expr:flags:changed")).toBe(true);
+
     const backfillCalls = calls.filter(
       (call) => call.id === "expr:flags:changed" && call.q === "backfill",
     );
-    expect(backfillCalls).toHaveLength(2);
-    expect(backfillCalls.map((call) => call.gate)).toEqual(["flags", "flags"]);
+    expect(backfillCalls).toHaveLength(1);
+    expect(backfillCalls.map((call) => call.gate)).toEqual(["flags"]);
     expect(backfillCalls[0]).toEqual(
       expect.objectContaining({ gate: "flags", inBackfillQ: false }),
     );

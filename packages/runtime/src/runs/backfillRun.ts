@@ -17,6 +17,7 @@ export type BackfillRunAttemptResult = Readonly<{
   status: "deploy" | "reject";
   pending: boolean;
   consumedDebt: boolean;
+  halt?: boolean;
 }>;
 
 export type BackfillRunOptions<TExpression extends RegisteredExpression> =
@@ -216,6 +217,7 @@ export function backfillRun<TExpression extends RegisteredExpression>(
         status: result.status,
         pending: hasPendingDebt(liveExpression),
         consumedDebt,
+        ...(result.halt === true ? { halt: true } : {}),
       };
     };
 
@@ -233,6 +235,15 @@ export function backfillRun<TExpression extends RegisteredExpression>(
           queuedInWorking.add(liveExpression.id);
         }
 
+        pendingForReenqueue.set(liveExpression.id, liveExpression);
+      } else {
+        pendingForReenqueue.delete(liveExpression.id);
+      }
+      continue;
+    }
+
+    if (primaryResult.halt === true) {
+      if (primaryResult.pending) {
         pendingForReenqueue.set(liveExpression.id, liveExpression);
       } else {
         pendingForReenqueue.delete(liveExpression.id);

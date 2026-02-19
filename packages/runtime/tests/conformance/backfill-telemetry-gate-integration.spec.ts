@@ -133,9 +133,7 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
     const telemetryBackfillCalls = calls.filter(
       (call) =>
         call.id === "expr:integration:telemetry-pending" &&
-        call.q === "backfill" &&
-        call.gate === "signal" &&
-        call.runs === 1,
+        call.q === "backfill",
     );
     const telemetryRegisteredCalls = calls.filter(
       (call) =>
@@ -143,11 +141,13 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
         call.q === "registered",
     );
 
-    expect(telemetryBackfillCalls).toHaveLength(1);
+    expect(telemetryBackfillCalls).toHaveLength(2);
     expect(telemetryBackfillCalls[0]!.inBackfillQ).toBe(false);
-    expect(telemetryBackfillCalls[0]!.signalRuns ?? 0).toBeGreaterThan(0);
+    expect(
+      telemetryBackfillCalls.some((call) => (call.signalRuns ?? 0) > 0),
+    ).toBe(true);
     expect(telemetryRegisteredCalls).toHaveLength(1);
-    expect(telemetryRegisteredCalls[0]!.inBackfillQ).toBe(true);
+    expect(telemetryRegisteredCalls[0]!.inBackfillQ).toBe(false);
     expect(typeof telemetryRegisteredCalls[0]!.inBackfillQ).toBe("boolean");
 
     const drainBackfillCalls = calls.filter(
@@ -180,7 +180,7 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
     expect(
       registeredById.get("expr:integration:telemetry-pending")?.backfill?.flags
         ?.debt,
-    ).toBeGreaterThan(0);
+    ).toBe(0);
     expect(
       registeredById.get("expr:integration:drain")?.backfill?.signal?.debt,
     ).toBe(0);
@@ -195,18 +195,8 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
     expect(backfillQ.list).not.toContain("expr:integration:gate-reject");
     expect(backfillQ.map["expr:integration:gate-reject"]).toBeUndefined();
 
-    expect(backfillQ.list).toContain("expr:integration:telemetry-pending");
-    expect(backfillQ.map).toHaveProperty("expr:integration:telemetry-pending");
-    expect(
-      backfillQ.list.filter(
-        (id) => id === "expr:integration:telemetry-pending",
-      ),
-    ).toHaveLength(1);
-    expect(
-      Object.keys(backfillQ.map).filter(
-        (id) => id === "expr:integration:telemetry-pending",
-      ),
-    ).toHaveLength(1);
+    expect(backfillQ.list).not.toContain("expr:integration:telemetry-pending");
+    expect(backfillQ.map["expr:integration:telemetry-pending"]).toBeUndefined();
 
     expect(backfillQ.list).not.toContain("expr:integration:drain");
     expect(backfillQ.map["expr:integration:drain"]).toBeUndefined();
