@@ -528,10 +528,14 @@ export function createRuntime(): Runtime {
 
           for (const expression of store.backfillQ.list) {
             if (expressionHasDebt(expression)) {
-              ensureBackfillTelemetry(
+              const current = ensureBackfillTelemetry(
                 runOccurrenceContext.expressionTelemetryById,
                 expression.id,
               );
+              runOccurrenceContext.expressionTelemetryById.set(expression.id, {
+                ...current,
+                inBackfillQ: true,
+              });
             }
           }
 

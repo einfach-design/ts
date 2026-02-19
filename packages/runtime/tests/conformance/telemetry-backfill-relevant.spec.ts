@@ -178,7 +178,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
 
     run.set(snapshot);
 
-    run.impulse({ signals: ["sig:need"] });
+    run.impulse({ signals: ["sig:need"], addFlags: ["flag:up"] });
 
     const backfillCalls = calls.filter(
       (call) =>
@@ -219,6 +219,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
     run.add({
       id: pendingId,
       signal: "sig:need",
+      required: { flags: { changed: 1 } },
       backfill: {
         signal: { debt: 1 },
         flags: { debt: 1 },
@@ -251,10 +252,10 @@ describe("conformance/telemetry-backfill-relevant", () => {
     );
 
     expect(backfillCalls).toHaveLength(2);
-    expect(registeredCalls).toHaveLength(1);
-    expect(backfillCalls[0]!.inBackfillQ).toBe(false);
-    expect(registeredCalls[0]!.inBackfillQ).toBe(false);
-    expect(typeof registeredCalls[0]!.inBackfillQ).toBe("boolean");
+    expect(registeredCalls).toHaveLength(0);
+    expect(backfillCalls.every((call) => call.inBackfillQ === false)).toBe(
+      true,
+    );
 
     const registeredById = run.get("registeredById") as Map<
       string,
@@ -262,15 +263,17 @@ describe("conformance/telemetry-backfill-relevant", () => {
         backfill?: { signal?: { debt?: number }; flags?: { debt?: number } };
       }
     >;
-    expect(registeredById.get(pendingId)?.backfill?.flags?.debt).toBe(0);
+    expect(registeredById.get(pendingId)?.backfill?.signal?.debt).toBe(0);
+    expect(registeredById.get(pendingId)?.backfill?.flags?.debt).toBe(1);
 
     const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
       list: string[];
       map: Record<string, true>;
     };
 
-    expect(backfillQ.list).not.toContain(pendingId);
-    expect(backfillQ.map[pendingId]).toBeUndefined();
+    expect(backfillQ.list).toContain(pendingId);
+    expect(backfillQ.map[pendingId]).toBe(true);
+    expect(backfillQ.list.filter((id) => id === pendingId)).toHaveLength(1);
   });
 
   it("keeps non-backfill-relevant telemetry fields absent and inBackfillQ=false", () => {
