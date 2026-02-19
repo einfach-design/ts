@@ -46,6 +46,11 @@ describe("conformance/applied-expression", () => {
       addFlags: ["flag:truth"],
     });
 
-    expect(matchResults).toEqual([true, false]);
+    run.impulse({
+      useFixedFlags: createFlagsView([]),
+      addFlags: ["flag:other"],
+    });
+
+    expect(matchResults).toEqual([true, false, true, false]);
   });
 });
