@@ -8,6 +8,10 @@
 
 import type { RuntimeOnError } from "../runtime/store.js";
 import type { FlagsView } from "../state/flagsView.js";
+import {
+  canonFlagSpecInput,
+  type FlagSpecInput,
+} from "../canon/flagSpecInput.js";
 
 export type RuntimeOccurrence = Readonly<{
   seq: number;
@@ -32,6 +36,7 @@ export type RuntimeOccurrence = Readonly<{
 export type RuntimeCore = Readonly<{
   get: (...args: unknown[]) => unknown;
   matchExpression: (...args: unknown[]) => unknown;
+  remove: (...args: unknown[]) => unknown;
 }>;
 
 export type RegisteredExpression = {
@@ -64,8 +69,13 @@ export const isInnerExpressionAbort = (
   (value as { __runtimeInnerAbort?: unknown }).__runtimeInnerAbort === true;
 
 export type RuntimeTarget =
-  | ((i: RuntimeOccurrence, a: RegisteredExpression, r: RuntimeCore) => void)
+  | ((i: RuntimeOccurrence, a: AppliedExpression, r: RuntimeCore) => void)
   | { on: Record<string, unknown> };
+
+export type AppliedExpression = RegisteredExpression & {
+  remove: () => void;
+  matchFlags: (input: FlagSpecInput) => boolean;
+};
 
 export const coreRun = (args: {
   expression: RegisteredExpression;
@@ -243,6 +253,19 @@ export const coreRun = (args: {
 
   let attempted = 0;
 
+  const appliedExpression: AppliedExpression = {
+    ...expression,
+    remove: () => {
+      runtimeCore.remove(expression.id);
+    },
+    matchFlags: (input) =>
+      runtimeCore.matchExpression({
+        expression: {
+          flags: canonFlagSpecInput(input),
+        },
+      }) === true,
+  };
+
   const resolveOnError = ():
     | RuntimeOnError
     | ((issue: { error: unknown }) => void) => {
@@ -270,12 +293,16 @@ export const coreRun = (args: {
   };
 
   for (const target of expression.targets) {
+    if (expression.tombstone === true) {
+      break;
+    }
+
     const targetKind = typeof target === "function" ? "callback" : "object";
     attempted += dispatch({
       targetKind,
       target,
       ...(store.signal !== undefined ? { signal: store.signal } : {}),
-      args: [actualExpression, expression, runtimeCore],
+      args: [actualExpression, appliedExpression, runtimeCore],
       onError: resolveOnError(),
       context: {
         expressionId: expression.id,
