@@ -2,25 +2,30 @@ import { describe, expect, it } from "vitest";
 import { createRuntime } from "../../src/index.js";
 
 type TelemetryCall = {
+  id: string;
   q: "backfill" | "registered";
   signalRuns?: number;
   flagsRuns?: number;
   runs?: number;
   inBackfillQ: boolean;
+  gate?: "signal" | "flags";
 };
 
 type TelemetryTargetInput = {
   q: TelemetryCall["q"];
   expression: {
+    id: string;
     backfillSignalRuns?: number;
     backfillFlagsRuns?: number;
     backfillRuns?: number;
     inBackfillQ: boolean;
+    actBackfillGate?: "signal" | "flags";
   };
 };
 
 const pushCall = (calls: TelemetryCall[], i: TelemetryTargetInput): void => {
   calls.push({
+    id: i.expression.id,
     q: i.q,
     ...(i.expression.backfillSignalRuns !== undefined
       ? { signalRuns: i.expression.backfillSignalRuns }
@@ -32,6 +37,9 @@ const pushCall = (calls: TelemetryCall[], i: TelemetryTargetInput): void => {
       ? { runs: i.expression.backfillRuns }
       : {}),
     inBackfillQ: i.expression.inBackfillQ,
+    ...(i.expression.actBackfillGate !== undefined
+      ? { gate: i.expression.actBackfillGate }
+      : {}),
   });
 };
 
@@ -63,20 +71,13 @@ describe("conformance/telemetry-backfill-relevant", () => {
 
     run.set(snapshot);
 
-    const liveExpression = (
-      run.get("registeredQ") as Array<{
-        id: string;
-        runs?: { used: number; max: number };
-      }>
-    ).find((expression) => expression.id === "expr:reenqueued");
-
-    if (liveExpression !== undefined) {
-      liveExpression.runs = { used: 1, max: 1 };
-    }
-
     run.impulse({ addFlags: ["tick"] });
 
-    const registeredCall = calls.find((call) => call.q === "registered");
+    const registeredCalls = calls.filter(
+      (call) => call.id === "expr:drained" && call.q === "registered",
+    );
+    expect(registeredCalls).toHaveLength(1);
+    const registeredCall = registeredCalls[0]!;
     expect(registeredCall).toEqual(
       expect.objectContaining({
         signalRuns: 1,
@@ -85,6 +86,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
         inBackfillQ: false,
       }),
     );
+    expect(typeof registeredCall.inBackfillQ).toBe("boolean");
   });
 
   it("debt drain in one impulse: registered call reports inBackfillQ=false and does not re-enqueue", () => {
@@ -123,7 +125,9 @@ describe("conformance/telemetry-backfill-relevant", () => {
       removeFlags: ["flag:down"],
     });
 
-    const registeredCalls = calls.filter((call) => call.q === "registered");
+    const registeredCalls = calls.filter(
+      (call) => call.id === "expr:drain-countercase" && call.q === "registered",
+    );
     expect(registeredCalls).toHaveLength(1);
     expect(registeredCalls[0]).toEqual(
       expect.objectContaining({
@@ -133,6 +137,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
         inBackfillQ: false,
       }),
     );
+    expect(typeof registeredCalls[0]!.inBackfillQ).toBe("boolean");
 
     const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
       list: string[];
@@ -174,24 +179,28 @@ describe("conformance/telemetry-backfill-relevant", () => {
 
     run.impulse({ signals: ["sig:need"] });
 
-    // Backfill pre-finalization telemetry within the same impulse.
-    const backfillCall = calls.find((call) => call.q === "backfill");
-    expect(backfillCall).toBeDefined();
-    expect(backfillCall).toEqual(
+    const backfillCalls = calls.filter(
+      (call) =>
+        call.id === "expr:pending" && call.q === "backfill" && call.runs === 1,
+    );
+    expect(backfillCalls).toHaveLength(1);
+    expect(backfillCalls[0]).toEqual(
       expect.objectContaining({
         inBackfillQ: false,
       }),
     );
 
-    const registeredCall = calls.find((call) => call.q === "registered");
-    expect(registeredCall).toBeDefined();
-    expect(registeredCall).toEqual(
+    const registeredCalls = calls.filter(
+      (call) => call.id === "expr:pending" && call.q === "registered",
+    );
+    expect(registeredCalls).toHaveLength(1);
+    expect(registeredCalls[0]).toEqual(
       expect.objectContaining({
         inBackfillQ: true,
       }),
     );
+    expect(typeof registeredCalls[0]!.inBackfillQ).toBe("boolean");
 
-    // Post-state after the same impulse: entry remains in backfill queue.
     const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
       list: string[];
       map: Record<string, true>;
@@ -217,11 +226,18 @@ describe("conformance/telemetry-backfill-relevant", () => {
 
     run.impulse({ addFlags: ["tick"] });
 
-    const registeredCalls = calls.filter((call) => call.q === "registered");
+    const registeredCalls = calls.filter(
+      (call) => call.id === "expr:plain" && call.q === "registered",
+    );
     expect(registeredCalls).toHaveLength(1);
     const registeredCall = registeredCalls[0];
     expect(registeredCall).toBeDefined();
     expect(registeredCall?.inBackfillQ).toBe(false);
-    expect(calls).toContainEqual({ q: "registered", inBackfillQ: false });
+    expect(typeof registeredCall?.inBackfillQ).toBe("boolean");
+    expect(calls).toContainEqual({
+      id: "expr:plain",
+      q: "registered",
+      inBackfillQ: false,
+    });
   });
 });

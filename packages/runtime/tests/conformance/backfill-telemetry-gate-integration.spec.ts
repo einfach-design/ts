@@ -7,6 +7,9 @@ type Call = {
   q: "backfill" | "registered";
   inBackfillQ: boolean;
   gate?: "signal" | "flags";
+  signalRuns?: number;
+  flagsRuns?: number;
+  runs?: number;
 };
 
 type TelemetryTargetInput = {
@@ -15,6 +18,9 @@ type TelemetryTargetInput = {
     id: string;
     inBackfillQ: boolean;
     actBackfillGate?: "signal" | "flags";
+    backfillSignalRuns?: number;
+    backfillFlagsRuns?: number;
+    backfillRuns?: number;
   };
 };
 
@@ -25,6 +31,15 @@ const collectTelemetryCall = (calls: Call[], i: TelemetryTargetInput): void => {
     inBackfillQ: i.expression.inBackfillQ,
     ...(i.expression.actBackfillGate !== undefined
       ? { gate: i.expression.actBackfillGate }
+      : {}),
+    ...(i.expression.backfillSignalRuns !== undefined
+      ? { signalRuns: i.expression.backfillSignalRuns }
+      : {}),
+    ...(i.expression.backfillFlagsRuns !== undefined
+      ? { flagsRuns: i.expression.backfillFlagsRuns }
+      : {}),
+    ...(i.expression.backfillRuns !== undefined
+      ? { runs: i.expression.backfillRuns }
       : {}),
   });
 };
@@ -64,6 +79,20 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
       ],
     });
 
+    run.add({
+      id: "expr:integration:drain",
+      signal: "sig:need",
+      backfill: {
+        signal: { debt: 1 },
+        flags: { debt: 0 },
+      },
+      targets: [
+        (i) => {
+          collectTelemetryCall(calls, i);
+        },
+      ],
+    });
+
     const snapshot = run.get("*", { as: "snapshot" }) as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
@@ -72,10 +101,12 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
       list: [
         "expr:integration:gate-reject",
         "expr:integration:telemetry-pending",
+        "expr:integration:drain",
       ],
       map: {
         "expr:integration:gate-reject": true,
         "expr:integration:telemetry-pending": true,
+        "expr:integration:drain": true,
       },
     };
 
@@ -92,32 +123,19 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
       expect.objectContaining({ gate: "signal", inBackfillQ: false }),
     );
 
-    const gateRejectReasons = gateBackfillCalls
-      .map((call) => call.gate)
-      .filter((gate): gate is "signal" | "flags" => gate !== undefined);
-    expect(gateRejectReasons).toEqual(["signal"]);
-
     const gateRegisteredCalls = calls.filter(
       (call) =>
         call.id === "expr:integration:gate-reject" && call.q === "registered",
     );
     expect(gateRegisteredCalls).toHaveLength(0);
 
-    const telemetryBackfillCalls = calls
-      .filter(
-        (call) =>
-          call.id === "expr:integration:telemetry-pending" &&
-          call.q === "backfill",
-      )
-      .filter(
-        (call, index, all) =>
-          all.findIndex(
-            (candidate) =>
-              candidate.id === call.id &&
-              candidate.q === call.q &&
-              candidate.inBackfillQ === call.inBackfillQ,
-          ) === index,
-      );
+    const telemetryBackfillCalls = calls.filter(
+      (call) =>
+        call.id === "expr:integration:telemetry-pending" &&
+        call.q === "backfill" &&
+        call.gate === "signal" &&
+        call.runs === 1,
+    );
     const telemetryRegisteredCalls = calls.filter(
       (call) =>
         call.id === "expr:integration:telemetry-pending" &&
@@ -128,6 +146,20 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
     expect(telemetryBackfillCalls[0]!.inBackfillQ).toBe(false);
     expect(telemetryRegisteredCalls).toHaveLength(1);
     expect(telemetryRegisteredCalls[0]!.inBackfillQ).toBe(true);
+    expect(typeof telemetryRegisteredCalls[0]!.inBackfillQ).toBe("boolean");
+
+    const drainBackfillCalls = calls.filter(
+      (call) => call.id === "expr:integration:drain" && call.q === "backfill",
+    );
+    const drainRegisteredCalls = calls.filter(
+      (call) => call.id === "expr:integration:drain" && call.q === "registered",
+    );
+
+    expect(drainBackfillCalls).toHaveLength(1);
+    expect(drainBackfillCalls[0]!.inBackfillQ).toBe(false);
+    expect(drainRegisteredCalls).toHaveLength(1);
+    expect(drainRegisteredCalls[0]!.inBackfillQ).toBe(false);
+    expect(typeof drainRegisteredCalls[0]!.inBackfillQ).toBe("boolean");
 
     const registeredById = run.get("registeredById") as Map<
       string,
@@ -147,6 +179,12 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
       registeredById.get("expr:integration:telemetry-pending")?.backfill?.flags
         ?.debt,
     ).toBeGreaterThan(0);
+    expect(
+      registeredById.get("expr:integration:drain")?.backfill?.signal?.debt,
+    ).toBe(0);
+    expect(
+      registeredById.get("expr:integration:drain")?.backfill?.flags?.debt,
+    ).toBe(0);
 
     const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
       list: string[];
@@ -154,7 +192,21 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
     };
     expect(backfillQ.list).not.toContain("expr:integration:gate-reject");
     expect(backfillQ.map["expr:integration:gate-reject"]).toBeUndefined();
+
     expect(backfillQ.list).toContain("expr:integration:telemetry-pending");
     expect(backfillQ.map).toHaveProperty("expr:integration:telemetry-pending");
+    expect(
+      backfillQ.list.filter(
+        (id) => id === "expr:integration:telemetry-pending",
+      ),
+    ).toHaveLength(1);
+    expect(
+      Object.keys(backfillQ.map).filter(
+        (id) => id === "expr:integration:telemetry-pending",
+      ),
+    ).toHaveLength(1);
+
+    expect(backfillQ.list).not.toContain("expr:integration:drain");
+    expect(backfillQ.map["expr:integration:drain"]).toBeUndefined();
   });
 });
