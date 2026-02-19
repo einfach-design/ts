@@ -197,6 +197,12 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
       map: Record<string, true>;
     };
 
+    const listSet = new Set(backfillQ.list);
+    const mapKeys = Object.keys(backfillQ.map);
+    expect(listSet).toEqual(new Set(mapKeys));
+
+    const pendingId = "expr:integration:gate-reject";
+
     const gateRejectSignalDebt =
       registeredById.get("expr:integration:gate-reject")?.backfill?.signal
         ?.debt ?? 0;
@@ -206,19 +212,13 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
     const gateRejectDebt = gateRejectSignalDebt + gateRejectFlagsDebt;
 
     if (gateRejectDebt > 0) {
-      expect(backfillQ.list).toContain("expr:integration:gate-reject");
-      expect(backfillQ.map["expr:integration:gate-reject"]).toBe(true);
+      expect(backfillQ.list).toContain(pendingId);
+      expect(backfillQ.map[pendingId]).toBe(true);
+      expect(backfillQ.list.filter((id) => id === pendingId)).toHaveLength(1);
     } else {
-      expect(backfillQ.list).not.toContain("expr:integration:gate-reject");
-      expect(backfillQ.map["expr:integration:gate-reject"]).toBeUndefined();
+      expect(backfillQ.list).not.toContain(pendingId);
+      expect(backfillQ.map[pendingId]).toBeUndefined();
     }
-
-    expect(backfillQ.list).not.toContain("expr:integration:telemetry-pending");
-    expect(backfillQ.map["expr:integration:telemetry-pending"]).toBeUndefined();
-
-    const listSet = new Set(backfillQ.list);
-    const mapKeys = Object.keys(backfillQ.map);
-    expect(listSet).toEqual(new Set(mapKeys));
 
     expect(backfillQ.list).not.toContain("expr:integration:drain");
     expect(backfillQ.map["expr:integration:drain"]).toBeUndefined();
