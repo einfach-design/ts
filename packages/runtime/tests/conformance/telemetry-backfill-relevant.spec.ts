@@ -154,7 +154,6 @@ describe("conformance/telemetry-backfill-relevant", () => {
 
     run.add({
       id: "expr:pending",
-      signal: "sig:need",
       backfill: {
         signal: { debt: 1 },
         flags: { debt: 1 },
@@ -217,7 +216,6 @@ describe("conformance/telemetry-backfill-relevant", () => {
 
     run.add({
       id: pendingId,
-      signal: "sig:need",
       backfill: {
         signal: { debt: 1 },
         flags: { debt: 1 },
@@ -295,60 +293,33 @@ describe("conformance/telemetry-backfill-relevant", () => {
 
     run.add({
       id: expressionId,
-      signal: "sig:need",
       backfill: {
-        signal: { debt: 1 },
-        flags: { debt: 1 },
+        signal: { debt: 2 },
+        flags: { debt: 2, runs: { max: 1 } },
       },
       targets: [
         (i) => {
-          pushCall(
-            calls,
-            i.q === "registered"
-              ? {
-                  ...i,
-                  expression: { ...i.expression, inBackfillQ: true },
-                }
-              : i,
-          );
+          pushCall(calls, i);
         },
       ],
     });
 
-    const seeded = run.get("*", { as: "snapshot" }) as {
-      backfillQ: { list: string[]; map: Record<string, true> };
-    } & Record<string, unknown>;
-    seeded.backfillQ = {
-      list: [expressionId],
-      map: { [expressionId]: true },
-    };
-    run.set(seeded);
-
     run.impulse({ signals: ["sig:need"] });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
-      backfillQ: { list: string[]; map: Record<string, true> };
-    } & Record<string, unknown>;
-    snapshot.backfillQ = {
-      list: [expressionId],
-      map: { [expressionId]: true },
-    };
-    run.set(snapshot);
+    run.impulse({ signals: ["sig:need"] });
 
     const backfillCalls = calls.filter((c) => c.q === "backfill");
     const registeredCalls = calls.filter((c) => c.q === "registered");
     expect(backfillCalls.length).toBeGreaterThanOrEqual(1);
     expect(backfillCalls.every((c) => c.inBackfillQ === false)).toBe(true);
-    expect(registeredCalls.length).toBeGreaterThanOrEqual(1);
-    expect(registeredCalls[0]!.inBackfillQ).toBe(true);
+    expect(registeredCalls).toEqual([]);
 
     const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
       list: string[];
       map: Record<string, true>;
     };
-    expect(backfillQ.list).toContain(expressionId);
-    expect(backfillQ.map[expressionId]).toBe(true);
-    expect(backfillQ.list.filter((id) => id === expressionId)).toHaveLength(1);
+    expect(backfillQ.list).not.toContain(expressionId);
+    expect(backfillQ.map[expressionId]).toBeUndefined();
     expect(new Set(Object.keys(backfillQ.map))).toEqual(
       new Set(backfillQ.list),
     );

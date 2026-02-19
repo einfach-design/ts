@@ -920,7 +920,7 @@ describe("conformance/get-set", () => {
 
     expect(() =>
       run.set({ impulseQ: { q: { entries: [] } } } as Record<string, unknown>),
-    ).toThrow("set.patch.impulseQ.q.forbidden");
+    ).toThrow("set.impulseQ.qForbidden");
   });
 
   it("B6 — signals patch updates signal/seenSignals without queue processing (Spec §4.2)", () => {
@@ -958,8 +958,50 @@ describe("conformance/get-set", () => {
 
     expect(() =>
       run.set({ signals: ["ok", 1] as unknown as string[] }),
-    ).toThrow("set.patch.signals.invalid");
-    expect(codes).toContain("set.patch.signals.invalid");
+    ).toThrow("set.signals.invalid");
+    expect(codes).toContain("set.signals.invalid");
+  });
+
+  it("B8 — add/remove overlap throws and emits set.flags.addRemoveConflict", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() => run.set({ addFlags: ["x", "y"], removeFlags: ["y"] })).toThrow(
+      "set.flags.addRemoveConflict",
+    );
+    expect(codes).toContain("set.flags.addRemoveConflict");
+  });
+
+  it("B9 — seenFlags extends by removeFlags input even when truth no longer contains flag", () => {
+    const run = createRuntime();
+
+    run.set({ flags: { list: ["a"], map: { a: true } } });
+    run.set({ removeFlags: ["a"] });
+
+    expect(run.get("flags", { as: "snapshot" })).toEqual({
+      list: [],
+      map: {},
+    });
+    expect(run.get("seenFlags", { as: "snapshot" })).toEqual({
+      list: ["a"],
+      map: { a: true },
+    });
+  });
+
+  it("B10 — numeric-like flags keep deterministic list order across equal delta input", () => {
+    const buildList = (): readonly string[] => {
+      const run = createRuntime();
+      run.set({ addFlags: ["2", "1"], removeFlags: [] });
+      run.set({ removeFlags: ["1"] });
+      run.set({ addFlags: ["1"] });
+      return (run.get("flags", { as: "snapshot" }) as { list: string[] }).list;
+    };
+
+    expect(buildList()).toEqual(buildList());
   });
 
   it("A2.trim — trimming applied keeps pending projections stable", () => {
@@ -1213,8 +1255,8 @@ describe("conformance/get-set", () => {
       diagnostics.some(
         (d) =>
           d.code === "runtime.onError.report" &&
-          d.data?.phase === "set/hydration" &&
-          d.data?.id === "missing:expr",
+          d.data?.phase === "set/hydration/backfillQ" &&
+          d.data?.regExpressionId === "missing:expr",
       ),
     ).toBe(true);
     expect(run.get("backfillQ", { as: "snapshot" })).toEqual({

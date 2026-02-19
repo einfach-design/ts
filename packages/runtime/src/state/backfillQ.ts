@@ -8,6 +8,7 @@
 
 export type BackfillExpression = {
   id: string;
+  tombstone?: true;
 };
 
 export type BackfillQ<TExpression extends BackfillExpression> = {
@@ -38,6 +39,11 @@ export function appendIfAbsent<TExpression extends BackfillExpression>(
   expression: TExpression,
 ): boolean {
   const id = expression.id;
+
+  if (expression.tombstone === true) {
+    return false;
+  }
+
   if (backfillQ.map[id] === true) {
     return false;
   }

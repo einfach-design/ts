@@ -131,7 +131,7 @@ describe("conformance/public-method-matrix", () => {
     );
     expect(() =>
       run.set({ flags: { list: "nope", map: {} } as never }),
-    ).toThrow("set.patch.flags.invalid");
+    ).toThrow("set.flags.invalid");
   });
 
   it("run.add matrix: callback/object targets + signals plural + runs/backfill + policy", () => {

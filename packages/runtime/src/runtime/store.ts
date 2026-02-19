@@ -7,7 +7,12 @@ import {
 } from "../state/backfillQ.js";
 import { computeChangedFlags } from "../state/changedFlags.js";
 import { globalDefaults, type Defaults } from "../state/defaults.js";
-import { createFlagsView, type FlagsView } from "../state/flagsView.js";
+import {
+  applyFlagDeltas,
+  createFlagsView,
+  extendSeenFlags,
+  type FlagsView,
+} from "../state/flagsView.js";
 import {
   extendSeenSignals,
   projectSignal,
@@ -22,6 +27,7 @@ export type RuntimeErrorPhase =
   | "diagnostic/listener"
   | "trim/onTrim"
   | "set/hydration"
+  | "set/hydration/backfillQ"
   | "target/callback"
   | "target/object";
 
@@ -133,21 +139,11 @@ export function initRuntimeStore<
     entries: readonly ImpulseQEntryCanonical[],
   ): void => {
     for (const entry of entries) {
-      const nextMap: Record<string, true> = {
-        ...scopeProjectionBaseline.flags.map,
-      };
-      const removeSet = new Set(entry.removeFlags);
-
-      for (const flag of entry.removeFlags) {
-        delete nextMap[flag];
-      }
-
-      for (const flag of entry.addFlags) {
-        if (removeSet.has(flag)) continue;
-        nextMap[flag] = true;
-      }
-
-      const nextFlags = createFlagsView(Object.keys(nextMap));
+      const nextFlags = applyFlagDeltas(
+        scopeProjectionBaseline.flags,
+        entry.addFlags,
+        entry.removeFlags,
+      );
 
       scopeProjectionBaseline = {
         flags: nextFlags,
@@ -157,10 +153,10 @@ export function initRuntimeStore<
           entry.removeFlags,
           entry.addFlags,
         ),
-        seenFlags: createFlagsView([
-          ...scopeProjectionBaseline.seenFlags.list,
-          ...nextFlags.list,
-        ]),
+        seenFlags: extendSeenFlags(
+          scopeProjectionBaseline.seenFlags,
+          nextFlags.list,
+        ),
         signal: projectSignal(entry.signals),
         seenSignals: extendSeenSignals(
           scopeProjectionBaseline.seenSignals,

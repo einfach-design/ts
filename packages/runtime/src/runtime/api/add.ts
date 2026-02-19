@@ -1,3 +1,4 @@
+import { appendIfAbsent } from "../../state/backfillQ.js";
 import {
   canonFlagSpecInput,
   type FlagSpecInput,
@@ -184,6 +185,15 @@ export function runAdd(
         },
         targets,
       });
+
+      const registered = expressionRegistry.resolve(id);
+      const hasInitialDebt =
+        (normalizedBackfill?.signal?.debt ?? 0) > 0 ||
+        (normalizedBackfill?.flags?.debt ?? 0) > 0;
+      if (registered !== undefined && hasInitialDebt) {
+        appendIfAbsent(store.backfillQ, registered);
+      }
+
       ids.push(id);
     }
 

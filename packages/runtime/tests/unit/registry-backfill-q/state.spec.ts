@@ -126,6 +126,14 @@ describe("state/backfillQ", () => {
     expect(appendIfAbsent(queue, { id: "a" })).toBe(false);
   });
 
+  it("does not enqueue tombstoned expressions", () => {
+    const queue = createBackfillQ<{ id: string; tombstone?: true }>();
+
+    expect(appendIfAbsent(queue, { id: "a", tombstone: true })).toBe(false);
+    expect(queue.list).toEqual([]);
+    expect(queue.map).toEqual({});
+  });
+
   it("projects an id-only snapshot", () => {
     const queue = createBackfillQ<{ id: string }>();
     appendIfAbsent(queue, { id: "a" });
