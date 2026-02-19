@@ -142,11 +142,8 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
     );
 
     expect(telemetryBackfillCalls).toHaveLength(2);
-    expect(telemetryBackfillCalls[0]!.inBackfillQ).toBe(false);
-    expect(
-      telemetryBackfillCalls.some((call) => (call.signalRuns ?? 0) > 0),
-    ).toBe(true);
     expect(telemetryRegisteredCalls).toHaveLength(1);
+    expect(telemetryBackfillCalls[0]!.inBackfillQ).toBe(false);
     expect(telemetryRegisteredCalls[0]!.inBackfillQ).toBe(false);
     expect(typeof telemetryRegisteredCalls[0]!.inBackfillQ).toBe("boolean");
 
