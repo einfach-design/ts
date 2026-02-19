@@ -148,7 +148,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
     expect(backfillQ.map["expr:drain-countercase"]).toBeUndefined();
   });
 
-  it("pending debt after backfill pre-finalization: registered call reports inBackfillQ=true", () => {
+  it("debt drains in a single impulse: registered call reports inBackfillQ=false", () => {
     const run = createRuntime();
     const calls: TelemetryCall[] = [];
 
@@ -196,7 +196,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
     expect(registeredCalls).toHaveLength(1);
     expect(registeredCalls[0]).toEqual(
       expect.objectContaining({
-        inBackfillQ: true,
+        inBackfillQ: false,
       }),
     );
     expect(typeof registeredCalls[0]!.inBackfillQ).toBe("boolean");
@@ -206,14 +206,8 @@ describe("conformance/telemetry-backfill-relevant", () => {
       map: Record<string, true>;
     };
 
-    expect(backfillQ.list).toContain("expr:pending");
-    expect(backfillQ.map["expr:pending"]).toBe(true);
-    expect(backfillQ.list.filter((id) => id === "expr:pending")).toHaveLength(
-      1,
-    );
-    expect(
-      Object.keys(backfillQ.map).filter((id) => id === "expr:pending"),
-    ).toHaveLength(1);
+    expect(backfillQ.list).not.toContain("expr:pending");
+    expect(backfillQ.map["expr:pending"]).toBeUndefined();
   });
 
   it("keeps non-backfill-relevant telemetry fields absent and inBackfillQ=false", () => {

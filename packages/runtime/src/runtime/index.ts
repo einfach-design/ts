@@ -170,6 +170,7 @@ export function createRuntime(): Runtime {
     occurrenceId: string;
     expressionTelemetryById: Map<string, ExpressionTelemetry>;
     currentBackfillGate?: "signal" | "flags";
+    skipRegisteredById: Set<string>;
   };
 
   let nextOccurrenceSeq = 0;
@@ -183,6 +184,7 @@ export function createRuntime(): Runtime {
     occurrenceSeq: 0,
     occurrenceId: "occ:0",
     expressionTelemetryById: new Map(),
+    skipRegisteredById: new Set(),
   };
 
   const toCoreStoreView = (): Parameters<typeof coreRunImpl>[0]["store"] => ({
@@ -377,6 +379,7 @@ export function createRuntime(): Runtime {
     }
 
     const impulseTelemetryById = new Map<string, ExpressionTelemetry>();
+    const skipRegisteredById = new Set<string>();
 
     const toOccurrenceContext = (
       occurrence: ActOccurrence,
@@ -400,6 +403,7 @@ export function createRuntime(): Runtime {
         occurrenceSeq: nextOccurrenceSeq,
         occurrenceId: `occ:${nextOccurrenceSeq}`,
         expressionTelemetryById: impulseTelemetryById,
+        skipRegisteredById,
       };
     };
 
@@ -432,13 +436,20 @@ export function createRuntime(): Runtime {
               if (
                 gate === "flags" &&
                 (runOccurrenceContext.changedFlags?.list.length ?? 0) === 0 &&
+                expression.required?.flags?.changed !== undefined &&
                 expression.signal !== undefined &&
                 expression.signal === runOccurrenceContext.signal
               ) {
+                runCoreExpression(expression, "backfill", "flags", {
+                  signal: false,
+                });
+                runOccurrenceContext.skipRegisteredById.add(expression.id);
+
                 return {
                   status: "reject",
                   pending: expressionHasDebt(expression),
                   consumedDebt: false,
+                  halt: true,
                 };
               }
 
@@ -551,6 +562,10 @@ export function createRuntime(): Runtime {
               );
               if (changedFlagsView !== undefined) {
                 reference.changedFlags = changedFlagsView;
+              }
+
+              if (runOccurrenceContext.skipRegisteredById.has(expression.id)) {
+                return false;
               }
 
               return runMatchExpression({
