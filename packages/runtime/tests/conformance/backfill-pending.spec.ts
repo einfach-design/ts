@@ -38,6 +38,9 @@ describe("conformance/backfill-pending", () => {
     expect(backfillQ.map[expressionId]).toBe(true);
     expect(backfillQ.list.filter((id) => id === expressionId)).toHaveLength(1);
     expect(Object.keys(backfillQ.map)).toEqual([expressionId]);
+    expect(new Set(backfillQ.list)).toEqual(
+      new Set(Object.keys(backfillQ.map)),
+    );
 
     const registeredById = run.get("registeredById") as Map<
       string,
