@@ -530,16 +530,20 @@ export function createRuntime(): Runtime {
           }
 
           for (const expression of expressionRegistry.registeredQ) {
-            if (expressionHasDebt(expression)) {
-              const current = ensureBackfillTelemetry(
-                runOccurrenceContext.expressionTelemetryById,
-                expression.id,
-              );
-              runOccurrenceContext.expressionTelemetryById.set(expression.id, {
-                ...current,
-                inBackfillQ: true,
-              });
+            const current = runOccurrenceContext.expressionTelemetryById.get(
+              expression.id,
+            );
+            const isInBackfillQ = store.backfillQ.map[expression.id] === true;
+
+            // Safety rule: do not create telemetry entries for non-backfill-relevant expressions.
+            if (current === undefined && !isInBackfillQ) {
+              continue;
             }
+
+            runOccurrenceContext.expressionTelemetryById.set(expression.id, {
+              ...(current ?? {}),
+              inBackfillQ: isInBackfillQ,
+            });
           }
 
           registeredRun({
