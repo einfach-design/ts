@@ -1264,4 +1264,44 @@ describe("conformance/get-set", () => {
       map: {},
     });
   });
+
+  it("A12 — get('*') -> set(snapshot) -> get('*') is deterministic", () => {
+    const run = createRuntime();
+
+    run.impulse({ signals: ["sig:1"], addFlags: ["1", "2", "10"] });
+    run.impulse({ signals: ["sig:2"], removeFlags: ["2"], addFlags: ["2"] });
+    run.set({ impulseQ: { config: { retain: 1 } } });
+
+    const snapshotA = run.get("*", { as: "snapshot" }) as Record<
+      string,
+      unknown
+    >;
+    run.set(snapshotA);
+    const snapshotB = run.get("*", { as: "snapshot" }) as Record<
+      string,
+      unknown
+    >;
+
+    expect(snapshotB).toEqual(snapshotA);
+  });
+
+  it("B11 — numeric-like flags remain ordered across deltas and remove/re-add", () => {
+    const run = createRuntime();
+
+    run.set({ addFlags: ["1", "2", "10"] });
+    expect(run.get("flags", { as: "snapshot" })).toEqual({
+      list: ["1", "2", "10"],
+      map: { "1": true, "2": true, "10": true },
+    });
+
+    run.set({ removeFlags: ["2"] });
+    run.set({ addFlags: ["2"] });
+    run.set({ removeFlags: ["1", "10"] });
+    run.set({ addFlags: ["10", "1"] });
+
+    expect(run.get("flags", { as: "snapshot" })).toEqual({
+      list: ["2", "10", "1"],
+      map: { "2": true, "10": true, "1": true },
+    });
+  });
 });
