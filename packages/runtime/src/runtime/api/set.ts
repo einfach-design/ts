@@ -193,6 +193,38 @@ export function runSet(
   },
   patch: Record<string, unknown>,
 ): void {
+  const readFlagDelta = (
+    field: "addFlags" | "removeFlags",
+    value: unknown,
+  ): string[] => {
+    if (Array.isArray(value)) {
+      return value.map((entry) => String(entry));
+    }
+
+    if (isRecordObject(value)) {
+      if (
+        hasOwn(value, "list") &&
+        Array.isArray(value.list) &&
+        hasOwn(value, "map") &&
+        isRecordObject(value.map)
+      ) {
+        return (value.list as unknown[]).map((entry) => String(entry));
+      }
+    }
+
+    diagnostics.emit({
+      code: "set.flags.deltaInvalid",
+      message:
+        "addFlags/removeFlags must be an array of strings or a FlagsView ({ list, map }).",
+      severity: "error",
+      data: {
+        field,
+        valueType: toValueType(value),
+      },
+    });
+    throw new Error("set.flags.deltaInvalid");
+  };
+
   store.withRuntimeStack(() => {
     if (!isRecordObject(patch)) {
       const valueType = Array.isArray(patch)
@@ -512,13 +544,12 @@ export function runSet(
     }
 
     if (hasOwn(patch, "addFlags") || hasOwn(patch, "removeFlags")) {
-      const addFlags = Array.isArray(patch.addFlags) ? patch.addFlags : [];
-      const removeFlags = Array.isArray(patch.removeFlags)
-        ? patch.removeFlags
+      const normalizedAddFlags = hasOwn(patch, "addFlags")
+        ? readFlagDelta("addFlags", patch.addFlags)
         : [];
-
-      const normalizedAddFlags = addFlags.map((flag) => String(flag));
-      const normalizedRemoveFlags = removeFlags.map((flag) => String(flag));
+      const normalizedRemoveFlags = hasOwn(patch, "removeFlags")
+        ? readFlagDelta("removeFlags", patch.removeFlags)
+        : [];
 
       const overlap = new Set(
         normalizedAddFlags.filter((flag) =>

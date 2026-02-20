@@ -21,6 +21,17 @@ describe("conformance/get-set", () => {
     expect(() => run.get("unknown-key" as string | undefined)).toThrow();
   });
 
+  it("A1b — set(addFlags) accepts FlagsView delta payloads (Spec §2.5, §4.2)", () => {
+    const run = createRuntime();
+
+    run.set({
+      addFlags: { list: ["a"], map: { a: true } },
+    } as unknown as Record<string, unknown>);
+
+    const flags = run.get("flags") as { list: string[] };
+    expect(flags.list).toContain("a");
+  });
+
   it("A2 — scope projection: applied vs pending vs pendingOnly (Spec §4.1)", () => {
     const run = createRuntime();
 

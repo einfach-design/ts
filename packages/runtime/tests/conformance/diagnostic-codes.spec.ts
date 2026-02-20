@@ -315,6 +315,34 @@ describe("conformance/diagnostic-codes", () => {
     expect(codes).toContain("set.hydration.incomplete");
   });
 
+  it("emits set.flags.deltaInvalid and throws for invalid addFlags payload", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({ addFlags: 123 } as unknown as Record<string, unknown>),
+    ).toThrow("set.flags.deltaInvalid");
+    expect(codes).toContain("set.flags.deltaInvalid");
+  });
+
+  it("emits set.flags.deltaInvalid and throws for invalid removeFlags payload", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({ removeFlags: null } as unknown as Record<string, unknown>),
+    ).toThrow("set.flags.deltaInvalid");
+    expect(codes).toContain("set.flags.deltaInvalid");
+  });
+
   it("emits set.flags.invalid and throws for invalid flags payload", () => {
     const run = createRuntime();
     const codes: string[] = [];
