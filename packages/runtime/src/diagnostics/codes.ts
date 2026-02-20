@@ -44,6 +44,15 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     shape: {},
   },
+  "set.flags.deltaInvalid": {
+    description:
+      "addFlags/removeFlags must be an array of strings or a FlagsView ({ list, map }).",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string",
+    },
+  },
   "set.flags.invalid": {
     description:
       "set patch flags value must be an object with list(array) and map(object).",
