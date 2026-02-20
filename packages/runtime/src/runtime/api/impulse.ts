@@ -6,6 +6,7 @@ import { drain } from "../../processing/drain.js";
 import { trim } from "../../processing/trim.js";
 import { isInnerExpressionAbort } from "../../runs/coreRun.js";
 import type { DiagnosticCollector } from "../../diagnostics/index.js";
+import { createFlagsView } from "../../state/flagsView.js";
 import { measureEntryBytes } from "../util.js";
 import type { RuntimeStore } from "../store.js";
 
@@ -68,7 +69,20 @@ export function runImpulse(
       return;
     }
 
-    store.impulseQ.q.entries.push(canonical.entry);
+    const storedEntry: ImpulseQEntryCanonical = {
+      signals: [...canonical.entry.signals],
+      addFlags: [...canonical.entry.addFlags],
+      removeFlags: [...canonical.entry.removeFlags],
+      useFixedFlags:
+        canonical.entry.useFixedFlags === false
+          ? false
+          : createFlagsView([...canonical.entry.useFixedFlags.list]),
+      ...(Object.prototype.hasOwnProperty.call(canonical.entry, "livePayload")
+        ? { livePayload: canonical.entry.livePayload }
+        : {}),
+    };
+
+    store.impulseQ.q.entries.push(storedEntry);
 
     if (store.draining) {
       return;

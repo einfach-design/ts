@@ -114,6 +114,49 @@ describe("conformance/get-set", () => {
       } as unknown as Record<string, unknown>),
     ).toThrow("set.defaults.invalid");
   });
+
+  it("A1h — hydration impulseQ entries must not keep external references", () => {
+    const run = createRuntime();
+    run.set({ impulseQ: { config: { retain: true } } } as Record<
+      string,
+      unknown
+    >);
+    run.impulse({ signals: ["a"] } as Record<string, unknown>);
+    const s = run.get("*", { as: "snapshot" }) as {
+      impulseQ: { q: { entries: Array<{ signals: string[] }> } };
+    };
+
+    run.set(s as unknown as Record<string, unknown>);
+    s.impulseQ.q.entries[0]!.signals.push("MUT");
+
+    expect(
+      (
+        run.get("impulseQ", { as: "snapshot" }) as {
+          q: { entries: Array<{ signals: string[] }> };
+        }
+      ).q.entries[0]!.signals,
+    ).toEqual(["a"]);
+  });
+
+  it("A1i — run.impulse must not keep external references to input arrays", () => {
+    const run = createRuntime();
+    run.set({ impulseQ: { config: { retain: true } } } as Record<
+      string,
+      unknown
+    >);
+    const signals = ["a"];
+
+    run.impulse({ signals } as Record<string, unknown>);
+    signals.push("MUT");
+
+    expect(
+      (
+        run.get("impulseQ", { as: "snapshot" }) as {
+          q: { entries: Array<{ signals: string[] }> };
+        }
+      ).q.entries[0]!.signals,
+    ).toEqual(["a"]);
+  });
   it("A2 — scope projection: applied vs pending vs pendingOnly (Spec §4.1)", () => {
     const run = createRuntime();
 
