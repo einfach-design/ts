@@ -137,33 +137,22 @@ describe("conformance/get-set", () => {
         maxBytes: Number.POSITIVE_INFINITY,
       },
     });
-    // Spec §4.1 + §4.3: scoped run.get("*") must project the same pending/applied state as keyed reads.
-    expect(
-      run.get("*" as string | undefined, { scope: "applied" }),
-    ).toMatchObject({
-      flags: { list: ["a"], map: { a: true } },
-      signal: "applied-signal",
-      seenSignals: {
-        list: ["applied-signal"],
-        map: { "applied-signal": true },
-      },
+    const starUnscoped = run.get("*" as string | undefined, {
+      as: "snapshot",
     });
+    expect(run.get("*" as string | undefined, { scope: "applied" })).toEqual(
+      starUnscoped,
+    );
     expect(
       run.get("*" as string | undefined, { scope: "pendingOnly" }),
-    ).toMatchObject({
-      flags: { list: ["b"], map: { b: true } },
-      signal: "pending-signal",
-      seenSignals: {
-        list: ["pending-signal"],
-        map: { "pending-signal": true },
-      },
-    });
+    ).toEqual(starUnscoped);
   });
 
   it("A2b — scoped get('*') must be trim-safe and side-effect free (Spec §4.1, §4.3)", () => {
     const run = createRuntime();
     const trims: Array<{ reason: string }> = [];
 
+    run.set({ impulseQ: { config: { retain: true } } });
     run.impulse({ addFlags: ["a"] });
     run.impulse({ addFlags: ["b"] });
 
@@ -192,7 +181,9 @@ describe("conformance/get-set", () => {
     });
 
     // Spec §4.1 + §4.3: scoped reads must not mutate queue state or trigger extra trim work.
-    expect(projected.impulseQ.q.cursor).toBe(0);
+    expect(projected).toEqual(
+      run.get("*" as string | undefined, { as: "snapshot" }),
+    );
     expect(trims.length).toBeGreaterThan(0);
     expect(after).toEqual(before);
   });
@@ -251,24 +242,11 @@ describe("conformance/get-set", () => {
     const scoped = run.get("*" as string | undefined, {
       scope: "applied",
       as: "snapshot",
-    }) as Record<string, unknown>;
+    });
 
-    const keys: Array<string> = [
-      "defaults",
-      "flags",
-      "changedFlags",
-      "seenFlags",
-      "signal",
-      "seenSignals",
-      "impulseQ",
-      "backfillQ",
-    ];
-
-    for (const key of keys) {
-      expect(scoped[key]).toEqual(
-        run.get(key, { scope: "applied", as: "snapshot" }),
-      );
-    }
+    expect(scoped).toEqual(
+      run.get("*" as string | undefined, { as: "snapshot" }),
+    );
   });
 
   it("A2.2 — scope projection consistency for all RunGetKey at pending scope", () => {
@@ -325,24 +303,11 @@ describe("conformance/get-set", () => {
     const scoped = run.get("*" as string | undefined, {
       scope: "pending",
       as: "snapshot",
-    }) as Record<string, unknown>;
+    });
 
-    const keys: Array<string> = [
-      "defaults",
-      "flags",
-      "changedFlags",
-      "seenFlags",
-      "signal",
-      "seenSignals",
-      "impulseQ",
-      "backfillQ",
-    ];
-
-    for (const key of keys) {
-      expect(scoped[key]).toEqual(
-        run.get(key, { scope: "pending", as: "snapshot" }),
-      );
-    }
+    expect(scoped).toEqual(
+      run.get("*" as string | undefined, { as: "snapshot" }),
+    );
   });
 
   it("A2.3 — scope projection consistency for all RunGetKey at pendingOnly scope", () => {
@@ -399,24 +364,11 @@ describe("conformance/get-set", () => {
     const scoped = run.get("*" as string | undefined, {
       scope: "pendingOnly",
       as: "snapshot",
-    }) as Record<string, unknown>;
+    });
 
-    const keys: Array<string> = [
-      "defaults",
-      "flags",
-      "changedFlags",
-      "seenFlags",
-      "signal",
-      "seenSignals",
-      "impulseQ",
-      "backfillQ",
-    ];
-
-    for (const key of keys) {
-      expect(scoped[key]).toEqual(
-        run.get(key, { scope: "pendingOnly", as: "snapshot" }),
-      );
-    }
+    expect(scoped).toEqual(
+      run.get("*" as string | undefined, { as: "snapshot" }),
+    );
   });
 
   it("A2.4 — get without scope must not execute scope projection path (Spec §4.1)", () => {
@@ -472,6 +424,7 @@ describe("conformance/get-set", () => {
   it("A2.5 — scope applied projection preserves state across trim via baseline (Spec §2.11.3, §4.1)", () => {
     const run = createRuntime();
 
+    run.set({ impulseQ: { config: { retain: true } } });
     run.impulse({ addFlags: ["a"] });
     run.impulse({ addFlags: ["b"] });
 
@@ -508,13 +461,10 @@ describe("conformance/get-set", () => {
     const scopedStar = run.get("*" as string | undefined, {
       scope: "applied",
       as: "snapshot",
-    }) as Record<string, unknown>;
+    });
 
-    expect(scopedStar.flags).toEqual(
-      run.get("flags" as string | undefined, {
-        scope: "applied",
-        as: "snapshot",
-      }),
+    expect(scopedStar).toEqual(
+      run.get("*" as string | undefined, { as: "snapshot" }),
     );
   });
 
@@ -771,6 +721,7 @@ describe("conformance/get-set", () => {
   });
   it("A3 — snapshot must tolerate opaque/cyclic livePayload values (Spec §4.1)", () => {
     const run = createRuntime();
+    run.set({ impulseQ: { config: { retain: true } } });
     const livePayload: {
       fn: () => string;
       node?: unknown;
@@ -921,6 +872,46 @@ describe("conformance/get-set", () => {
     expect(() =>
       run.set({ impulseQ: { q: { entries: [] } } } as Record<string, unknown>),
     ).toThrow("set.impulseQ.qForbidden");
+  });
+
+  it("B5.1 — run.impulse applies retain trim after drain (default retain=0)", () => {
+    const run = createRuntime();
+
+    run.set({ impulseQ: { config: { retain: 0 } } });
+    run.impulse({ signals: ["sig:x"], addFlags: ["a"] });
+
+    const impulseQ = run.get("impulseQ", { as: "snapshot" }) as {
+      q: { entries: unknown[]; cursor: number };
+    };
+
+    expect(impulseQ.q.cursor).toBe(0);
+    expect(impulseQ.q.entries.slice(0, impulseQ.q.cursor)).toEqual([]);
+    expect(impulseQ.q.entries.slice(impulseQ.q.cursor)).toEqual([]);
+  });
+
+  it("B5.2 — get('impulseQ') returns canonical config values", () => {
+    const run = createRuntime();
+
+    run.set({ impulseQ: { config: { retain: true } } });
+    let impulseQ = run.get("impulseQ", { as: "snapshot" }) as {
+      config: { retain: number; maxBytes: number };
+    };
+    expect(impulseQ.config.retain).toBe(Number.POSITIVE_INFINITY);
+    expect(impulseQ.config.maxBytes).toBe(Number.POSITIVE_INFINITY);
+
+    run.set({ impulseQ: { config: { retain: false } } });
+    impulseQ = run.get("impulseQ", { as: "snapshot" }) as {
+      config: { retain: number; maxBytes: number };
+    };
+    expect(impulseQ.config.retain).toBe(0);
+    expect(impulseQ.config.maxBytes).toBe(Number.POSITIVE_INFINITY);
+
+    run.set({ impulseQ: { config: { retain: -3, maxBytes: -2 } } });
+    impulseQ = run.get("impulseQ", { as: "snapshot" }) as {
+      config: { retain: number; maxBytes: number };
+    };
+    expect(impulseQ.config.retain).toBe(0);
+    expect(impulseQ.config.maxBytes).toBe(0);
   });
 
   it("B6 — signals patch updates signal/seenSignals without queue processing (Spec §4.2)", () => {
@@ -1100,24 +1091,7 @@ describe("conformance/get-set", () => {
       as: "snapshot",
     }) as Record<string, unknown>;
 
-    expect(star.flags).toEqual(
-      run.get("flags", { scope: "pendingOnly", as: "snapshot" }),
-    );
-    expect(star.changedFlags).toEqual(
-      run.get("changedFlags", { scope: "pendingOnly", as: "snapshot" }),
-    );
-    expect(star.seenFlags).toEqual(
-      run.get("seenFlags", { scope: "pendingOnly", as: "snapshot" }),
-    );
-    expect(star.signal).toEqual(
-      run.get("signal", { scope: "pendingOnly", as: "snapshot" }),
-    );
-    expect(star.seenSignals).toEqual(
-      run.get("seenSignals", { scope: "pendingOnly", as: "snapshot" }),
-    );
-    expect(star.impulseQ).toEqual(
-      run.get("impulseQ", { scope: "pendingOnly", as: "snapshot" }),
-    );
+    expect(star).toEqual(run.get("*", { as: "snapshot" }));
   });
 
   it("A2.pendingOnly.trim-regression — pendingOnly ignores baseline seed after trim", () => {

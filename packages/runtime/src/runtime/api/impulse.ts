@@ -3,8 +3,10 @@ import {
   type ImpulseQEntryCanonical,
 } from "../../canon/impulseEntry.js";
 import { drain } from "../../processing/drain.js";
+import { trim } from "../../processing/trim.js";
 import { isInnerExpressionAbort } from "../../runs/coreRun.js";
 import type { DiagnosticCollector } from "../../diagnostics/index.js";
+import { measureEntryBytes } from "../util.js";
 import type { RuntimeStore } from "../store.js";
 
 function handleOuterError(
@@ -88,6 +90,37 @@ export function runImpulse(
 
       if (!result.aborted) {
         store.impulseQ.q.cursor = result.cursor;
+
+        const prevEntries = store.impulseQ.q.entries;
+        const prevCursor = store.impulseQ.q.cursor;
+
+        const trimmed = trim({
+          entries: prevEntries,
+          cursor: prevCursor,
+          retain: store.impulseQ.config.retain,
+          maxBytes: store.impulseQ.config.maxBytes,
+          runtimeStackActive: true,
+          trimPendingMaxBytes: store.trimPendingMaxBytes,
+          measureBytes: measureEntryBytes,
+          ...(store.impulseQ.config.onTrim !== undefined
+            ? { onTrim: store.impulseQ.config.onTrim }
+            : {}),
+        });
+
+        if (trimmed.onTrimError !== undefined) {
+          store.reportRuntimeError(trimmed.onTrimError, "trim/onTrim");
+        }
+
+        const removedCount = Math.max(0, prevCursor - trimmed.cursor);
+        if (removedCount > 0) {
+          store.applyTrimmedAppliedEntriesToScopeBaseline(
+            prevEntries.slice(0, removedCount),
+          );
+        }
+
+        store.impulseQ.q.entries = [...trimmed.entries];
+        store.impulseQ.q.cursor = trimmed.cursor;
+        store.trimPendingMaxBytes = trimmed.trimPendingMaxBytes;
       }
     } catch (error) {
       if (isInnerExpressionAbort(error)) {

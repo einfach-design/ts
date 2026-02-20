@@ -34,7 +34,8 @@ describe("runtime/api/impulse", () => {
     );
 
     expect(processed).toEqual(["root", "nested"]);
-    expect(store.impulseQ.q.cursor).toBe(2);
+    expect(store.impulseQ.q.cursor).toBe(0);
+    expect(store.impulseQ.q.entries).toEqual([]);
     expect(store.draining).toBe(false);
   });
 });

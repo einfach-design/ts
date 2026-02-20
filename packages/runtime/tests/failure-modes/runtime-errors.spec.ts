@@ -192,6 +192,7 @@ describe("failure-modes/runtime-errors", () => {
     it("validates report/swallow/throw/fn matrix for trim callback errors", () => {
       const primeRuntime = () => {
         const run = createRuntime();
+        run.set({ impulseQ: { config: { retain: true } } });
         run.impulse({ addFlags: ["seed"] });
         return run;
       };
