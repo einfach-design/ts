@@ -736,7 +736,21 @@ export function runSet(
           throw new Error("set.impulseQ.entryInvalid");
         }
 
-        canonicalEntries.push(canonical.entry);
+        const canonicalEntry = canonical.entry;
+        const storedEntry: ImpulseQEntryCanonical = {
+          signals: [...canonicalEntry.signals],
+          addFlags: [...canonicalEntry.addFlags],
+          removeFlags: [...canonicalEntry.removeFlags],
+          useFixedFlags:
+            canonicalEntry.useFixedFlags === false
+              ? false
+              : createFlagsView([...canonicalEntry.useFixedFlags.list]),
+          ...(hasOwn(canonicalEntry, "livePayload")
+            ? { livePayload: canonicalEntry.livePayload }
+            : {}),
+        };
+
+        canonicalEntries.push(storedEntry);
       }
 
       const hydrationCursor = (hydration.impulseQ.q as Record<string, unknown>)
