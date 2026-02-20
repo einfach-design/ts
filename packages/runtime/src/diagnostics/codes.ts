@@ -73,6 +73,24 @@ export const DIAGNOSTIC_CODES = {
       field: "q",
     },
   },
+  "set.impulseQ.retainInvalid": {
+    description:
+      "set patch impulseQ.config.retain has invalid type/value (not boolean/number or number is NaN).",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string",
+    },
+  },
+  "set.impulseQ.maxBytesInvalid": {
+    description:
+      "set patch impulseQ.config.maxBytes has invalid type/value (not number or number is NaN).",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string",
+    },
+  },
   "add.target.required": {
     description: "add call requires at least one target or targets entry.",
     severity: "error",

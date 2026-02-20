@@ -97,11 +97,15 @@ const toCanonicalImpulseQConfig = (
       ? Number.POSITIVE_INFINITY
       : config.retain === false || config.retain === undefined
         ? 0
-        : Math.max(0, config.retain),
+        : typeof config.retain === "number" &&
+            Number.isNaN(config.retain) === false
+          ? Math.max(0, config.retain)
+          : 0,
   maxBytes:
-    config.maxBytes === undefined
-      ? Number.POSITIVE_INFINITY
-      : Math.max(0, config.maxBytes),
+    typeof config.maxBytes === "number" &&
+    Number.isNaN(config.maxBytes) === false
+      ? Math.max(0, config.maxBytes)
+      : Number.POSITIVE_INFINITY,
 });
 
 const projectImpulseQ = (

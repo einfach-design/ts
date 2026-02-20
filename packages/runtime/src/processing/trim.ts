@@ -52,7 +52,11 @@ function canonicalRetain(retain: number | boolean | undefined): number {
     return 0;
   }
 
-  return Math.max(0, retain);
+  if (typeof retain === "number" && Number.isNaN(retain) === false) {
+    return Math.max(0, retain);
+  }
+
+  return 0;
 }
 
 function canonicalMaxBytes(maxBytes: number | undefined): number {
@@ -60,7 +64,11 @@ function canonicalMaxBytes(maxBytes: number | undefined): number {
     return Number.POSITIVE_INFINITY;
   }
 
-  return Math.max(0, maxBytes);
+  if (typeof maxBytes === "number" && Number.isNaN(maxBytes) === false) {
+    return Math.max(0, maxBytes);
+  }
+
+  return Number.POSITIVE_INFINITY;
 }
 
 function appliedBytes<TEntry>(
@@ -85,7 +93,7 @@ export function trim<TEntry>(opts: TrimOptions<TEntry>): TrimResult<TEntry> {
   const events: TrimEvent[] = [];
   let onTrimError: unknown | undefined;
   let cursorDelta = 0;
-  let pendingMaxBytes = opts.trimPendingMaxBytes;
+  let pendingMaxBytes = false;
 
   const retainOverflow = Math.max(0, applied.length - retain);
   if (retainOverflow > 0) {
@@ -115,48 +123,54 @@ export function trim<TEntry>(opts: TrimOptions<TEntry>): TrimResult<TEntry> {
     });
   }
 
-  const bytes = appliedBytes(applied, opts.measureBytes);
-  if (bytes > maxBytes) {
-    if (opts.runtimeStackActive) {
-      pendingMaxBytes = true;
-    } else {
-      let index = 0;
-      let remaining = bytes;
-      while (index < applied.length && remaining > maxBytes) {
-        remaining -= Math.max(0, opts.measureBytes(applied[index] as TEntry));
-        index += 1;
-      }
+  if (maxBytes !== Number.POSITIVE_INFINITY) {
+    const bytes = appliedBytes(applied, opts.measureBytes);
 
-      if (index > 0) {
-        const removed = applied.slice(0, index);
-        const bytesFreed = appliedBytes(removed, opts.measureBytes);
+    if (bytes > maxBytes) {
+      if (opts.runtimeStackActive) {
+        pendingMaxBytes = true;
+      } else {
+        let index = 0;
+        let remaining = bytes;
+        let bytesFreed = 0;
 
-        if (opts.onTrim !== undefined) {
-          try {
-            opts.onTrim({
-              entries: removed,
-              stats: {
-                reason: "maxBytes",
-                bytesFreed,
-              },
-            });
-          } catch (error) {
-            onTrimError ??= error;
-          }
+        while (index < applied.length && remaining > maxBytes) {
+          const entryBytes = Math.max(
+            0,
+            opts.measureBytes(applied[index] as TEntry),
+          );
+          remaining -= entryBytes;
+          bytesFreed += entryBytes;
+          index += 1;
         }
 
-        applied.splice(0, index);
-        cursorDelta += index;
-        events.push({
-          reason: "maxBytes",
-          removedCount: removed.length,
-          cursorDelta: index,
-        });
-        pendingMaxBytes = false;
+        if (index > 0) {
+          const removed = applied.slice(0, index);
+
+          if (opts.onTrim !== undefined) {
+            try {
+              opts.onTrim({
+                entries: removed,
+                stats: {
+                  reason: "maxBytes",
+                  bytesFreed,
+                },
+              });
+            } catch (error) {
+              onTrimError ??= error;
+            }
+          }
+
+          applied.splice(0, index);
+          cursorDelta += index;
+          events.push({
+            reason: "maxBytes",
+            removedCount: removed.length,
+            cursorDelta: index,
+          });
+        }
       }
     }
-  } else {
-    pendingMaxBytes = false;
   }
 
   return {
