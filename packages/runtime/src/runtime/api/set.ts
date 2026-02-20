@@ -608,7 +608,33 @@ export function runSet(
         store.seenSignals.list.length === 0;
 
       assertValidDefaultsSnapshot(diagnostics, hydration.defaults);
-      const nextDefaults = hydration.defaults as Defaults;
+      const hydrationDefaults = hydration.defaults as Defaults;
+      const nextDefaults: Defaults = {
+        scope: {
+          signal: {
+            value: hydrationDefaults.scope.signal.value,
+            force:
+              hydrationDefaults.scope.signal.force === true ? true : undefined,
+          },
+          flags: {
+            value: hydrationDefaults.scope.flags.value,
+            force:
+              hydrationDefaults.scope.flags.force === true ? true : undefined,
+          },
+        },
+        gate: {
+          signal: {
+            value: hydrationDefaults.gate.signal.value,
+            force:
+              hydrationDefaults.gate.signal.force === true ? true : undefined,
+          },
+          flags: {
+            value: hydrationDefaults.gate.flags.value,
+            force:
+              hydrationDefaults.gate.flags.force === true ? true : undefined,
+          },
+        },
+      };
       const nextFlagsTruth = assertHydrationFlagsView("flags", hydration.flags);
       const nextSeenFlags = assertHydrationFlagsView(
         "seenFlags",

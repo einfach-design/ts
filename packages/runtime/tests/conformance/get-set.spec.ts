@@ -74,6 +74,46 @@ describe("conformance/get-set", () => {
       >),
     ).toThrow("set.defaults.invalid");
   });
+  it("A1f — hydration defaults must not keep external references", () => {
+    const run = createRuntime();
+    run.set({ defaults: { scope: "pendingOnly" } } as unknown as Record<
+      string,
+      unknown
+    >);
+    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    run.set(s);
+    (
+      s.defaults as {
+        scope: { signal: { value: string } };
+      }
+    ).scope.signal.value = "applied";
+    (
+      s.defaults as {
+        gate: { signal: { value: boolean } };
+      }
+    ).gate.signal.value = false;
+
+    const defaults = run.get("defaults") as {
+      scope: {
+        signal: { value: string };
+        flags: { value: string };
+      };
+    };
+
+    expect(defaults.scope.signal.value).toBe("pendingOnly");
+    expect(defaults.scope.flags.value).toBe("pendingOnly");
+  });
+
+  it("A1g — defaults.gate.value must be boolean (Patch)", () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.set({
+        defaults: { gate: { signal: { value: "banana" } } },
+      } as unknown as Record<string, unknown>),
+    ).toThrow("set.defaults.invalid");
+  });
   it("A2 — scope projection: applied vs pending vs pendingOnly (Spec §4.1)", () => {
     const run = createRuntime();
 

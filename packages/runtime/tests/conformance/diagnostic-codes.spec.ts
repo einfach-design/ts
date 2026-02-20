@@ -136,6 +136,21 @@ describe("conformance/diagnostic-codes", () => {
     ).toThrow("set.defaults.invalid");
     expect(codes).toContain("set.defaults.invalid");
   });
+  it("emits set.defaults.invalid and throws for invalid defaults.gate value", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({
+        defaults: { gate: { signal: { value: "banana" } } },
+      } as unknown as Record<string, unknown>),
+    ).toThrow("set.defaults.invalid");
+    expect(codes).toContain("set.defaults.invalid");
+  });
 
   it("emits set.defaults.invalid and throws for hydration with invalid defaults", () => {
     const run = createRuntime();

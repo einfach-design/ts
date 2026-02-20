@@ -153,8 +153,12 @@ const canonicalGateDim = (
     throw new Error(`${context}.value is required.`);
   }
 
+  if (typeof source.value !== "boolean") {
+    throw new Error(`${context}.value must be boolean.`);
+  }
+
   return {
-    value: source.value as boolean,
+    value: source.value,
     force: assertForce(source, context),
   };
 };
