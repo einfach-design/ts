@@ -93,6 +93,51 @@ describe("conformance/diagnostic-codes", () => {
     expect(codes).toContain("set.impulseQ.configInvalid");
   });
 
+  it("emits set.patch.invalid and throws for array root patch", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() => run.set([] as unknown as Record<string, unknown>)).toThrow(
+      "set.patch.invalid",
+    );
+    expect(codes).toContain("set.patch.invalid");
+  });
+
+  it("emits set.impulseQ.invalid and throws for array impulseQ patch", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({ impulseQ: [] } as unknown as Record<string, unknown>),
+    ).toThrow("set.impulseQ.invalid");
+    expect(codes).toContain("set.impulseQ.invalid");
+  });
+
+  it("emits set.impulseQ.configInvalid and throws for array config patch", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({ impulseQ: { config: [] } } as unknown as Record<
+        string,
+        unknown
+      >),
+    ).toThrow("set.impulseQ.configInvalid");
+    expect(codes).toContain("set.impulseQ.configInvalid");
+  });
+
   it("emits set.impulseQ.invalid and throws for hydration with non-object impulseQ", () => {
     const run = createRuntime();
     const codes: string[] = [];
@@ -124,6 +169,24 @@ describe("conformance/diagnostic-codes", () => {
       unknown
     >;
     (snapshot.impulseQ as { config: unknown }).config = null;
+
+    expect(() => run.set(snapshot)).toThrow("set.impulseQ.configInvalid");
+    expect(codes).toContain("set.impulseQ.configInvalid");
+  });
+
+  it("emits set.impulseQ.configInvalid and throws for hydration with array config", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+      string,
+      unknown
+    >;
+    (snapshot.impulseQ as { config: unknown }).config = [];
 
     expect(() => run.set(snapshot)).toThrow("set.impulseQ.configInvalid");
     expect(codes).toContain("set.impulseQ.configInvalid");
