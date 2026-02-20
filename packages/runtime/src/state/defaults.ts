@@ -70,7 +70,7 @@ export type ResolveDefaultsInput = Readonly<{
 }>;
 
 const isRecord = (value: unknown): value is Record<PropertyKey, unknown> =>
-  typeof value === "object" && value !== null;
+  typeof value === "object" && value !== null && Array.isArray(value) === false;
 
 const assertValidPresentValue = (
   container: Record<PropertyKey, unknown>,

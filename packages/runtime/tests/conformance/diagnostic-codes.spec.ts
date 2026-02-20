@@ -107,6 +107,88 @@ describe("conformance/diagnostic-codes", () => {
     expect(codes).toContain("set.patch.invalid");
   });
 
+  it("emits set.defaults.invalid and throws for array defaults patch", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({ defaults: [] } as unknown as Record<string, unknown>),
+    ).toThrow("set.defaults.invalid");
+    expect(codes).toContain("set.defaults.invalid");
+  });
+
+  it("emits set.defaults.invalid and throws for invalid defaults patch shape", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({
+        defaults: { scope: { signal: { force: true } } },
+      } as unknown as Record<string, unknown>),
+    ).toThrow("set.defaults.invalid");
+    expect(codes).toContain("set.defaults.invalid");
+  });
+
+  it("emits set.defaults.invalid and throws for hydration with invalid defaults", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+      string,
+      unknown
+    >;
+    (snapshot as { defaults: unknown }).defaults = [];
+
+    expect(() => run.set(snapshot)).toThrow("set.defaults.invalid");
+    expect(codes).toContain("set.defaults.invalid");
+  });
+
+  it("emits set.flags.invalid and throws for inconsistent flags map", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({ flags: { list: ["a"], map: {} } } as unknown as Record<
+        string,
+        unknown
+      >),
+    ).toThrow("set.flags.invalid");
+    expect(codes).toContain("set.flags.invalid");
+  });
+
+  it("emits set.flags.invalid and throws for array flags map", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({ flags: { list: ["a"], map: [] } } as unknown as Record<
+        string,
+        unknown
+      >),
+    ).toThrow("set.flags.invalid");
+    expect(codes).toContain("set.flags.invalid");
+  });
+
   it("emits set.impulseQ.invalid and throws for array impulseQ patch", () => {
     const run = createRuntime();
     const codes: string[] = [];
