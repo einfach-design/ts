@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { DIAGNOSTIC_CODES } from "../../src/diagnostics/index.js";
+import { createRuntime } from "../../src/index.js";
 
 describe("conformance/diagnostic-codes", () => {
   it("all DIAGNOSTIC_CODES use exactly 3 segments (a.b.c)", () => {
@@ -73,5 +74,40 @@ describe("conformance/diagnostic-codes", () => {
         expect(knownCodes.has(code), `${relativePath} -> ${code}`).toBe(true);
       }
     }
+  });
+
+  it("emits set.hydration.incomplete and throws for incomplete hydration patches", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+      string,
+      unknown
+    >;
+    const incompleteHydration = { ...snapshot };
+    delete incompleteHydration.flags;
+
+    expect(() => run.set(incompleteHydration)).toThrow(
+      "set.hydration.incomplete",
+    );
+    expect(codes).toContain("set.hydration.incomplete");
+  });
+
+  it("emits set.flags.invalid and throws for invalid flags payload", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({ flags: ["x"] as unknown as { list: string[] } }),
+    ).toThrow("set.flags.invalid");
+    expect(codes).toContain("set.flags.invalid");
   });
 });

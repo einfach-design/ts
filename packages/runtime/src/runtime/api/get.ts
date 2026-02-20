@@ -88,17 +88,36 @@ const projectFlagsState = (
   };
 };
 
+const toCanonicalImpulseQConfig = (
+  config: RuntimeStore["impulseQ"]["config"],
+): RuntimeStore["impulseQ"]["config"] => ({
+  ...config,
+  retain:
+    config.retain === true
+      ? Number.POSITIVE_INFINITY
+      : config.retain === false || config.retain === undefined
+        ? 0
+        : Math.max(0, config.retain),
+  maxBytes:
+    config.maxBytes === undefined
+      ? Number.POSITIVE_INFINITY
+      : Math.max(0, config.maxBytes),
+});
+
 const projectImpulseQ = (
   impulseQ: RuntimeStore["impulseQ"],
   scope: Scope,
 ): RuntimeStore["impulseQ"] => {
   if (scope === "pending") {
-    return impulseQ;
+    return {
+      config: toCanonicalImpulseQConfig(impulseQ.config),
+      q: impulseQ.q,
+    };
   }
 
   if (scope === "applied") {
     return {
-      config: impulseQ.config,
+      config: toCanonicalImpulseQConfig(impulseQ.config),
       q: {
         cursor: impulseQ.q.cursor,
         entries: impulseQ.q.entries.slice(0, impulseQ.q.cursor),
@@ -107,7 +126,7 @@ const projectImpulseQ = (
   }
 
   return {
-    config: impulseQ.config,
+    config: toCanonicalImpulseQConfig(impulseQ.config),
     q: {
       cursor: 0,
       entries: impulseQ.q.entries.slice(impulseQ.q.cursor),
@@ -133,7 +152,6 @@ const getProjectionSeed = (
 };
 
 const wantsScopeProjectionForKey = (resolvedKey: string): boolean =>
-  resolvedKey === "*" ||
   resolvedKey === "flags" ||
   resolvedKey === "changedFlags" ||
   resolvedKey === "seenFlags" ||
@@ -178,7 +196,7 @@ export function runGet(
     let selectedSeenFlags = store.seenFlags;
     let selectedSignal = store.signal;
     let selectedSeenSignals = store.seenSignals;
-    let selectedImpulseQ = store.impulseQ;
+    let selectedImpulseQ = projectImpulseQ(store.impulseQ, "pending");
 
     if (wantsScopeProjection) {
       const scope = resolveScope(opts?.scope);
