@@ -258,6 +258,44 @@ export function runSet(
       store.signal = hydration.signal;
       store.seenSignals = hydration.seenSignals;
 
+      if (!isObject(hydration.impulseQ)) {
+        diagnostics.emit({
+          code: "set.impulseQ.invalid",
+          message: "impulseQ value must be an object.",
+          severity: "error",
+          data: {
+            valueType: toValueType(hydration.impulseQ),
+          },
+        });
+        throw new Error("set.impulseQ.invalid");
+      }
+
+      if (!isObject(hydration.impulseQ.q)) {
+        diagnostics.emit({
+          code: "set.impulseQ.qInvalid",
+          message: "impulseQ.q must be an object in hydration snapshots.",
+          severity: "error",
+          data: {
+            field: "q",
+            valueType: toValueType(hydration.impulseQ.q),
+          },
+        });
+        throw new Error("set.impulseQ.qInvalid");
+      }
+
+      if (!isObject(hydration.impulseQ.config)) {
+        diagnostics.emit({
+          code: "set.impulseQ.configInvalid",
+          message: "impulseQ.config must be an object.",
+          severity: "error",
+          data: {
+            field: "config",
+            valueType: toValueType(hydration.impulseQ.config),
+          },
+        });
+        throw new Error("set.impulseQ.configInvalid");
+      }
+
       if (!Array.isArray(hydration.impulseQ.q.entries)) {
         diagnostics.emit({
           code: "set.impulseQ.qInvalid",
@@ -274,22 +312,10 @@ export function runSet(
 
       const canonicalEntries: ImpulseQEntryCanonical[] = [];
       for (const entry of hydration.impulseQ.q.entries) {
+        let canonical: ReturnType<typeof canonImpulseEntry> | undefined;
+
         try {
-          const canonical = canonImpulseEntry(entry);
-          if (canonical.entry === undefined) {
-            diagnostics.emit({
-              code: "set.impulseQ.entryInvalid",
-              message:
-                "impulseQ.q.entries contains an entry that is not canonicalizable.",
-              severity: "error",
-              data: {
-                field: "q.entries",
-                valueType: toValueType(entry),
-              },
-            });
-            throw new Error("set.impulseQ.entryInvalid");
-          }
-          canonicalEntries.push(canonical.entry);
+          canonical = canonImpulseEntry(entry);
         } catch {
           diagnostics.emit({
             code: "set.impulseQ.entryInvalid",
@@ -303,6 +329,22 @@ export function runSet(
           });
           throw new Error("set.impulseQ.entryInvalid");
         }
+
+        if (canonical.entry === undefined) {
+          diagnostics.emit({
+            code: "set.impulseQ.entryInvalid",
+            message:
+              "impulseQ.q.entries contains an entry that is not canonicalizable.",
+            severity: "error",
+            data: {
+              field: "q.entries",
+              valueType: toValueType(entry),
+            },
+          });
+          throw new Error("set.impulseQ.entryInvalid");
+        }
+
+        canonicalEntries.push(canonical.entry);
       }
 
       const hydrationCursor = hydration.impulseQ.q.cursor;
@@ -551,6 +593,19 @@ export function runSet(
           data: { field: "q" },
         });
         throw new Error("set.impulseQ.qForbidden");
+      }
+
+      if (hasOwn(impulsePatch, "config") && !isObject(impulsePatch.config)) {
+        diagnostics.emit({
+          code: "set.impulseQ.configInvalid",
+          message: "impulseQ.config must be an object.",
+          severity: "error",
+          data: {
+            field: "config",
+            valueType: toValueType(impulsePatch.config),
+          },
+        });
+        throw new Error("set.impulseQ.configInvalid");
       }
 
       if (isObject(impulsePatch.config)) {
