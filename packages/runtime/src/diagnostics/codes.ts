@@ -63,6 +63,14 @@ export const DIAGNOSTIC_CODES = {
       hasMap: "boolean",
     },
   },
+  "set.defaults.invalid": {
+    description: "defaults payload must follow SetDefaults/Defaults shape.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string",
+    },
+  },
   "set.signals.invalid": {
     description: "set patch signals value must be an array of strings.",
     severity: "error",

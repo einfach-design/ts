@@ -883,8 +883,8 @@ export type RunSetImpulseQPatch = Readonly<{
 
 export type RunSetPatch = Readonly<{
     flags?: FlagsView;
-    addFlags?: FlagsView;
-    removeFlags?: FlagsView;
+    addFlags?: FlagsView | readonly Flag[];
+    removeFlags?: FlagsView | readonly Flag[];
     signals?: readonly Signal[];
     impulseQ?: RunSetImpulseQPatch;
     defaults?: SetDefaults;
@@ -929,6 +929,8 @@ Norm
 - RunTime SOLL vor dem Throw einen Diagnostic mit `code: "set.flags.addRemoveConflict"` erzeugen; falls ein solcher Diagnostic erzeugt wird, MUSS dessen `code` `set.flags.addRemoveConflict` sein und dessen `severity` MUSS `"error"` sein.
 
 - Wenn `flags` im Payload vorhanden ist, MUSS `run.set(opts)` den Flags-State auf `flags` setzen.
+- Wenn `addFlags` im Payload vorhanden ist, MUSS RunTime `addFlags` als `FlagsView` **oder** als `readonly Flag[]` akzeptieren und MUSS daraus eine stabile-unique Flag-Liste gemäß §3.2 ableiten.
+- Wenn `removeFlags` im Payload vorhanden ist, MUSS RunTime `removeFlags` als `FlagsView` **oder** als `readonly Flag[]` akzeptieren und MUSS daraus eine stabile-unique Flag-Liste gemäß §3.2 ableiten.
 - Wenn `addFlags` im Payload vorhanden ist, MUSS `run.set(opts)` alle Flags aus `addFlags` zum Flags-State hinzufügen.
 - Wenn `removeFlags` im Payload vorhanden ist, MUSS `run.set(opts)` alle Flags aus `removeFlags` aus dem Flags-State entfernen.
 - Wenn `flags` im Payload vorhanden ist und `seenFlags` nicht als own property im Payload vorhanden ist, MUSS `run.set(opts)` `seenFlags` um alle Flags aus `flags` erweitern.

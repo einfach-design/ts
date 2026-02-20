@@ -22,7 +22,7 @@ import {
   signals as patchSignals,
   type SeenSignals,
 } from "../../state/signals.js";
-import { hasOwn, isObject, measureEntryBytes } from "../util.js";
+import { hasOwn, measureEntryBytes } from "../util.js";
 import type {
   RuntimeOnError,
   RuntimeStore,
@@ -49,6 +49,117 @@ const toValueType = (value: unknown): string =>
 
 const isRecordObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && Array.isArray(value) === false;
+
+const throwSetDefaultsInvalid = (
+  diagnostics: DiagnosticCollector,
+  field: string,
+  value: unknown,
+): never => {
+  diagnostics.emit({
+    code: "set.defaults.invalid",
+    message: "defaults payload must follow SetDefaults/Defaults shape.",
+    severity: "error",
+    data: {
+      field,
+      valueType: toValueType(value),
+    },
+  });
+  throw new Error("set.defaults.invalid");
+};
+
+const assertForceTrueOrUndefined = (
+  diagnostics: DiagnosticCollector,
+  path: string,
+  value: unknown,
+): void => {
+  if (value !== undefined && value !== true) {
+    throwSetDefaultsInvalid(diagnostics, path, value);
+  }
+};
+
+const assertValidDefaultsDimension = (
+  diagnostics: DiagnosticCollector,
+  dimension: unknown,
+  path: string,
+  valueType: "string" | "boolean",
+): void => {
+  if (!isRecordObject(dimension)) {
+    throwSetDefaultsInvalid(diagnostics, path, dimension);
+  }
+
+  const dimensionRecord = dimension as Record<string, unknown>;
+
+  if (!hasOwn(dimensionRecord, "value")) {
+    throwSetDefaultsInvalid(diagnostics, `${path}.value`, undefined);
+  }
+
+  if (typeof dimensionRecord.value !== valueType) {
+    throwSetDefaultsInvalid(
+      diagnostics,
+      `${path}.value`,
+      dimensionRecord.value,
+    );
+  }
+
+  if (hasOwn(dimensionRecord, "force")) {
+    assertForceTrueOrUndefined(
+      diagnostics,
+      `${path}.force`,
+      dimensionRecord.force,
+    );
+  }
+};
+
+const assertValidDefaultsSnapshot = (
+  diagnostics: DiagnosticCollector,
+  defaults: unknown,
+): void => {
+  if (!isRecordObject(defaults)) {
+    throwSetDefaultsInvalid(diagnostics, "defaults", defaults);
+  }
+
+  const defaultsRecord = defaults as Record<string, unknown>;
+
+  if (!isRecordObject(defaultsRecord.scope)) {
+    throwSetDefaultsInvalid(
+      diagnostics,
+      "defaults.scope",
+      defaultsRecord.scope,
+    );
+  }
+
+  const scope = defaultsRecord.scope as Record<string, unknown>;
+  assertValidDefaultsDimension(
+    diagnostics,
+    scope.signal,
+    "defaults.scope.signal",
+    "string",
+  );
+  assertValidDefaultsDimension(
+    diagnostics,
+    scope.flags,
+    "defaults.scope.flags",
+    "string",
+  );
+
+  if (!isRecordObject(defaultsRecord.gate)) {
+    throwSetDefaultsInvalid(diagnostics, "defaults.gate", defaultsRecord.gate);
+  }
+
+  const gate = defaultsRecord.gate as Record<string, unknown>;
+  assertValidDefaultsDimension(
+    diagnostics,
+    gate.signal,
+    "defaults.gate.signal",
+    "boolean",
+  );
+  assertValidDefaultsDimension(
+    diagnostics,
+    gate.flags,
+    "defaults.gate.flags",
+    "boolean",
+  );
+};
 
 const canonicalRetainForSet = (
   diagnostics: DiagnosticCollector,
@@ -286,6 +397,7 @@ export function runSet(
         store.signal === undefined &&
         store.seenSignals.list.length === 0;
 
+      assertValidDefaultsSnapshot(diagnostics, hydration.defaults);
       store.defaults = hydration.defaults;
       store.flagsTruth = hydration.flags;
       store.changedFlags = hydration.changedFlags;
@@ -513,34 +625,70 @@ export function runSet(
 
     if (hasOwn(patch, "flags")) {
       const incoming = patch.flags;
-      if (
-        !isObject(incoming) ||
-        !Array.isArray(incoming.list) ||
-        !isObject(incoming.map)
-      ) {
-        const valueType = Array.isArray(incoming)
-          ? "array"
-          : incoming === null
-            ? "null"
-            : typeof incoming;
+      const hasList =
+        isRecordObject(incoming) &&
+        hasOwn(incoming, "list") &&
+        Array.isArray(incoming.list);
+      const hasMap =
+        isRecordObject(incoming) &&
+        hasOwn(incoming, "map") &&
+        isRecordObject(incoming.map);
+
+      if (!isRecordObject(incoming) || !hasList || !hasMap) {
         diagnostics.emit({
           code: "set.flags.invalid",
           message:
             "flags patch must be an object with list(array) and map(object).",
           severity: "error",
           data: {
-            valueType,
-            hasList: isObject(incoming) ? Array.isArray(incoming.list) : false,
-            hasMap: isObject(incoming) ? isObject(incoming.map) : false,
+            valueType: toValueType(incoming),
+            hasList,
+            hasMap,
           },
         });
         throw new Error("set.flags.invalid");
       }
-      const normalizedFlags = (incoming.list as string[]).map((flag) =>
+
+      const normalizedList = (incoming.list as unknown[]).map((flag) =>
         String(flag),
       );
-      store.flagsTruth = createFlagsView(normalizedFlags);
-      store.seenFlags = extendSeenFlags(store.seenFlags, normalizedFlags);
+      const canonical = createFlagsView(normalizedList);
+      const incomingMap = incoming.map as Record<string, unknown>;
+
+      for (const flag of canonical.list) {
+        if (incomingMap[flag] !== true) {
+          diagnostics.emit({
+            code: "set.flags.invalid",
+            message: "FlagsView must be consistent between list and map.",
+            severity: "error",
+            data: {
+              valueType: toValueType(incoming),
+              hasList,
+              hasMap,
+            },
+          });
+          throw new Error("set.flags.invalid");
+        }
+      }
+
+      for (const key of Object.keys(incomingMap)) {
+        if (incomingMap[key] !== true || canonical.map[key] !== true) {
+          diagnostics.emit({
+            code: "set.flags.invalid",
+            message: "FlagsView must be consistent between list and map.",
+            severity: "error",
+            data: {
+              valueType: toValueType(incoming),
+              hasList,
+              hasMap,
+            },
+          });
+          throw new Error("set.flags.invalid");
+        }
+      }
+
+      store.flagsTruth = canonical;
+      store.seenFlags = extendSeenFlags(store.seenFlags, canonical.list);
     }
 
     if (hasOwn(patch, "addFlags") || hasOwn(patch, "removeFlags")) {
@@ -600,10 +748,18 @@ export function runSet(
     }
 
     if (hasOwn(patch, "defaults")) {
-      store.defaults = setDefaults(
-        store.defaults,
-        patch.defaults as SetDefaults,
-      );
+      if (!isRecordObject(patch.defaults)) {
+        throwSetDefaultsInvalid(diagnostics, "defaults", patch.defaults);
+      }
+
+      try {
+        store.defaults = setDefaults(
+          store.defaults,
+          patch.defaults as SetDefaults,
+        );
+      } catch {
+        throwSetDefaultsInvalid(diagnostics, "defaults", patch.defaults);
+      }
     }
 
     if (hasOwn(patch, "impulseQ")) {
