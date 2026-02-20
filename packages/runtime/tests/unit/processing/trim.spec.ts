@@ -91,6 +91,58 @@ describe("processing/trim", () => {
     ]);
   });
 
+  it("does not measure bytes when maxBytes is Infinity and retain trim does not run", () => {
+    const measureBytes = vi.fn((entry: { bytes: number }) => entry.bytes);
+
+    trim({
+      entries: [{ id: "a", bytes: 4 }],
+      cursor: 1,
+      retain: true,
+      maxBytes: Number.POSITIVE_INFINITY,
+      runtimeStackActive: false,
+      trimPendingMaxBytes: true,
+      measureBytes,
+    });
+
+    expect(measureBytes).toHaveBeenCalledTimes(0);
+  });
+
+  it("clears pending maxBytes when runtime stack is inactive", () => {
+    const entries = [
+      { id: "a", bytes: 4 },
+      { id: "b", bytes: 4 },
+    ];
+
+    const deferred = trim({
+      entries,
+      cursor: 2,
+      retain: true,
+      maxBytes: 3,
+      runtimeStackActive: true,
+      trimPendingMaxBytes: false,
+      measureBytes: (entry) => entry.bytes,
+    });
+
+    expect(deferred.trimPendingMaxBytes).toBe(true);
+
+    const flushed = trim({
+      entries,
+      cursor: 2,
+      retain: true,
+      maxBytes: 3,
+      runtimeStackActive: false,
+      trimPendingMaxBytes: deferred.trimPendingMaxBytes,
+      measureBytes: (entry) => entry.bytes,
+    });
+
+    expect(flushed.trimPendingMaxBytes).toBe(false);
+    expect(flushed.entries).toEqual([]);
+    expect(flushed.cursor).toBe(0);
+    expect(flushed.events).toEqual([
+      { reason: "maxBytes", removedCount: 2, cursorDelta: 2 },
+    ]);
+  });
+
   it("keeps pendingOnly projection isolated from baseline after trim", () => {
     const run = createRuntime();
 

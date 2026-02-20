@@ -76,6 +76,34 @@ describe("conformance/diagnostic-codes", () => {
     }
   });
 
+  it("emits set.impulseQ.retainInvalid and throws for NaN retain", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({ impulseQ: { config: { retain: Number.NaN } } }),
+    ).toThrow("set.impulseQ.retainInvalid");
+    expect(codes).toContain("set.impulseQ.retainInvalid");
+  });
+
+  it("emits set.impulseQ.maxBytesInvalid and throws for NaN maxBytes", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({ impulseQ: { config: { maxBytes: Number.NaN } } }),
+    ).toThrow("set.impulseQ.maxBytesInvalid");
+    expect(codes).toContain("set.impulseQ.maxBytesInvalid");
+  });
+
   it("emits set.hydration.incomplete and throws for incomplete hydration patches", () => {
     const run = createRuntime();
     const codes: string[] = [];

@@ -41,6 +41,88 @@ const allowedPatchKeys = [
   "impulseQ",
 ] as const;
 
+const toValueType = (value: unknown): string =>
+  Array.isArray(value) ? "array" : value === null ? "null" : typeof value;
+
+const canonicalRetainForSet = (
+  diagnostics: DiagnosticCollector,
+  retain: unknown,
+): number | boolean => {
+  if (retain === undefined) {
+    return 0;
+  }
+
+  if (typeof retain === "boolean") {
+    return retain;
+  }
+
+  if (typeof retain === "number") {
+    if (Number.isNaN(retain)) {
+      diagnostics.emit({
+        code: "set.impulseQ.retainInvalid",
+        message:
+          "impulseQ.config.retain must be a boolean or a non-NaN number.",
+        severity: "error",
+        data: {
+          field: "retain",
+          valueType: toValueType(retain),
+        },
+      });
+      throw new Error("set.impulseQ.retainInvalid");
+    }
+
+    return Math.max(0, retain);
+  }
+
+  diagnostics.emit({
+    code: "set.impulseQ.retainInvalid",
+    message: "impulseQ.config.retain must be a boolean or a non-NaN number.",
+    severity: "error",
+    data: {
+      field: "retain",
+      valueType: toValueType(retain),
+    },
+  });
+  throw new Error("set.impulseQ.retainInvalid");
+};
+
+const canonicalMaxBytesForSet = (
+  diagnostics: DiagnosticCollector,
+  maxBytes: unknown,
+): number => {
+  if (maxBytes === undefined) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  if (typeof maxBytes === "number") {
+    if (Number.isNaN(maxBytes)) {
+      diagnostics.emit({
+        code: "set.impulseQ.maxBytesInvalid",
+        message: "impulseQ.config.maxBytes must be a non-NaN number.",
+        severity: "error",
+        data: {
+          field: "maxBytes",
+          valueType: toValueType(maxBytes),
+        },
+      });
+      throw new Error("set.impulseQ.maxBytesInvalid");
+    }
+
+    return Math.max(0, maxBytes);
+  }
+
+  diagnostics.emit({
+    code: "set.impulseQ.maxBytesInvalid",
+    message: "impulseQ.config.maxBytes must be a non-NaN number.",
+    severity: "error",
+    data: {
+      field: "maxBytes",
+      valueType: toValueType(maxBytes),
+    },
+  });
+  throw new Error("set.impulseQ.maxBytesInvalid");
+};
+
 export function runSet(
   store: RuntimeStore,
   {
@@ -139,13 +221,17 @@ export function runSet(
       }
 
       if (hasOwn(hydration.impulseQ.config, "retain")) {
-        store.impulseQ.config.retain = hydration.impulseQ.config.retain ?? 0;
+        store.impulseQ.config.retain = canonicalRetainForSet(
+          diagnostics,
+          hydration.impulseQ.config.retain,
+        );
       } else {
         store.impulseQ.config.retain = 0;
       }
 
       if (hasOwn(hydration.impulseQ.config, "maxBytes")) {
-        store.impulseQ.config.maxBytes = Number(
+        store.impulseQ.config.maxBytes = canonicalMaxBytesForSet(
+          diagnostics,
           hydration.impulseQ.config.maxBytes,
         );
       } else {
@@ -318,11 +404,7 @@ export function runSet(
     if (hasOwn(patch, "impulseQ")) {
       const impulsePatch = patch.impulseQ;
       if (!isObject(impulsePatch)) {
-        const valueType = Array.isArray(impulsePatch)
-          ? "array"
-          : impulsePatch === null
-            ? "null"
-            : typeof impulsePatch;
+        const valueType = toValueType(impulsePatch);
         diagnostics.emit({
           code: "set.impulseQ.invalid",
           message: "impulseQ patch must be an object.",
@@ -344,12 +426,16 @@ export function runSet(
 
       if (isObject(impulsePatch.config)) {
         if (hasOwn(impulsePatch.config, "retain")) {
-          store.impulseQ.config.retain = impulsePatch.config.retain as
-            | number
-            | boolean;
+          store.impulseQ.config.retain = canonicalRetainForSet(
+            diagnostics,
+            impulsePatch.config.retain,
+          );
         }
         if (hasOwn(impulsePatch.config, "maxBytes")) {
-          store.impulseQ.config.maxBytes = Number(impulsePatch.config.maxBytes);
+          store.impulseQ.config.maxBytes = canonicalMaxBytesForSet(
+            diagnostics,
+            impulsePatch.config.maxBytes,
+          );
         }
         if (hasOwn(impulsePatch.config, "onTrim")) {
           store.impulseQ.config.onTrim = impulsePatch.config.onTrim as
