@@ -104,6 +104,80 @@ describe("conformance/diagnostic-codes", () => {
     expect(codes).toContain("set.impulseQ.maxBytesInvalid");
   });
 
+  it("emits set.impulseQ.onTrimInvalid and throws for invalid onTrim patch", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({ impulseQ: { config: { onTrim: 123 } } } as unknown as Record<
+        string,
+        unknown
+      >),
+    ).toThrow("set.impulseQ.onTrimInvalid");
+    expect(codes).toContain("set.impulseQ.onTrimInvalid");
+  });
+
+  it("emits set.impulseQ.onErrorInvalid and throws for invalid onError patch", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({
+        impulseQ: { config: { onError: "banana" } },
+      } as unknown as Record<string, unknown>),
+    ).toThrow("set.impulseQ.onErrorInvalid");
+    expect(codes).toContain("set.impulseQ.onErrorInvalid");
+  });
+
+  it("emits set.impulseQ.qInvalid and throws for hydration with out-of-range cursor", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+      string,
+      unknown
+    >;
+    const impulseQ = snapshot.impulseQ as { q: { cursor: number } };
+    impulseQ.q.cursor = 999;
+
+    expect(() => run.set(snapshot)).toThrow("set.impulseQ.qInvalid");
+    expect(codes).toContain("set.impulseQ.qInvalid");
+  });
+
+  it("emits set.impulseQ.entryInvalid and throws for hydration with invalid entry", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+      string,
+      unknown
+    >;
+    const impulseQ = snapshot.impulseQ as {
+      q: { entries: unknown[]; cursor: number };
+    };
+    impulseQ.q.entries = [{ signals: "nope" }];
+    impulseQ.q.cursor = 1;
+
+    expect(() => run.set(snapshot)).toThrow("set.impulseQ.entryInvalid");
+    expect(codes).toContain("set.impulseQ.entryInvalid");
+  });
+
   it("emits set.hydration.incomplete and throws for incomplete hydration patches", () => {
     const run = createRuntime();
     const codes: string[] = [];

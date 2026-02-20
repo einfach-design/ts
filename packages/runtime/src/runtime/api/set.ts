@@ -1,4 +1,7 @@
-import type { ImpulseQEntryCanonical } from "../../canon/impulseEntry.js";
+import {
+  canonImpulseEntry,
+  type ImpulseQEntryCanonical,
+} from "../../canon/impulseEntry.js";
 import { trim } from "../../processing/trim.js";
 import {
   createBackfillQ,
@@ -123,6 +126,59 @@ const canonicalMaxBytesForSet = (
   throw new Error("set.impulseQ.maxBytesInvalid");
 };
 
+const canonicalOnTrimForSet = (
+  diagnostics: DiagnosticCollector,
+  onTrim: unknown,
+): RuntimeStore["impulseQ"]["config"]["onTrim"] => {
+  if (onTrim === undefined) {
+    return undefined;
+  }
+
+  if (typeof onTrim === "function") {
+    return onTrim as RuntimeStore["impulseQ"]["config"]["onTrim"];
+  }
+
+  diagnostics.emit({
+    code: "set.impulseQ.onTrimInvalid",
+    message: "impulseQ.config.onTrim must be undefined or a function.",
+    severity: "error",
+    data: {
+      field: "onTrim",
+      valueType: toValueType(onTrim),
+    },
+  });
+  throw new Error("set.impulseQ.onTrimInvalid");
+};
+
+const canonicalOnErrorForSet = (
+  diagnostics: DiagnosticCollector,
+  onError: unknown,
+): RuntimeStore["impulseQ"]["config"]["onError"] => {
+  if (onError === undefined) {
+    return undefined;
+  }
+
+  if (typeof onError === "function") {
+    return onError as RuntimeOnError;
+  }
+
+  if (onError === "throw" || onError === "report" || onError === "swallow") {
+    return onError;
+  }
+
+  diagnostics.emit({
+    code: "set.impulseQ.onErrorInvalid",
+    message:
+      'impulseQ.config.onError must be undefined, a function, or "throw"|"report"|"swallow".',
+    severity: "error",
+    data: {
+      field: "onError",
+      valueType: toValueType(onError),
+    },
+  });
+  throw new Error("set.impulseQ.onErrorInvalid");
+};
+
 export function runSet(
   store: RuntimeStore,
   {
@@ -202,8 +258,61 @@ export function runSet(
       store.signal = hydration.signal;
       store.seenSignals = hydration.seenSignals;
 
-      store.impulseQ.q.entries = hydration.impulseQ.q.entries;
-      store.impulseQ.q.cursor = hydration.impulseQ.q.cursor;
+      if (!Array.isArray(hydration.impulseQ.q.entries)) {
+        diagnostics.emit({
+          code: "set.impulseQ.qInvalid",
+          message:
+            "impulseQ.q.entries must be an array in hydration snapshots.",
+          severity: "error",
+          data: {
+            field: "q.entries",
+            valueType: toValueType(hydration.impulseQ.q.entries),
+          },
+        });
+        throw new Error("set.impulseQ.qInvalid");
+      }
+
+      const canonicalEntries: ImpulseQEntryCanonical[] = [];
+      for (const entry of hydration.impulseQ.q.entries) {
+        const canonical = canonImpulseEntry(entry);
+        if (canonical.entry === undefined) {
+          diagnostics.emit({
+            code: "set.impulseQ.entryInvalid",
+            message:
+              "impulseQ.q.entries contains an entry that is not canonicalizable.",
+            severity: "error",
+            data: {
+              field: "q.entries",
+              valueType: toValueType(entry),
+            },
+          });
+          throw new Error("set.impulseQ.entryInvalid");
+        }
+        canonicalEntries.push(canonical.entry);
+      }
+
+      const hydrationCursor = hydration.impulseQ.q.cursor;
+      if (
+        typeof hydrationCursor !== "number" ||
+        !Number.isInteger(hydrationCursor) ||
+        hydrationCursor < 0 ||
+        hydrationCursor > canonicalEntries.length
+      ) {
+        diagnostics.emit({
+          code: "set.impulseQ.qInvalid",
+          message:
+            "impulseQ.q.cursor must be an integer within entries bounds in hydration snapshots.",
+          severity: "error",
+          data: {
+            field: "q.cursor",
+            valueType: toValueType(hydrationCursor),
+          },
+        });
+        throw new Error("set.impulseQ.qInvalid");
+      }
+
+      store.impulseQ.q.entries = canonicalEntries;
+      store.impulseQ.q.cursor = hydrationCursor;
 
       if (
         hasOwn(hydration, "scopeProjectionBaseline") &&
@@ -238,8 +347,14 @@ export function runSet(
         store.impulseQ.config.maxBytes = Number.POSITIVE_INFINITY;
       }
 
-      store.impulseQ.config.onTrim = hydration.impulseQ.config.onTrim;
-      store.impulseQ.config.onError = hydration.impulseQ.config.onError;
+      store.impulseQ.config.onTrim = canonicalOnTrimForSet(
+        diagnostics,
+        hydration.impulseQ.config.onTrim,
+      );
+      store.impulseQ.config.onError = canonicalOnErrorForSet(
+        diagnostics,
+        hydration.impulseQ.config.onError,
+      );
 
       store.backfillQ = createBackfillQ();
       const hydrationBackfillIds = createFlagsView(
@@ -438,17 +553,16 @@ export function runSet(
           );
         }
         if (hasOwn(impulsePatch.config, "onTrim")) {
-          store.impulseQ.config.onTrim = impulsePatch.config.onTrim as
-            | ((info: {
-                entries: readonly ImpulseQEntryCanonical[];
-                stats: { reason: "retain" | "maxBytes"; bytesFreed?: number };
-              }) => void)
-            | undefined;
+          store.impulseQ.config.onTrim = canonicalOnTrimForSet(
+            diagnostics,
+            impulsePatch.config.onTrim,
+          );
         }
         if (hasOwn(impulsePatch.config, "onError")) {
-          store.impulseQ.config.onError = impulsePatch.config.onError as
-            | RuntimeOnError
-            | undefined;
+          store.impulseQ.config.onError = canonicalOnErrorForSet(
+            diagnostics,
+            impulsePatch.config.onError,
+          );
         }
 
         const prevEntries = store.impulseQ.q.entries;
