@@ -132,7 +132,10 @@ export function runSet(
       }
 
       if (hasOwn(hydration.impulseQ.config, "retain")) {
-        store.impulseQ.config.retain = hydration.impulseQ.config.retain ?? 0;
+        store.impulseQ.config.retain =
+          hydration.impulseQ.config.retain === undefined
+            ? 0
+            : hydration.impulseQ.config.retain;
       } else {
         store.impulseQ.config.retain = 0;
       }

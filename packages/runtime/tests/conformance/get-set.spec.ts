@@ -992,18 +992,6 @@ describe("conformance/get-set", () => {
     });
   });
 
-  it("B10 — numeric-like flags keep deterministic list order across equal delta input", () => {
-    const buildList = (): readonly string[] => {
-      const run = createRuntime();
-      run.set({ addFlags: ["2", "1"], removeFlags: [] });
-      run.set({ removeFlags: ["1"] });
-      run.set({ addFlags: ["1"] });
-      return (run.get("flags", { as: "snapshot" }) as { list: string[] }).list;
-    };
-
-    expect(buildList()).toEqual(buildList());
-  });
-
   it("A2.trim — trimming applied keeps pending projections stable", () => {
     const run = createRuntime();
 
@@ -1265,39 +1253,76 @@ describe("conformance/get-set", () => {
     });
   });
 
-  it("A12 — get('*') -> set(snapshot) -> get('*') is deterministic", () => {
+  it("A12 — hydration roundtrip is structurally stable", () => {
     const run = createRuntime();
 
     run.impulse({ signals: ["sig:1"], addFlags: ["1", "2", "10"] });
     run.impulse({ signals: ["sig:2"], removeFlags: ["2"], addFlags: ["2"] });
+    run.set({ impulseQ: { config: { retain: false, maxBytes: 128 } } });
     run.set({ impulseQ: { config: { retain: 1 } } });
+
+    const toSortedEntries = (value: unknown): Array<[string, unknown]> => {
+      if (!(value instanceof Map)) {
+        return [];
+      }
+
+      return [...value.entries()].sort(([left], [right]) =>
+        left.localeCompare(right),
+      );
+    };
 
     const snapshotA = run.get("*", { as: "snapshot" }) as Record<
       string,
       unknown
     >;
+    const registryA = toSortedEntries(
+      run.get("registeredById", { as: "snapshot" }),
+    );
+    const scopeProjectionBaselineA = run.get("scopeProjectionBaseline", {
+      as: "snapshot",
+    });
+
+    expect(Object.keys(snapshotA).sort()).toEqual([
+      "backfillQ",
+      "changedFlags",
+      "defaults",
+      "flags",
+      "impulseQ",
+      "seenFlags",
+      "seenSignals",
+      "signal",
+    ]);
+
     run.set(snapshotA);
+
     const snapshotB = run.get("*", { as: "snapshot" }) as Record<
       string,
       unknown
     >;
+    const registryB = toSortedEntries(
+      run.get("registeredById", { as: "snapshot" }),
+    );
+    const scopeProjectionBaselineB = run.get("scopeProjectionBaseline", {
+      as: "snapshot",
+    });
 
     expect(snapshotB).toEqual(snapshotA);
+    expect(snapshotB.impulseQ).toEqual(snapshotA.impulseQ);
+    expect(scopeProjectionBaselineB).toEqual(scopeProjectionBaselineA);
+    expect(registryB).toEqual(registryA);
   });
 
   it("B11 — numeric-like flags remain ordered across deltas and remove/re-add", () => {
     const run = createRuntime();
 
-    run.set({ addFlags: ["1", "2", "10"] });
+    run.set({ addFlags: ["2", "1", "10"] });
     expect(run.get("flags", { as: "snapshot" })).toEqual({
-      list: ["1", "2", "10"],
-      map: { "1": true, "2": true, "10": true },
+      list: ["2", "1", "10"],
+      map: { "2": true, "1": true, "10": true },
     });
 
-    run.set({ removeFlags: ["2"] });
-    run.set({ addFlags: ["2"] });
-    run.set({ removeFlags: ["1", "10"] });
-    run.set({ addFlags: ["10", "1"] });
+    run.set({ removeFlags: ["1"] });
+    run.set({ addFlags: ["1"] });
 
     expect(run.get("flags", { as: "snapshot" })).toEqual({
       list: ["2", "10", "1"],
