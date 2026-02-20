@@ -91,6 +91,42 @@ export const DIAGNOSTIC_CODES = {
       valueType: "string",
     },
   },
+  "set.impulseQ.qInvalid": {
+    description:
+      "set hydration impulseQ.q has invalid shape/value (entries not array or cursor out of integer range).",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string",
+    },
+  },
+  "set.impulseQ.entryInvalid": {
+    description:
+      "set hydration impulseQ.q.entries contains a non-canonicalizable entry.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string",
+    },
+  },
+  "set.impulseQ.onTrimInvalid": {
+    description:
+      "set impulseQ.config.onTrim has invalid type/value (must be undefined or function).",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string",
+    },
+  },
+  "set.impulseQ.onErrorInvalid": {
+    description:
+      'set impulseQ.config.onError has invalid type/value (must be undefined/function/"throw"|"report"|"swallow").',
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string",
+    },
+  },
   "add.target.required": {
     description: "add call requires at least one target or targets entry.",
     severity: "error",

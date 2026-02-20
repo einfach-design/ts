@@ -40,11 +40,13 @@ describe("failure-modes/invariants", () => {
         signals: ["applied-signal"],
         addFlags: ["a"],
         removeFlags: [],
+        useFixedFlags: false,
       },
       {
         signals: ["pending-signal"],
         addFlags: ["b"],
         removeFlags: [],
+        useFixedFlags: false,
       },
     ];
     hydration.impulseQ.q.cursor = 1;
@@ -89,8 +91,18 @@ describe("failure-modes/invariants", () => {
     } & Record<string, unknown>;
 
     hydration.impulseQ.q.entries = [
-      { signals: ["applied"], addFlags: ["a"], removeFlags: [] },
-      { signals: ["pending"], addFlags: ["b"], removeFlags: [] },
+      {
+        signals: ["applied"],
+        addFlags: ["a"],
+        removeFlags: [],
+        useFixedFlags: false,
+      },
+      {
+        signals: ["pending"],
+        addFlags: ["b"],
+        removeFlags: [],
+        useFixedFlags: false,
+      },
     ];
     hydration.impulseQ.q.cursor = 1;
     run.set(hydration);
