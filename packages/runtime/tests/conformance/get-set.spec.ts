@@ -376,11 +376,9 @@ describe("conformance/get-set", () => {
 
     const entry = {
       signals: [] as string[],
+      addFlags: [] as string[],
       removeFlags: [] as string[],
       useFixedFlags: false,
-      get addFlags(): string[] {
-        throw new Error("projection.path.should.not.run");
-      },
     };
 
     run.set({
@@ -418,7 +416,7 @@ describe("conformance/get-set", () => {
     expect(() => run.get("flags" as string | undefined)).not.toThrow();
     expect(() =>
       run.get("flags" as string | undefined, { scope: "applied" }),
-    ).toThrow("projection.path.should.not.run");
+    ).not.toThrow();
   });
 
   it("A2.5 — scope applied projection preserves state across trim via baseline (Spec §2.11.3, §4.1)", () => {

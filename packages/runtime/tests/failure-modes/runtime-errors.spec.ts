@@ -96,95 +96,34 @@ describe("failure-modes/runtime-errors", () => {
   });
 
   describe("outer phase: impulse/drain", () => {
-    it("validates report/swallow/throw/fn matrix for drain-flow failures", () => {
-      const seedMalformedPendingEntry = () => {
-        const run = createRuntime();
-        const hydration = run.get(undefined, { as: "snapshot" }) as {
-          impulseQ: {
-            q: {
-              entries: Array<Record<string, unknown>>;
-              cursor: number;
-            };
+    it("rejects malformed hydration queue entries before drain processing", () => {
+      const run = createRuntime();
+      const codes: string[] = [];
+
+      run.onDiagnostic((diagnostic) => {
+        codes.push(diagnostic.code);
+      });
+
+      const hydration = run.get(undefined, { as: "snapshot" }) as {
+        impulseQ: {
+          q: {
+            entries: Array<Record<string, unknown>>;
+            cursor: number;
           };
-        } & Record<string, unknown>;
+        };
+      } & Record<string, unknown>;
 
-        hydration.impulseQ.q.entries = [
-          {
-            signals: [],
-            removeFlags: [],
-            addFlags: null,
-          },
-        ];
-        hydration.impulseQ.q.cursor = 0;
-        run.set(hydration);
-        return run;
-      };
+      hydration.impulseQ.q.entries = [
+        {
+          signals: [],
+          removeFlags: [],
+          addFlags: null,
+        },
+      ];
+      hydration.impulseQ.q.cursor = 0;
 
-      const reportRun = seedMalformedPendingEntry();
-      const reportDiagnostics: Array<{
-        code: string;
-        data?: Record<string, unknown>;
-      }> = [];
-      reportRun.onDiagnostic((diagnostic) => {
-        reportDiagnostics.push(diagnostic);
-      });
-
-      expect(() =>
-        reportRun.impulse({ addFlags: ["a"], onError: "report" }),
-      ).not.toThrow();
-      expect(reportDiagnostics).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            code: "impulse.input.invalid",
-            data: expect.objectContaining({ phase: "impulse/drain" }),
-          }),
-        ]),
-      );
-
-      const swallowRun = seedMalformedPendingEntry();
-      const swallowDiagnostics: Array<{ code: string; data?: unknown }> = [];
-      swallowRun.onDiagnostic((diagnostic) => {
-        swallowDiagnostics.push(diagnostic);
-      });
-
-      expect(() =>
-        swallowRun.impulse({ addFlags: ["a"], onError: "swallow" }),
-      ).not.toThrow();
-      expect(swallowDiagnostics).not.toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            code: "impulse.input.invalid",
-            data: expect.objectContaining({ phase: "impulse/drain" }),
-          }),
-        ]),
-      );
-
-      const throwRun = seedMalformedPendingEntry();
-      expect(() =>
-        throwRun.impulse({ addFlags: ["a"], onError: "throw" }),
-      ).toThrow();
-
-      const fnSeen: unknown[] = [];
-      const fnRun = seedMalformedPendingEntry();
-      expect(() =>
-        fnRun.impulse({
-          addFlags: ["a"],
-          onError: (error: unknown) => {
-            fnSeen.push(error);
-          },
-        }),
-      ).not.toThrow();
-      expect(fnSeen).toHaveLength(1);
-
-      const fnThrowRun = seedMalformedPendingEntry();
-      expect(() =>
-        fnThrowRun.impulse({
-          addFlags: ["a"],
-          onError: () => {
-            throw new Error("drain-fn-throw");
-          },
-        }),
-      ).toThrow("drain-fn-throw");
+      expect(() => run.set(hydration)).toThrow("set.impulseQ.entryInvalid");
+      expect(codes).toContain("set.impulseQ.entryInvalid");
     });
   });
 
