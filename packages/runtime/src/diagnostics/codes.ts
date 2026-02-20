@@ -26,6 +26,41 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     shape: {},
   },
+  "set.hydration.flagsViewInvalid": {
+    description:
+      "Hydration flags/seenFlags/changedFlags must be a consistent FlagsView ({ list, map }).",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string",
+    },
+  },
+  "set.hydration.seenSignalsInvalid": {
+    description:
+      "Hydration seenSignals must be a consistent SeenSignals ({ list, map }).",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string",
+    },
+  },
+  "set.hydration.signalInvalid": {
+    description: "Hydration signal must be a string when present.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string",
+    },
+  },
+  "set.hydration.backfillQInvalid": {
+    description:
+      "Hydration backfillQ must be a consistent id-view ({ list, map }).",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string",
+    },
+  },
   "set.patch.invalid": {
     description: "set patch value must be an object.",
     severity: "error",

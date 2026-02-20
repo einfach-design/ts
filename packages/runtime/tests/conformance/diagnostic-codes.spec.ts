@@ -425,6 +425,82 @@ describe("conformance/diagnostic-codes", () => {
     expect(codes).toContain("set.flags.deltaInvalid");
   });
 
+  it("emits set.hydration.flagsViewInvalid and throws for hydration with invalid flags", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    s.flags = [];
+
+    expect(() => run.set(s)).toThrow("set.hydration.flagsViewInvalid");
+    expect(codes).toContain("set.hydration.flagsViewInvalid");
+  });
+
+  it("emits set.hydration.seenSignalsInvalid and throws for hydration with invalid seenSignals", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    s.seenSignals = [];
+
+    expect(() => run.set(s)).toThrow("set.hydration.seenSignalsInvalid");
+    expect(codes).toContain("set.hydration.seenSignalsInvalid");
+  });
+
+  it("emits set.hydration.signalInvalid and throws for hydration with invalid signal", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    s.signal = 123;
+
+    expect(() => run.set(s)).toThrow("set.hydration.signalInvalid");
+    expect(codes).toContain("set.hydration.signalInvalid");
+  });
+
+  it("emits set.hydration.backfillQInvalid and throws for hydration with invalid backfillQ", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    s.backfillQ = null;
+
+    expect(() => run.set(s)).toThrow("set.hydration.backfillQInvalid");
+    expect(codes).toContain("set.hydration.backfillQInvalid");
+  });
+
+  it("emits set.flags.deltaInvalid and throws for inconsistent FlagsView delta", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({ addFlags: { list: ["a"], map: {} } } as unknown as Record<
+        string,
+        unknown
+      >),
+    ).toThrow("set.flags.deltaInvalid");
+    expect(codes).toContain("set.flags.deltaInvalid");
+  });
   it("emits set.flags.invalid and throws for invalid flags payload", () => {
     const run = createRuntime();
     const codes: string[] = [];
