@@ -9,6 +9,21 @@ const toMatchFlagsView = (value: FlagsView | undefined) =>
   value ? { map: { ...value.map }, list: [...value.list] } : undefined;
 
 function snapshot<T>(value: T): T {
+  /**
+   * Produces the runtime snapshot clone used by `get(..., { as: "snapshot" })`.
+   *
+   * Clone semantics (spec-aligned):
+   * - Deep-clones Arrays.
+   * - Deep-clones Plain Objects (`Object.getPrototypeOf(value) === Object.prototype`).
+   * - Deep-clones Maps (keys and values).
+   * - Deep-clones Sets (elements).
+   * - Does not clone Non-Plain Objects (prototype differs from `Object.prototype`),
+   *   including functions; these values are passed through by reference.
+   *
+   * Note on opaque payloads (`livePayload`): payload data is engine-opaque by policy.
+   * Snapshots can therefore intentionally contain references when payload values are
+   * Non-Plain Objects.
+   */
   const seen = new WeakMap<object, unknown>();
 
   const cloneValue = (input: unknown): unknown => {

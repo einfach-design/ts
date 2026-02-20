@@ -185,6 +185,25 @@ describe("conformance/get-set", () => {
     ).toEqual(["a"]);
   });
 
+  it("A1l — snapshot must preserve non-plain object references (opaque payload)", () => {
+    const run = createRuntime();
+    run.set({ impulseQ: { config: { retain: true } } } as Record<
+      string,
+      unknown
+    >);
+    const payload = new Date(0);
+    run.impulse({ signals: ["a"], livePayload: payload } as Record<
+      string,
+      unknown
+    >);
+
+    const snap = run.get("impulseQ", { as: "snapshot" }) as {
+      q: { entries: Array<{ livePayload?: unknown }> };
+    };
+
+    expect(snap.q.entries[0]!.livePayload).toBe(payload);
+  });
+
   it("A1k — hydration must clear trimPendingMaxBytes (no post-hydration stack-exit trim)", () => {
     const run = createRuntime();
     run.set({ impulseQ: { config: { retain: true } } } as Record<
