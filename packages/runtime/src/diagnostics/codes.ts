@@ -60,9 +60,18 @@ export const DIAGNOSTIC_CODES = {
     shape: {},
   },
   "set.impulseQ.invalid": {
-    description: "set patch impulseQ value must be an object.",
+    description: "set impulseQ value must be an object.",
     severity: "error",
     shape: {
+      valueType: "string",
+    },
+  },
+  "set.impulseQ.configInvalid": {
+    description:
+      "set impulseQ.config has invalid shape/type (must be an object).",
+    severity: "error",
+    shape: {
+      field: "string",
       valueType: "string",
     },
   },

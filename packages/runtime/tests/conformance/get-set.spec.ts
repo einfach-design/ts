@@ -381,6 +381,20 @@ describe("conformance/get-set", () => {
       useFixedFlags: false,
     };
 
+    const scopeProjectionBaseline = {
+      changedFlags: undefined,
+      seenFlags: { list: [], map: {} },
+      signal: undefined,
+      seenSignals: { list: [], map: {} },
+    };
+    Object.defineProperty(scopeProjectionBaseline, "flags", {
+      enumerable: true,
+      configurable: true,
+      get: () => {
+        throw new Error("projection.path.should.not.run");
+      },
+    });
+
     run.set({
       defaults: run.get("defaults" as string | undefined, {
         as: "snapshot",
@@ -390,12 +404,12 @@ describe("conformance/get-set", () => {
       seenFlags: { list: [], map: {} },
       signal: undefined,
       seenSignals: { list: [], map: {} },
-      scopeProjectionBaseline: {
-        flags: { list: [], map: {} },
-        changedFlags: undefined,
-        seenFlags: { list: [], map: {} },
-        signal: undefined,
-        seenSignals: { list: [], map: {} },
+      scopeProjectionBaseline: scopeProjectionBaseline as unknown as {
+        flags: { list: string[]; map: Record<string, true> };
+        changedFlags?: { list: string[]; map: Record<string, true> };
+        seenFlags: { list: string[]; map: Record<string, true> };
+        signal?: string;
+        seenSignals: { list: string[]; map: Record<string, true> };
       },
       impulseQ: {
         q: {
@@ -416,7 +430,7 @@ describe("conformance/get-set", () => {
     expect(() => run.get("flags" as string | undefined)).not.toThrow();
     expect(() =>
       run.get("flags" as string | undefined, { scope: "applied" }),
-    ).not.toThrow();
+    ).toThrow("projection.path.should.not.run");
   });
 
   it("A2.5 — scope applied projection preserves state across trim via baseline (Spec §2.11.3, §4.1)", () => {

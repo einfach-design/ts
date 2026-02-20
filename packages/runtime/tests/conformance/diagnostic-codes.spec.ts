@@ -76,6 +76,59 @@ describe("conformance/diagnostic-codes", () => {
     }
   });
 
+  it("emits set.impulseQ.configInvalid and throws for non-object config patch", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({ impulseQ: { config: 123 } } as unknown as Record<
+        string,
+        unknown
+      >),
+    ).toThrow("set.impulseQ.configInvalid");
+    expect(codes).toContain("set.impulseQ.configInvalid");
+  });
+
+  it("emits set.impulseQ.invalid and throws for hydration with non-object impulseQ", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+      string,
+      unknown
+    >;
+    (snapshot as { impulseQ: unknown }).impulseQ = null;
+
+    expect(() => run.set(snapshot)).toThrow("set.impulseQ.invalid");
+    expect(codes).toContain("set.impulseQ.invalid");
+  });
+
+  it("emits set.impulseQ.configInvalid and throws for hydration with non-object config", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+      string,
+      unknown
+    >;
+    (snapshot.impulseQ as { config: unknown }).config = null;
+
+    expect(() => run.set(snapshot)).toThrow("set.impulseQ.configInvalid");
+    expect(codes).toContain("set.impulseQ.configInvalid");
+  });
+
   it("emits set.impulseQ.retainInvalid and throws for NaN retain", () => {
     const run = createRuntime();
     const codes: string[] = [];
