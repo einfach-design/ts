@@ -103,11 +103,18 @@ const assertForce = (
   return true;
 };
 
+const isScope = (value: unknown): value is Scope =>
+  value === "applied" || value === "pending" || value === "pendingOnly";
+
 const canonicalScopeDim = (
   source: Scope | SetDefaultsDimScope,
   context: string,
 ): Readonly<{ value: Scope; force: true | undefined }> => {
   if (typeof source === "string") {
+    if (!isScope(source)) {
+      throw new Error(`${context}.value must be Scope.`);
+    }
+
     return { value: source, force: undefined };
   }
 
@@ -121,7 +128,11 @@ const canonicalScopeDim = (
     throw new Error(`${context}.value is required.`);
   }
 
-  return { value: source.value as Scope, force: assertForce(source, context) };
+  if (!isScope(source.value)) {
+    throw new Error(`${context}.value must be Scope.`);
+  }
+
+  return { value: source.value, force: assertForce(source, context) };
 };
 
 const canonicalGateDim = (
@@ -178,8 +189,8 @@ function canonicalizeSetDefaults(
   if (hasOwn(input, "scope")) {
     if (typeof input.scope === "string") {
       output.scope = {
-        signal: { value: input.scope, force: undefined },
-        flags: { value: input.scope, force: undefined },
+        signal: canonicalScopeDim(input.scope, "defaults.scope.signal"),
+        flags: canonicalScopeDim(input.scope, "defaults.scope.flags"),
       };
     } else {
       if (!isRecord(input.scope)) {

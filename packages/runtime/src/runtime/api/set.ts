@@ -3,10 +3,7 @@ import {
   type ImpulseQEntryCanonical,
 } from "../../canon/impulseEntry.js";
 import { trim } from "../../processing/trim.js";
-import {
-  createBackfillQ,
-  type BackfillQSnapshot,
-} from "../../state/backfillQ.js";
+import { createBackfillQ } from "../../state/backfillQ.js";
 import {
   setDefaults,
   type Defaults,
@@ -49,6 +46,11 @@ const toValueType = (value: unknown): string =>
 
 const isRecordObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && Array.isArray(value) === false;
+
+const isScopeValue = (
+  value: unknown,
+): value is "applied" | "pending" | "pendingOnly" =>
+  value === "applied" || value === "pending" || value === "pendingOnly";
 
 const throwSetDefaultsInvalid = (
   diagnostics: DiagnosticCollector,
@@ -141,6 +143,24 @@ const assertValidDefaultsSnapshot = (
     "defaults.scope.flags",
     "string",
   );
+
+  const scopeSignal = scope.signal as Record<string, unknown>;
+  if (!isScopeValue(scopeSignal.value)) {
+    throwSetDefaultsInvalid(
+      diagnostics,
+      "defaults.scope.signal.value",
+      scopeSignal.value,
+    );
+  }
+
+  const scopeFlags = scope.flags as Record<string, unknown>;
+  if (!isScopeValue(scopeFlags.value)) {
+    throwSetDefaultsInvalid(
+      diagnostics,
+      "defaults.scope.flags.value",
+      scopeFlags.value,
+    );
+  }
 
   if (!isRecordObject(defaultsRecord.gate)) {
     throwSetDefaultsInvalid(diagnostics, "defaults.gate", defaultsRecord.gate);
@@ -304,6 +324,23 @@ export function runSet(
   },
   patch: Record<string, unknown>,
 ): void {
+  const emitFlagDeltaInvalid = (
+    field: "addFlags" | "removeFlags",
+    value: unknown,
+  ): never => {
+    diagnostics.emit({
+      code: "set.flags.deltaInvalid",
+      message:
+        "addFlags/removeFlags must be an array of strings or a FlagsView ({ list, map }).",
+      severity: "error",
+      data: {
+        field,
+        valueType: toValueType(value),
+      },
+    });
+    throw new Error("set.flags.deltaInvalid");
+  };
+
   const readFlagDelta = (
     field: "addFlags" | "removeFlags",
     value: unknown,
@@ -319,21 +356,216 @@ export function runSet(
         hasOwn(value, "map") &&
         isRecordObject(value.map)
       ) {
-        return (value.list as unknown[]).map((entry) => String(entry));
+        const normalizedList = (value.list as unknown[]).map((entry) =>
+          String(entry),
+        );
+        const canonical = createFlagsView(normalizedList);
+        const incomingMap = value.map as Record<string, unknown>;
+
+        for (const flag of canonical.list) {
+          if (incomingMap[flag] !== true) {
+            emitFlagDeltaInvalid(field, value);
+          }
+        }
+
+        for (const key of Object.keys(incomingMap)) {
+          if (incomingMap[key] !== true || canonical.map[key] !== true) {
+            emitFlagDeltaInvalid(field, value);
+          }
+        }
+
+        return [...canonical.list];
       }
     }
 
+    return emitFlagDeltaInvalid(field, value);
+  };
+
+  const emitHydrationFlagsViewInvalid = (
+    field: "flags" | "seenFlags" | "changedFlags",
+    value: unknown,
+  ): never => {
     diagnostics.emit({
-      code: "set.flags.deltaInvalid",
-      message:
-        "addFlags/removeFlags must be an array of strings or a FlagsView ({ list, map }).",
+      code: "set.hydration.flagsViewInvalid",
+      message: "Hydration FlagsView must be a consistent { list, map } object.",
       severity: "error",
       data: {
         field,
         valueType: toValueType(value),
       },
     });
-    throw new Error("set.flags.deltaInvalid");
+    throw new Error("set.hydration.flagsViewInvalid");
+  };
+
+  const assertHydrationFlagsView = (
+    field: "flags" | "seenFlags" | "changedFlags",
+    value: unknown,
+  ): FlagsView => {
+    if (!isRecordObject(value)) {
+      emitHydrationFlagsViewInvalid(field, value);
+    }
+
+    const valueRecord = value as Record<string, unknown>;
+
+    if (!hasOwn(valueRecord, "list") || !Array.isArray(valueRecord.list)) {
+      emitHydrationFlagsViewInvalid(field, value);
+    }
+
+    if (!hasOwn(valueRecord, "map") || !isRecordObject(valueRecord.map)) {
+      emitHydrationFlagsViewInvalid(field, value);
+    }
+
+    const normalizedList = (valueRecord.list as unknown[]).map((entry) =>
+      String(entry),
+    );
+    const canonical = createFlagsView(normalizedList);
+    const incomingMap = valueRecord.map as Record<string, unknown>;
+
+    for (const flag of canonical.list) {
+      if (incomingMap[flag] !== true) {
+        emitHydrationFlagsViewInvalid(field, value);
+      }
+    }
+
+    for (const key of Object.keys(incomingMap)) {
+      if (incomingMap[key] !== true || canonical.map[key] !== true) {
+        emitHydrationFlagsViewInvalid(field, value);
+      }
+    }
+
+    return canonical;
+  };
+
+  const assertHydrationSeenSignals = (value: unknown): SeenSignals => {
+    if (!isRecordObject(value)) {
+      diagnostics.emit({
+        code: "set.hydration.seenSignalsInvalid",
+        message:
+          "Hydration seenSignals must be a consistent { list, map } object.",
+        severity: "error",
+        data: { field: "seenSignals", valueType: toValueType(value) },
+      });
+      throw new Error("set.hydration.seenSignalsInvalid");
+    }
+
+    if (
+      !hasOwn(value, "list") ||
+      !Array.isArray(value.list) ||
+      !hasOwn(value, "map") ||
+      !isRecordObject(value.map)
+    ) {
+      diagnostics.emit({
+        code: "set.hydration.seenSignalsInvalid",
+        message:
+          "Hydration seenSignals must be a consistent { list, map } object.",
+        severity: "error",
+        data: { field: "seenSignals", valueType: toValueType(value) },
+      });
+      throw new Error("set.hydration.seenSignalsInvalid");
+    }
+
+    const canonical = createFlagsView(
+      (value.list as unknown[]).map((entry) => String(entry)),
+    );
+    const incomingMap = value.map as Record<string, unknown>;
+
+    for (const signal of canonical.list) {
+      if (incomingMap[signal] !== true) {
+        diagnostics.emit({
+          code: "set.hydration.seenSignalsInvalid",
+          message:
+            "Hydration seenSignals must be a consistent { list, map } object.",
+          severity: "error",
+          data: { field: "seenSignals", valueType: toValueType(value) },
+        });
+        throw new Error("set.hydration.seenSignalsInvalid");
+      }
+    }
+
+    for (const key of Object.keys(incomingMap)) {
+      if (incomingMap[key] !== true || canonical.map[key] !== true) {
+        diagnostics.emit({
+          code: "set.hydration.seenSignalsInvalid",
+          message:
+            "Hydration seenSignals must be a consistent { list, map } object.",
+          severity: "error",
+          data: { field: "seenSignals", valueType: toValueType(value) },
+        });
+        throw new Error("set.hydration.seenSignalsInvalid");
+      }
+    }
+
+    return canonical as SeenSignals;
+  };
+
+  const assertHydrationSignal = (value: unknown): string | undefined => {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    if (typeof value !== "string") {
+      diagnostics.emit({
+        code: "set.hydration.signalInvalid",
+        message: "Hydration signal must be a string when present.",
+        severity: "error",
+        data: { field: "signal", valueType: toValueType(value) },
+      });
+      throw new Error("set.hydration.signalInvalid");
+    }
+
+    return value;
+  };
+
+  const assertHydrationBackfillQ = (value: unknown): FlagsView => {
+    if (
+      !isRecordObject(value) ||
+      !hasOwn(value, "list") ||
+      !Array.isArray(value.list) ||
+      !hasOwn(value, "map") ||
+      !isRecordObject(value.map)
+    ) {
+      diagnostics.emit({
+        code: "set.hydration.backfillQInvalid",
+        message:
+          "Hydration backfillQ must be a consistent { list, map } object.",
+        severity: "error",
+        data: { field: "backfillQ", valueType: toValueType(value) },
+      });
+      throw new Error("set.hydration.backfillQInvalid");
+    }
+
+    const canonical = createFlagsView(
+      (value.list as unknown[]).map((entry) => String(entry)),
+    );
+    const incomingMap = value.map as Record<string, unknown>;
+
+    for (const id of canonical.list) {
+      if (incomingMap[id] !== true) {
+        diagnostics.emit({
+          code: "set.hydration.backfillQInvalid",
+          message:
+            "Hydration backfillQ must be a consistent { list, map } object.",
+          severity: "error",
+          data: { field: "backfillQ", valueType: toValueType(value) },
+        });
+        throw new Error("set.hydration.backfillQInvalid");
+      }
+    }
+
+    for (const key of Object.keys(incomingMap)) {
+      if (incomingMap[key] !== true || canonical.map[key] !== true) {
+        diagnostics.emit({
+          code: "set.hydration.backfillQInvalid",
+          message:
+            "Hydration backfillQ must be a consistent { list, map } object.",
+          severity: "error",
+          data: { field: "backfillQ", valueType: toValueType(value) },
+        });
+        throw new Error("set.hydration.backfillQInvalid");
+      }
+    }
+
+    return canonical;
   };
 
   store.withRuntimeStack(() => {
@@ -366,29 +598,7 @@ export function runSet(
         }
       }
 
-      const hydration = patch as {
-        defaults: Defaults;
-        flags: FlagsView;
-        changedFlags?: FlagsView;
-        seenFlags: FlagsView;
-        signal?: string;
-        seenSignals: SeenSignals;
-        scopeProjectionBaseline?: ScopeProjectionBaseline;
-        impulseQ: {
-          q: { entries: ImpulseQEntryCanonical[]; cursor: number };
-          config: {
-            retain?: number | boolean;
-            maxBytes?: number;
-            onTrim?: (info: {
-              entries: readonly ImpulseQEntryCanonical[];
-              stats: { reason: "retain" | "maxBytes"; bytesFreed?: number };
-            }) => void;
-            onError?: RuntimeOnError;
-          };
-        };
-        backfillQ: BackfillQSnapshot;
-      };
-
+      const hydration = patch as Record<string, unknown>;
       const isPristineHydrationTarget =
         store.impulseQ.q.entries.length === 0 &&
         store.impulseQ.q.cursor === 0 &&
@@ -398,12 +608,21 @@ export function runSet(
         store.seenSignals.list.length === 0;
 
       assertValidDefaultsSnapshot(diagnostics, hydration.defaults);
-      store.defaults = hydration.defaults;
-      store.flagsTruth = hydration.flags;
-      store.changedFlags = hydration.changedFlags;
-      store.seenFlags = hydration.seenFlags;
-      store.signal = hydration.signal;
-      store.seenSignals = hydration.seenSignals;
+      const nextDefaults = hydration.defaults as Defaults;
+      const nextFlagsTruth = assertHydrationFlagsView("flags", hydration.flags);
+      const nextSeenFlags = assertHydrationFlagsView(
+        "seenFlags",
+        hydration.seenFlags,
+      );
+      const hasHydrationChangedFlags =
+        hasOwn(hydration, "changedFlags") &&
+        hydration.changedFlags !== undefined;
+      const nextChangedFlags = hasHydrationChangedFlags
+        ? assertHydrationFlagsView("changedFlags", hydration.changedFlags)
+        : undefined;
+      const nextSeenSignals = assertHydrationSeenSignals(hydration.seenSignals);
+      const nextSignal = assertHydrationSignal(hydration.signal);
+      const nextBackfillQ = assertHydrationBackfillQ(hydration.backfillQ);
 
       if (!isRecordObject(hydration.impulseQ)) {
         diagnostics.emit({
@@ -458,7 +677,7 @@ export function runSet(
       }
 
       const canonicalEntries: ImpulseQEntryCanonical[] = [];
-      for (const entry of hydration.impulseQ.q.entries) {
+      for (const entry of hydration.impulseQ.q.entries as unknown[]) {
         let canonical: ReturnType<typeof canonImpulseEntry> | undefined;
 
         try {
@@ -494,7 +713,8 @@ export function runSet(
         canonicalEntries.push(canonical.entry);
       }
 
-      const hydrationCursor = hydration.impulseQ.q.cursor;
+      const hydrationCursor = (hydration.impulseQ.q as Record<string, unknown>)
+        .cursor;
       if (
         typeof hydrationCursor !== "number" ||
         !Number.isInteger(hydrationCursor) ||
@@ -514,63 +734,31 @@ export function runSet(
         throw new Error("set.impulseQ.qInvalid");
       }
 
-      store.impulseQ.q.entries = canonicalEntries;
-      store.impulseQ.q.cursor = hydrationCursor;
-
-      if (
-        hasOwn(hydration, "scopeProjectionBaseline") &&
-        hydration.scopeProjectionBaseline !== undefined
-      ) {
-        store.scopeProjectionBaseline = hydration.scopeProjectionBaseline;
-      } else if (isPristineHydrationTarget) {
-        store.scopeProjectionBaseline = {
-          flags: hydration.flags,
-          changedFlags: hydration.changedFlags,
-          seenFlags: hydration.seenFlags,
-          signal: hydration.signal,
-          seenSignals: hydration.seenSignals,
-        };
-      }
-
-      if (hasOwn(hydration.impulseQ.config, "retain")) {
-        store.impulseQ.config.retain = canonicalRetainForSet(
-          diagnostics,
-          hydration.impulseQ.config.retain,
-        );
-      } else {
-        store.impulseQ.config.retain = 0;
-      }
-
-      if (hasOwn(hydration.impulseQ.config, "maxBytes")) {
-        store.impulseQ.config.maxBytes = canonicalMaxBytesForSet(
-          diagnostics,
-          hydration.impulseQ.config.maxBytes,
-        );
-      } else {
-        store.impulseQ.config.maxBytes = Number.POSITIVE_INFINITY;
-      }
-
-      store.impulseQ.config.onTrim = canonicalOnTrimForSet(
+      const impulseConfig = hydration.impulseQ.config as Record<
+        string,
+        unknown
+      >;
+      const nextRetain = hasOwn(impulseConfig, "retain")
+        ? canonicalRetainForSet(diagnostics, impulseConfig.retain)
+        : 0;
+      const nextMaxBytes = hasOwn(impulseConfig, "maxBytes")
+        ? canonicalMaxBytesForSet(diagnostics, impulseConfig.maxBytes)
+        : Number.POSITIVE_INFINITY;
+      const nextOnTrim = canonicalOnTrimForSet(
         diagnostics,
-        hydration.impulseQ.config.onTrim,
+        impulseConfig.onTrim,
       );
-      store.impulseQ.config.onError = canonicalOnErrorForSet(
+      const nextOnError = canonicalOnErrorForSet(
         diagnostics,
-        hydration.impulseQ.config.onError,
+        impulseConfig.onError,
       );
 
-      store.backfillQ = createBackfillQ();
-      const hydrationBackfillIds = createFlagsView(
-        hydration.backfillQ.list.filter(
-          (id) => hydration.backfillQ.map[id] === true,
-        ),
-      ).list;
-
-      for (const id of hydrationBackfillIds) {
+      const nextBackfillStore = createBackfillQ<RegisteredExpression>();
+      for (const id of nextBackfillQ.list) {
         const expression = expressionRegistry.resolve(id);
         if (expression) {
-          store.backfillQ.list.push(expression);
-          store.backfillQ.map[id] = true;
+          nextBackfillStore.list.push(expression);
+          nextBackfillStore.map[id] = true;
           continue;
         }
 
@@ -580,6 +768,39 @@ export function runSet(
           { regExpressionId: id },
         );
       }
+
+      const nextScopeProjectionBaseline =
+        hasOwn(hydration, "scopeProjectionBaseline") &&
+        hydration.scopeProjectionBaseline !== undefined
+          ? (hydration.scopeProjectionBaseline as ScopeProjectionBaseline)
+          : isPristineHydrationTarget
+            ? {
+                flags: nextFlagsTruth,
+                changedFlags: hasOwn(hydration, "changedFlags")
+                  ? nextChangedFlags
+                  : undefined,
+                seenFlags: nextSeenFlags,
+                signal: nextSignal,
+                seenSignals: nextSeenSignals,
+              }
+            : store.scopeProjectionBaseline;
+
+      store.defaults = nextDefaults;
+      store.flagsTruth = nextFlagsTruth;
+      store.changedFlags = hasOwn(hydration, "changedFlags")
+        ? nextChangedFlags
+        : undefined;
+      store.seenFlags = nextSeenFlags;
+      store.signal = nextSignal;
+      store.seenSignals = nextSeenSignals;
+      store.impulseQ.q.entries = canonicalEntries;
+      store.impulseQ.q.cursor = hydrationCursor;
+      store.impulseQ.config.retain = nextRetain;
+      store.impulseQ.config.maxBytes = nextMaxBytes;
+      store.impulseQ.config.onTrim = nextOnTrim;
+      store.impulseQ.config.onError = nextOnError;
+      store.backfillQ = nextBackfillStore;
+      store.scopeProjectionBaseline = nextScopeProjectionBaseline;
 
       return;
     }
@@ -622,6 +843,23 @@ export function runSet(
       });
       throw new Error("set.flags.addRemoveConflict");
     }
+
+    let nextDefaults = store.defaults;
+    let nextFlagsTruth = store.flagsTruth;
+    let nextChangedFlags = store.changedFlags;
+    let nextSeenFlags = store.seenFlags;
+    let nextSignal = store.signal;
+    let nextSeenSignals = store.seenSignals;
+    let nextImpulseEntries = store.impulseQ.q.entries;
+    let nextImpulseCursor = store.impulseQ.q.cursor;
+    let nextImpulseConfigRetain = store.impulseQ.config.retain;
+    let nextImpulseConfigMaxBytes = store.impulseQ.config.maxBytes;
+    let nextImpulseOnTrim = store.impulseQ.config.onTrim;
+    let nextImpulseOnError = store.impulseQ.config.onError;
+    let nextTrimPendingMaxBytes = store.trimPendingMaxBytes;
+
+    let trimOnTrimError: Error | undefined;
+    let trimRemovedAppliedEntries: ImpulseQEntryCanonical[] | undefined;
 
     if (hasOwn(patch, "flags")) {
       const incoming = patch.flags;
@@ -687,8 +925,8 @@ export function runSet(
         }
       }
 
-      store.flagsTruth = canonical;
-      store.seenFlags = extendSeenFlags(store.seenFlags, canonical.list);
+      nextFlagsTruth = canonical;
+      nextSeenFlags = extendSeenFlags(nextSeenFlags, canonical.list);
     }
 
     if (hasOwn(patch, "addFlags") || hasOwn(patch, "removeFlags")) {
@@ -713,15 +951,15 @@ export function runSet(
         throw new Error("set.flags.addRemoveConflict");
       }
 
-      store.flagsTruth = applyFlagDeltas(
-        store.flagsTruth,
+      nextFlagsTruth = applyFlagDeltas(
+        nextFlagsTruth,
         normalizedAddFlags,
         normalizedRemoveFlags,
       );
-      store.changedFlags = undefined;
+      nextChangedFlags = undefined;
 
       const seenInput = [...normalizedAddFlags, ...normalizedRemoveFlags];
-      store.seenFlags = extendSeenFlags(store.seenFlags, seenInput);
+      nextSeenFlags = extendSeenFlags(nextSeenFlags, seenInput);
     }
 
     if (hasOwn(patch, "signals")) {
@@ -738,13 +976,13 @@ export function runSet(
       }
 
       const nextSignals = patchSignals({
-        ...(store.signal !== undefined ? { previousSignal: store.signal } : {}),
-        previousSeenSignals: store.seenSignals,
+        ...(nextSignal !== undefined ? { previousSignal: nextSignal } : {}),
+        previousSeenSignals: nextSeenSignals,
         signals: patch.signals,
       });
 
-      store.signal = nextSignals.signal;
-      store.seenSignals = nextSignals.seenSignals;
+      nextSignal = nextSignals.signal;
+      nextSeenSignals = nextSignals.seenSignals;
     }
 
     if (hasOwn(patch, "defaults")) {
@@ -753,10 +991,7 @@ export function runSet(
       }
 
       try {
-        store.defaults = setDefaults(
-          store.defaults,
-          patch.defaults as SetDefaults,
-        );
+        nextDefaults = setDefaults(nextDefaults, patch.defaults as SetDefaults);
       } catch {
         throwSetDefaultsInvalid(diagnostics, "defaults", patch.defaults);
       }
@@ -803,61 +1038,80 @@ export function runSet(
 
       if (isRecordObject(impulsePatch.config)) {
         if (hasOwn(impulsePatch.config, "retain")) {
-          store.impulseQ.config.retain = canonicalRetainForSet(
+          nextImpulseConfigRetain = canonicalRetainForSet(
             diagnostics,
             impulsePatch.config.retain,
           );
         }
         if (hasOwn(impulsePatch.config, "maxBytes")) {
-          store.impulseQ.config.maxBytes = canonicalMaxBytesForSet(
+          nextImpulseConfigMaxBytes = canonicalMaxBytesForSet(
             diagnostics,
             impulsePatch.config.maxBytes,
           );
         }
         if (hasOwn(impulsePatch.config, "onTrim")) {
-          store.impulseQ.config.onTrim = canonicalOnTrimForSet(
+          nextImpulseOnTrim = canonicalOnTrimForSet(
             diagnostics,
             impulsePatch.config.onTrim,
           );
         }
         if (hasOwn(impulsePatch.config, "onError")) {
-          store.impulseQ.config.onError = canonicalOnErrorForSet(
+          nextImpulseOnError = canonicalOnErrorForSet(
             diagnostics,
             impulsePatch.config.onError,
           );
         }
 
-        const prevEntries = store.impulseQ.q.entries;
-        const prevCursor = store.impulseQ.q.cursor;
-
         const trimmed = trim({
-          entries: prevEntries,
-          cursor: prevCursor,
-          retain: store.impulseQ.config.retain,
-          maxBytes: store.impulseQ.config.maxBytes,
+          entries: nextImpulseEntries,
+          cursor: nextImpulseCursor,
+          retain: nextImpulseConfigRetain,
+          maxBytes: nextImpulseConfigMaxBytes,
           runtimeStackActive: store.runtimeStackDepth > 0,
-          trimPendingMaxBytes: store.trimPendingMaxBytes,
+          trimPendingMaxBytes: nextTrimPendingMaxBytes,
           measureBytes: measureEntryBytes,
-          ...(store.impulseQ.config.onTrim !== undefined
-            ? { onTrim: store.impulseQ.config.onTrim }
+          ...(nextImpulseOnTrim !== undefined
+            ? { onTrim: nextImpulseOnTrim }
             : {}),
         });
 
-        if (trimmed.onTrimError !== undefined) {
-          store.reportRuntimeError(trimmed.onTrimError, "trim/onTrim");
-        }
-
-        const removedCount = Math.max(0, prevCursor - trimmed.cursor);
+        trimOnTrimError = trimmed.onTrimError as Error | undefined;
+        const removedCount = Math.max(0, nextImpulseCursor - trimmed.cursor);
         if (removedCount > 0) {
-          store.applyTrimmedAppliedEntriesToScopeBaseline(
-            prevEntries.slice(0, removedCount),
-          );
+          trimRemovedAppliedEntries = nextImpulseEntries.slice(0, removedCount);
         }
 
-        store.impulseQ.q.entries = [...trimmed.entries];
-        store.impulseQ.q.cursor = trimmed.cursor;
-        store.trimPendingMaxBytes = trimmed.trimPendingMaxBytes;
+        nextImpulseEntries = [...trimmed.entries];
+        nextImpulseCursor = trimmed.cursor;
+        nextTrimPendingMaxBytes = trimmed.trimPendingMaxBytes;
       }
+    }
+
+    store.defaults = nextDefaults;
+    store.flagsTruth = nextFlagsTruth;
+    store.changedFlags = nextChangedFlags;
+    store.seenFlags = nextSeenFlags;
+    store.signal = nextSignal;
+    store.seenSignals = nextSeenSignals;
+    store.impulseQ.q.entries = nextImpulseEntries;
+    store.impulseQ.q.cursor = nextImpulseCursor;
+    store.impulseQ.config.retain = nextImpulseConfigRetain;
+    store.impulseQ.config.maxBytes = nextImpulseConfigMaxBytes;
+    store.impulseQ.config.onTrim = nextImpulseOnTrim;
+    store.impulseQ.config.onError = nextImpulseOnError;
+    store.trimPendingMaxBytes = nextTrimPendingMaxBytes;
+
+    if (trimOnTrimError !== undefined) {
+      store.reportRuntimeError(trimOnTrimError, "trim/onTrim");
+    }
+
+    if (
+      trimRemovedAppliedEntries !== undefined &&
+      trimRemovedAppliedEntries.length > 0
+    ) {
+      store.applyTrimmedAppliedEntriesToScopeBaseline(
+        trimRemovedAppliedEntries,
+      );
     }
   });
 }

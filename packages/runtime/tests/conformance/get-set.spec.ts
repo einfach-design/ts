@@ -32,6 +32,48 @@ describe("conformance/get-set", () => {
     expect(flags.list).toContain("a");
   });
 
+  it("A1c — set patch must be atomic when a later key is invalid", () => {
+    const run = createRuntime();
+    run.set({ flags: { list: ["x"], map: { x: true } } } as unknown as Record<
+      string,
+      unknown
+    >);
+
+    expect(() =>
+      run.set({
+        flags: { list: ["y"], map: { y: true } },
+        impulseQ: null,
+      } as unknown as Record<string, unknown>),
+    ).toThrow("set.impulseQ.invalid");
+
+    expect((run.get("flags") as { list: string[] }).list).toEqual(["x"]);
+  });
+
+  it("A1d — hydration set must be atomic when impulseQ is invalid", () => {
+    const run = createRuntime();
+    run.set({ flags: { list: ["x"], map: { x: true } } } as unknown as Record<
+      string,
+      unknown
+    >);
+
+    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    s.flags = { list: ["y"], map: { y: true } };
+    s.impulseQ = null;
+
+    expect(() => run.set(s)).toThrow("set.impulseQ.invalid");
+    expect((run.get("flags") as { list: string[] }).list).toEqual(["x"]);
+  });
+
+  it("A1e — defaults.scope invalid value must throw set.defaults.invalid", () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.set({ defaults: { scope: "banana" } } as unknown as Record<
+        string,
+        unknown
+      >),
+    ).toThrow("set.defaults.invalid");
+  });
   it("A2 — scope projection: applied vs pending vs pendingOnly (Spec §4.1)", () => {
     const run = createRuntime();
 
@@ -860,7 +902,7 @@ describe("conformance/get-set", () => {
     run.set({
       ...snapshot,
       changedFlags: { list: ["h"], map: { h: true } },
-      backfillQ: { list: [] },
+      backfillQ: { list: [], map: {} },
     });
 
     expect(run.get("changedFlags" as string | undefined)).toEqual({
