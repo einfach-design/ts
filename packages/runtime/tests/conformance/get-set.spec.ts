@@ -157,6 +157,79 @@ describe("conformance/get-set", () => {
       ).q.entries[0]!.signals,
     ).toEqual(["a"]);
   });
+
+  it("A1j — get(snapshot) impulseQ entries must not keep external references", () => {
+    const run = createRuntime();
+    run.set({ impulseQ: { config: { retain: true } } } as Record<
+      string,
+      unknown
+    >);
+    run.impulse({ signals: ["a"] } as Record<string, unknown>);
+
+    const snap = run.get("impulseQ" as string | undefined, {
+      as: "snapshot",
+    }) as {
+      q: { entries: Array<{ signals: string[] }> };
+    };
+
+    snap.q.entries[0]!.signals.push("MUT");
+
+    expect(
+      (
+        run.get("impulseQ" as string | undefined, {
+          as: "snapshot",
+        }) as {
+          q: { entries: Array<{ signals: string[] }> };
+        }
+      ).q.entries[0]!.signals,
+    ).toEqual(["a"]);
+  });
+
+  it("A1k — hydration must clear trimPendingMaxBytes (no post-hydration stack-exit trim)", () => {
+    const run = createRuntime();
+    run.set({ impulseQ: { config: { retain: true } } } as Record<
+      string,
+      unknown
+    >);
+    run.impulse({ signals: ["a"] } as Record<string, unknown>);
+    run.impulse({ signals: ["b"] } as Record<string, unknown>);
+    run.impulse({ signals: ["c"] } as Record<string, unknown>);
+
+    let hydrated = false;
+    run.onDiagnostic(() => {
+      if (hydrated) {
+        return;
+      }
+
+      hydrated = true;
+      const s = run.get("*", { as: "snapshot" }) as {
+        impulseQ: {
+          config: { retain: number | boolean; maxBytes: number };
+        };
+      };
+      s.impulseQ.config.retain = 0;
+      s.impulseQ.config.maxBytes = Number.POSITIVE_INFINITY;
+      run.set(s as unknown as Record<string, unknown>);
+    });
+
+    run.set({
+      impulseQ: {
+        config: {
+          retain: 1,
+          maxBytes: 0,
+          onTrim: () => {
+            throw new Error("boom");
+          },
+        },
+      },
+    } as Record<string, unknown>);
+
+    const after = run.get("impulseQ" as string | undefined, {
+      as: "snapshot",
+    }) as { q: { cursor: number } };
+
+    expect(after.q.cursor).toBe(1);
+  });
   it("A2 — scope projection: applied vs pending vs pendingOnly (Spec §4.1)", () => {
     const run = createRuntime();
 

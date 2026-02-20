@@ -839,6 +839,9 @@ export function runSet(
       store.impulseQ.config.maxBytes = nextMaxBytes;
       store.impulseQ.config.onTrim = nextOnTrim;
       store.impulseQ.config.onError = nextOnError;
+      // trimPendingMaxBytes is runtime-only and must be reset after successful hydration.
+      // Otherwise a deferred trim from pre-hydration state can fire later as a stale side-effect.
+      store.trimPendingMaxBytes = false;
       store.backfillQ = nextBackfillStore;
       store.scopeProjectionBaseline = nextScopeProjectionBaseline;
 
