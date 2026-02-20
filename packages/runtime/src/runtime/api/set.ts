@@ -47,6 +47,9 @@ const allowedPatchKeys = [
 const toValueType = (value: unknown): string =>
   Array.isArray(value) ? "array" : value === null ? "null" : typeof value;
 
+const isRecordObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && Array.isArray(value) === false;
+
 const canonicalRetainForSet = (
   diagnostics: DiagnosticCollector,
   retain: unknown,
@@ -191,7 +194,7 @@ export function runSet(
   patch: Record<string, unknown>,
 ): void {
   store.withRuntimeStack(() => {
-    if (!isObject(patch)) {
+    if (!isRecordObject(patch)) {
       const valueType = Array.isArray(patch)
         ? "array"
         : patch === null
@@ -258,7 +261,7 @@ export function runSet(
       store.signal = hydration.signal;
       store.seenSignals = hydration.seenSignals;
 
-      if (!isObject(hydration.impulseQ)) {
+      if (!isRecordObject(hydration.impulseQ)) {
         diagnostics.emit({
           code: "set.impulseQ.invalid",
           message: "impulseQ value must be an object.",
@@ -270,7 +273,7 @@ export function runSet(
         throw new Error("set.impulseQ.invalid");
       }
 
-      if (!isObject(hydration.impulseQ.q)) {
+      if (!isRecordObject(hydration.impulseQ.q)) {
         diagnostics.emit({
           code: "set.impulseQ.qInvalid",
           message: "impulseQ.q must be an object in hydration snapshots.",
@@ -283,7 +286,7 @@ export function runSet(
         throw new Error("set.impulseQ.qInvalid");
       }
 
-      if (!isObject(hydration.impulseQ.config)) {
+      if (!isRecordObject(hydration.impulseQ.config)) {
         diagnostics.emit({
           code: "set.impulseQ.configInvalid",
           message: "impulseQ.config must be an object.",
@@ -574,7 +577,7 @@ export function runSet(
 
     if (hasOwn(patch, "impulseQ")) {
       const impulsePatch = patch.impulseQ;
-      if (!isObject(impulsePatch)) {
+      if (!isRecordObject(impulsePatch)) {
         const valueType = toValueType(impulsePatch);
         diagnostics.emit({
           code: "set.impulseQ.invalid",
@@ -595,7 +598,10 @@ export function runSet(
         throw new Error("set.impulseQ.qForbidden");
       }
 
-      if (hasOwn(impulsePatch, "config") && !isObject(impulsePatch.config)) {
+      if (
+        hasOwn(impulsePatch, "config") &&
+        !isRecordObject(impulsePatch.config)
+      ) {
         diagnostics.emit({
           code: "set.impulseQ.configInvalid",
           message: "impulseQ.config must be an object.",
@@ -608,7 +614,7 @@ export function runSet(
         throw new Error("set.impulseQ.configInvalid");
       }
 
-      if (isObject(impulsePatch.config)) {
+      if (isRecordObject(impulsePatch.config)) {
         if (hasOwn(impulsePatch.config, "retain")) {
           store.impulseQ.config.retain = canonicalRetainForSet(
             diagnostics,
