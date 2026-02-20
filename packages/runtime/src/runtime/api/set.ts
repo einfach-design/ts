@@ -105,6 +105,14 @@ export function runSet(
         backfillQ: BackfillQSnapshot;
       };
 
+      const isPristineHydrationTarget =
+        store.impulseQ.q.entries.length === 0 &&
+        store.impulseQ.q.cursor === 0 &&
+        store.flagsTruth.list.length === 0 &&
+        store.seenFlags.list.length === 0 &&
+        store.signal === undefined &&
+        store.seenSignals.list.length === 0;
+
       store.defaults = hydration.defaults;
       store.flagsTruth = hydration.flags;
       store.changedFlags = hydration.changedFlags;
@@ -115,13 +123,12 @@ export function runSet(
       store.impulseQ.q.entries = hydration.impulseQ.q.entries;
       store.impulseQ.q.cursor = hydration.impulseQ.q.cursor;
 
-      store.resetScopeProjectionBaseline();
       if (
         hasOwn(hydration, "scopeProjectionBaseline") &&
         hydration.scopeProjectionBaseline !== undefined
       ) {
         store.scopeProjectionBaseline = hydration.scopeProjectionBaseline;
-      } else {
+      } else if (isPristineHydrationTarget) {
         store.scopeProjectionBaseline = {
           flags: hydration.flags,
           changedFlags: hydration.changedFlags,
