@@ -104,23 +104,24 @@ describe("targets/dispatch", () => {
     expect(reportError).not.toHaveBeenCalled();
   });
 
-  it("report mode reports missing signal handler for object targets", () => {
+  it("report mode is silent for missing signal handler on object targets", () => {
     const reportError = vi.fn();
+    const everyRun = vi.fn();
     const result = dispatch({
       targetKind: "object",
-      target: { on: { everyRun: vi.fn() } },
+      target: { on: { everyRun } },
       signal: "foo",
       args: [],
       onError: "report",
       reportError,
     });
 
+    expect(everyRun).toHaveBeenCalledWith();
     expect(result.attempted).toBe(1);
-    expect(reportError).toHaveBeenCalledOnce();
-    expect(reportError.mock.calls[0]?.[0].context.handler).toBe("foo");
+    expect(reportError).not.toHaveBeenCalled();
   });
 
-  it("throw mode throws on missing signal handler for object targets", () => {
+  it("throw mode is silent for missing signal handler on object targets", () => {
     expect(() =>
       dispatch({
         targetKind: "object",
@@ -129,6 +130,15 @@ describe("targets/dispatch", () => {
         args: [],
         onError: "throw",
       }),
-    ).toThrow('Object target is missing handler for signal "foo".');
+    ).not.toThrow();
+
+    const result = dispatch({
+      targetKind: "object",
+      target: { on: { everyRun: vi.fn() } },
+      signal: "foo",
+      args: [],
+      onError: "throw",
+    });
+    expect(result.attempted).toBe(1);
   });
 });
