@@ -288,30 +288,31 @@ function readonlyView<T>(value: T): T {
 }
 
 function measureEntryBytes(entry: ImpulseQEntryCanonical): number {
-  let bytes = 0;
+  const seen = new WeakSet<object>();
+  const serialized = JSON.stringify(entry, (_key, value: unknown) => {
+    if (typeof value === "bigint") {
+      return `${value.toString()}n`;
+    }
 
-  for (const signal of entry.signals) {
-    bytes += signal.length;
-  }
+    if (typeof value === "function") {
+      return "[function]";
+    }
 
-  for (const addFlag of entry.addFlags) {
-    bytes += addFlag.length;
-  }
+    if (typeof value === "symbol") {
+      return value.toString();
+    }
 
-  for (const removeFlag of entry.removeFlags) {
-    bytes += removeFlag.length;
-  }
+    if (typeof value === "object" && value !== null) {
+      if (seen.has(value)) {
+        return "[circular]";
+      }
+      seen.add(value);
+    }
 
-  if (entry.useFixedFlags !== false) {
-    bytes += entry.useFixedFlags.list.length;
-  }
+    return value;
+  });
 
-  if (hasOwn(entry, "livePayload")) {
-    bytes +=
-      typeof entry.livePayload === "string" ? entry.livePayload.length : 64;
-  }
-
-  return bytes;
+  return serialized === undefined ? 0 : serialized.length;
 }
 
 export {
