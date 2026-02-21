@@ -179,6 +179,58 @@ const assertValidDefaultsSnapshot = (
     "defaults.gate.flags",
     "boolean",
   );
+
+  if (!isRecordObject(defaultsRecord.methods)) {
+    throwSetDefaultsInvalid(
+      diagnostics,
+      "defaults.methods",
+      defaultsRecord.methods,
+    );
+  }
+
+  const methods = defaultsRecord.methods as Record<string, unknown>;
+  for (const method of ["on", "when"] as const) {
+    if (!isRecordObject(methods[method])) {
+      throwSetDefaultsInvalid(
+        diagnostics,
+        `defaults.methods.${method}`,
+        methods[method],
+      );
+    }
+
+    const entry = methods[method] as Record<string, unknown>;
+    if (
+      hasOwn(entry, "signals") ||
+      hasOwn(entry, "flags") ||
+      hasOwn(entry, "targets")
+    ) {
+      throwSetDefaultsInvalid(diagnostics, `defaults.methods.${method}`, entry);
+    }
+
+    const stack: Array<{ value: Record<string, unknown>; path: string }> = [
+      { value: entry, path: `defaults.methods.${method}` },
+    ];
+
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      for (const key of Object.keys(current.value)) {
+        const nextValue = current.value[key];
+        if (nextValue === undefined) {
+          throwSetDefaultsInvalid(
+            diagnostics,
+            `${current.path}.${key}`,
+            nextValue,
+          );
+        }
+        if (isRecordObject(nextValue)) {
+          stack.push({
+            value: nextValue,
+            path: `${current.path}.${key}`,
+          });
+        }
+      }
+    }
+  }
 };
 
 const canonicalRetainForSet = (
@@ -633,6 +685,14 @@ export function runSet(
             force:
               hydrationDefaults.gate.flags.force === true ? true : undefined,
           },
+        },
+        methods: {
+          on: isRecordObject(hydrationDefaults.methods.on)
+            ? structuredClone(hydrationDefaults.methods.on)
+            : {},
+          when: isRecordObject(hydrationDefaults.methods.when)
+            ? structuredClone(hydrationDefaults.methods.when)
+            : {},
         },
       };
       const nextFlagsTruth = assertHydrationFlagsView("flags", hydration.flags);

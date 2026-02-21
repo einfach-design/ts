@@ -99,7 +99,20 @@ export type RuntimeStore<
 export function initRuntimeStore<
   TExpression extends BackfillExpression = BackfillExpression,
 >(): RuntimeStore<TExpression> {
-  let defaults: Defaults = globalDefaults;
+  let defaults: Defaults = {
+    scope: {
+      signal: { ...globalDefaults.scope.signal },
+      flags: { ...globalDefaults.scope.flags },
+    },
+    gate: {
+      signal: { ...globalDefaults.gate.signal },
+      flags: { ...globalDefaults.gate.flags },
+    },
+    methods: {
+      on: { ...globalDefaults.methods.on },
+      when: { ...globalDefaults.methods.when },
+    },
+  };
   let flagsTruth: FlagsView = createFlagsView([]);
   let changedFlags: FlagsView | undefined;
   let seenFlags: FlagsView = createFlagsView([]);
