@@ -70,6 +70,48 @@ export type RunGetKey =
 
 export type RunSetInput = Readonly<Record<string, unknown>>;
 
+export type MatchFlagSpecValue = true | false | "*";
+
+export type MatchFlagSpec = Readonly<{
+  flag: string;
+  value: MatchFlagSpecValue;
+}>;
+
+export type MatchFlagsView = Readonly<{
+  map: Record<string, true>;
+  list?: readonly string[];
+}>;
+
+export type MatchExpressionOpts = Readonly<{
+  expression: Readonly<{
+    signal?: unknown;
+    flags?: readonly MatchFlagSpec[];
+    required?: Readonly<{
+      flags?: Readonly<{
+        min?: number;
+        max?: number;
+        changed?: number;
+      }>;
+    }>;
+  }>;
+  defaults?: Readonly<{
+    gate: Readonly<{
+      signal: Readonly<{ value: boolean }>;
+      flags: Readonly<{ value: boolean }>;
+    }>;
+  }>;
+  gate?: Readonly<{
+    signal?: boolean;
+    flags?: boolean;
+  }>;
+  reference?: Readonly<{
+    signal?: unknown;
+    flags?: MatchFlagsView;
+    changedFlags?: MatchFlagsView | undefined;
+  }>;
+  changedFlags?: MatchFlagsView | undefined;
+}>;
+
 export type RunTime = Readonly<{
   add: (opts: AddOpts) => () => void;
   on: (opts: AddOpts) => () => void;
@@ -80,6 +122,6 @@ export type RunTime = Readonly<{
     opts?: { as?: "snapshot" | "reference"; scope?: RunScope },
   ) => unknown;
   set: (patch: RunSetInput) => void;
-  matchExpression: (opts: Record<string, unknown>) => boolean;
+  matchExpression: (opts: MatchExpressionOpts) => boolean;
   onDiagnostic: (handler: (diagnostic: Diagnostic) => void) => () => void;
 }>;

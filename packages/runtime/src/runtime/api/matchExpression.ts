@@ -7,27 +7,22 @@
  */
 
 import { matchExpression } from "../../match/matchExpression.js";
+import type { MatchExpressionOpts } from "../../index.types.js";
 import type { RuntimeStore } from "../store.js";
 import { toMatchFlagsView } from "../util.js";
 
 type MatchExpressionEngineInput = Parameters<typeof matchExpression>[0];
-type MatchExpressionWrapperInput = Omit<
-  MatchExpressionEngineInput,
-  "defaults" | "reference" | "fallbackReference"
-> & {
-  defaults?: MatchExpressionEngineInput["defaults"];
-  reference?: MatchExpressionEngineInput["reference"];
-};
+type MatchExpressionEngineReference = NonNullable<
+  MatchExpressionEngineInput["reference"]
+>;
 
 export function runMatchExpression(
   store: RuntimeStore,
   deps: { runMatchExpression?: typeof matchExpression },
-  input: MatchExpressionWrapperInput,
+  input: MatchExpressionOpts,
 ): boolean {
   return store.withRuntimeStack(() => {
-    const runtimeReference: NonNullable<
-      MatchExpressionEngineInput["reference"]
-    > = {};
+    const runtimeReference: MatchExpressionEngineReference = {};
 
     if (store.signal !== undefined) runtimeReference.signal = store.signal;
     const flags = toMatchFlagsView(store.flagsTruth);
@@ -44,7 +39,9 @@ export function runMatchExpression(
     return engine({
       ...(input as Omit<MatchExpressionEngineInput, "defaults" | "reference">),
       defaults: mergedDefaults,
-      reference: input.reference ?? runtimeReference,
+      reference:
+        (input.reference as MatchExpressionEngineReference | undefined) ??
+        runtimeReference,
       fallbackReference: runtimeReference,
     });
   });
