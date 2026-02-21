@@ -33,7 +33,10 @@ export type AddOpts = Readonly<{
   required?: { flags?: { min?: number; max?: number; changed?: number } };
   target?: TargetToken;
   targets?: readonly TargetToken[];
-  backfill?: { signal?: { debt?: number }; flags?: { debt?: number } };
+  backfill?: {
+    signal?: { debt?: number; runs?: { max?: number } };
+    flags?: { debt?: number; runs?: { max?: number } };
+  };
   runs?: { max: number };
   onError?: OnError;
   retroactive?: boolean;
@@ -69,6 +72,8 @@ export type RunSetInput = Readonly<Record<string, unknown>>;
 
 export type RunTime = Readonly<{
   add: (opts: AddOpts) => () => void;
+  on: (opts: AddOpts) => () => void;
+  when: (opts: AddOpts) => () => void;
   impulse: (opts?: ImpulseOpts) => void;
   get: (
     key?: RunGetKey,
