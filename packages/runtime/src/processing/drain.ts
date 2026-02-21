@@ -40,9 +40,7 @@ export function drain<TEntry>(opts: DrainOptions<TEntry>): DrainResult {
     };
   }
 
-  const startCursor = opts.cursor;
-
-  for (let index = startCursor; index < opts.entries.length; index += 1) {
+  for (let index = opts.cursor; index < opts.entries.length; index += 1) {
     const entry = opts.entries[index] as TEntry;
 
     try {
@@ -55,7 +53,7 @@ export function drain<TEntry>(opts: DrainOptions<TEntry>): DrainResult {
       });
 
       return {
-        cursor: startCursor,
+        cursor: Math.min(index + 1, opts.entries.length),
         draining: false,
         aborted: true,
       };
