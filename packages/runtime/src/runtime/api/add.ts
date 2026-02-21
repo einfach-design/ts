@@ -18,6 +18,66 @@ const toValueType = (value: unknown): string =>
 const isRecordObject = (value: unknown): value is Record<string, unknown> =>
   isObject(value) && Array.isArray(value) === false;
 
+const canonicalRunsMaxForAdd = (
+  diagnostics: DiagnosticCollector,
+  source: Record<string, unknown>,
+): number => {
+  if (!hasOwn(source, "runs")) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  if (!isRecordObject(source.runs)) {
+    diagnostics.emit({
+      code: "add.runs.invalid",
+      message: "run.add runs must be an object.",
+      severity: "error",
+      data: {
+        field: "runs",
+        valueType: toValueType(source.runs),
+      },
+    });
+    throw new Error("add.runs.invalid");
+  }
+
+  const runs = source.runs;
+  if (!hasOwn(runs, "max")) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const max = runs.max;
+  if (typeof max !== "number") {
+    diagnostics.emit({
+      code: "add.runs.max.invalid",
+      message: "run.add runs.max must be a number.",
+      severity: "error",
+      data: {
+        field: "runs.max",
+        valueType: toValueType(max),
+      },
+    });
+    throw new Error("add.runs.max.invalid");
+  }
+
+  if (max === Number.POSITIVE_INFINITY) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  if (Number.isFinite(max)) {
+    return Math.max(1, Math.floor(max));
+  }
+
+  diagnostics.emit({
+    code: "add.runs.max.invalid",
+    message: "run.add runs.max must be finite or positive infinity.",
+    severity: "error",
+    data: {
+      field: "runs.max",
+      valueType: toValueType(max),
+    },
+  });
+  throw new Error("add.runs.max.invalid");
+};
+
 const canonicalRequiredForAdd = (
   diagnostics: DiagnosticCollector,
   source: Record<string, unknown>,
@@ -228,13 +288,7 @@ export function runAdd(
     const ids: string[] = [];
     const retroactive =
       hasOwn(source, "retroactive") && source.retroactive === true;
-    const runsMax =
-      hasOwn(source, "runs") &&
-      isObject(source.runs) &&
-      typeof source.runs.max === "number" &&
-      Number.isFinite(source.runs.max)
-        ? Math.max(1, Math.floor(source.runs.max))
-        : Number.POSITIVE_INFINITY;
+    const runsMax = canonicalRunsMaxForAdd(diagnostics, source);
 
     const readBackfillGateRunsMax = (
       gate: "signal" | "flags",
@@ -245,20 +299,68 @@ export function runAdd(
       }
 
       const backfill = source.backfill;
-      if (!hasOwn(backfill, gate) || !isObject(backfill[gate])) {
+      if (!hasOwn(backfill, gate) || !isRecordObject(backfill[gate])) {
         return fallback;
       }
 
       const gateConfig = backfill[gate];
-      if (!hasOwn(gateConfig, "runs") || !isObject(gateConfig.runs)) {
+      if (!hasOwn(gateConfig, "runs")) {
         return fallback;
       }
 
-      return hasOwn(gateConfig.runs, "max") &&
-        typeof gateConfig.runs.max === "number" &&
-        Number.isFinite(gateConfig.runs.max)
-        ? Math.max(1, Math.floor(gateConfig.runs.max))
-        : fallback;
+      if (!isRecordObject(gateConfig.runs)) {
+        const code = `add.backfill.${gate}.runs.invalid` as const;
+        diagnostics.emit({
+          code,
+          message: `run.add backfill.${gate}.runs must be an object.`,
+          severity: "error",
+          data: {
+            field: `backfill.${gate}.runs`,
+            valueType: toValueType(gateConfig.runs),
+          },
+        });
+        throw new Error(code);
+      }
+
+      const runs = gateConfig.runs;
+      if (!hasOwn(runs, "max")) {
+        return fallback;
+      }
+
+      const max = runs.max;
+      if (typeof max !== "number") {
+        const code = `add.backfill.${gate}.runs.max.invalid` as const;
+        diagnostics.emit({
+          code,
+          message: `run.add backfill.${gate}.runs.max must be a number.`,
+          severity: "error",
+          data: {
+            field: `backfill.${gate}.runs.max`,
+            valueType: toValueType(max),
+          },
+        });
+        throw new Error(code);
+      }
+
+      if (max === Number.POSITIVE_INFINITY) {
+        return Number.POSITIVE_INFINITY;
+      }
+
+      if (Number.isFinite(max)) {
+        return Math.max(1, Math.floor(max));
+      }
+
+      const code = `add.backfill.${gate}.runs.max.invalid` as const;
+      diagnostics.emit({
+        code,
+        message: `run.add backfill.${gate}.runs.max must be finite or positive infinity.`,
+        severity: "error",
+        data: {
+          field: `backfill.${gate}.runs.max`,
+          valueType: toValueType(max),
+        },
+      });
+      throw new Error(code);
     };
 
     const readBackfillDebt = (gate: "signal" | "flags"): number | undefined => {

@@ -163,6 +163,74 @@ describe("conformance/diagnostic-codes", () => {
     ).toThrow("add.required.flags.changedInvalid");
     expect(codes).toContain("add.required.flags.changedInvalid");
   });
+
+  it("emits add.runs.invalid when runs is not an object", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.add({
+        targets: [() => undefined],
+        runs: [],
+      } as unknown as Record<string, unknown>),
+    ).toThrow("add.runs.invalid");
+    expect(codes).toContain("add.runs.invalid");
+  });
+
+  it("emits add.runs.max.invalid when runs.max is negative infinity", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.add({
+        targets: [() => undefined],
+        runs: { max: Number.NEGATIVE_INFINITY },
+      }),
+    ).toThrow("add.runs.max.invalid");
+    expect(codes).toContain("add.runs.max.invalid");
+  });
+
+  it("emits add.backfill.signal.runs.max.invalid for non-number backfill signal runs.max", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.add({
+        targets: [() => undefined],
+        backfill: { signal: { runs: { max: "3" } } },
+      } as unknown as Record<string, unknown>),
+    ).toThrow("add.backfill.signal.runs.max.invalid");
+    expect(codes).toContain("add.backfill.signal.runs.max.invalid");
+  });
+
+  it("emits add.backfill.flags.runs.invalid for invalid backfill flags runs", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.add({
+        targets: [() => undefined],
+        backfill: { flags: { runs: null } },
+      } as unknown as Record<string, unknown>),
+    ).toThrow("add.backfill.flags.runs.invalid");
+    expect(codes).toContain("add.backfill.flags.runs.invalid");
+  });
   it("emits set.impulseQ.configInvalid and throws for non-object config patch", () => {
     const run = createRuntime();
     const codes: string[] = [];
