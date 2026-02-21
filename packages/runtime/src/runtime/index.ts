@@ -48,39 +48,7 @@ import { runMatchExpression as runMatchExpressionApi } from "./api/matchExpressi
 import { runOnDiagnostic } from "./api/onDiagnostic.js";
 import { runSet } from "./api/set.js";
 import type { ActOccurrence } from "../processing/actImpulse.js";
-
-type RuntimeAddBackfillInput = {
-  signal?: { debt?: number; runs?: { max?: number } };
-  flags?: { debt?: number; runs?: { max?: number } };
-};
-
-type Runtime = Readonly<{
-  add: (opts: {
-    id?: string;
-    signal?: string;
-    signals?: readonly string[];
-    flags?: FlagSpecInput;
-    required?: { flags?: { min?: number; max?: number; changed?: number } };
-    target?: RuntimeTarget;
-    targets?: readonly RuntimeTarget[];
-    backfill?: RuntimeAddBackfillInput;
-    runs?: { max: number };
-    onError?: "throw" | "report" | "swallow" | ((error: unknown) => void);
-    retroactive?: boolean;
-  }) => () => void;
-  on: (opts: Record<string, unknown>) => () => void;
-  when: (opts: Record<string, unknown>) => () => void;
-  impulse: (opts?: unknown) => void;
-  get: (
-    key?: string,
-    opts?: { as?: "snapshot" | "reference"; scope?: string },
-  ) => unknown;
-  set: (patch: Record<string, unknown>) => void;
-  matchExpression: (opts: Parameters<typeof runMatchExpression>[0]) => boolean;
-  onDiagnostic: (
-    handler: (diagnostic: RuntimeDiagnostic) => void,
-  ) => () => void;
-}>;
+import type { AddOpts, RunGetKey, RunScope, RunTime } from "../index.types.js";
 
 const isFlagSpecValue = (value: unknown): value is FlagSpec["value"] =>
   value === true || value === false || value === "*";
@@ -116,10 +84,38 @@ const toMatcherExpression = (
   return base;
 };
 
+type RuntimeCompat = Readonly<{
+  add: (opts: {
+    id?: string;
+    signal?: string;
+    signals?: readonly string[];
+    flags?: FlagSpecInput;
+    required?: { flags?: { min?: number; max?: number; changed?: number } };
+    target?: RuntimeTarget;
+    targets?: readonly RuntimeTarget[];
+    backfill?: AddOpts["backfill"];
+    runs?: { max: number };
+    onError?: AddOpts["onError"];
+    retroactive?: boolean;
+  }) => () => void;
+  on: (opts: AddOpts) => () => void;
+  when: (opts: AddOpts) => () => void;
+  impulse: (opts?: unknown) => void;
+  get: (
+    key?: string,
+    opts?: { as?: "snapshot" | "reference"; scope?: string },
+  ) => unknown;
+  set: (patch: Record<string, unknown>) => void;
+  matchExpression: (opts: Parameters<typeof runMatchExpression>[0]) => boolean;
+  onDiagnostic: (
+    handler: (diagnostic: RuntimeDiagnostic) => void,
+  ) => () => void;
+}>;
+
 /**
  * Creates a Runtime instance as defined by the Runtime Spec.
  */
-export function createRuntime(): Runtime {
+export function createRuntime(): RuntimeCompat {
   const expressionRegistry = registry<RegisteredExpression>();
   const store = initRuntimeStore<RegisteredExpression>();
 
@@ -156,8 +152,8 @@ export function createRuntime(): Runtime {
   const runtimeCore: RuntimeCore = {
     get(key, opts) {
       return runtime.get(
-        key as string | undefined,
-        opts as { as?: "snapshot" | "reference"; scope?: string } | undefined,
+        key as RunGetKey | undefined,
+        opts as { as?: "snapshot" | "reference"; scope?: RunScope } | undefined,
       );
     },
     matchExpression(opts) {
@@ -681,8 +677,8 @@ export function createRuntime(): Runtime {
 
   const buildEffectiveAddOpts = (
     method: "on" | "when",
-    opts: Record<string, unknown>,
-  ): Record<string, unknown> => {
+    opts: AddOpts,
+  ): AddOpts => {
     const defaults = store.defaults.methods[method] as Record<string, unknown>;
     const effective: Record<string, unknown> = { ...opts };
 
@@ -700,7 +696,9 @@ export function createRuntime(): Runtime {
       return undefined;
     };
 
-    const runsSource = resolve(opts, defaults, "runs");
+    const optsRecord = opts as Record<string, unknown>;
+
+    const runsSource = resolve(optsRecord, defaults, "runs");
     if (isObject(runsSource) && hasOwn(runsSource, "max")) {
       const nextRuns = isObject(opts.runs)
         ? { ...(opts.runs as Record<string, unknown>) }
@@ -709,7 +707,7 @@ export function createRuntime(): Runtime {
       effective.runs = nextRuns;
     }
 
-    const requiredSource = resolve(opts, defaults, "required");
+    const requiredSource = resolve(optsRecord, defaults, "required");
     if (isObject(requiredSource)) {
       const requiredFlags = isObject(requiredSource.flags)
         ? requiredSource.flags
@@ -748,7 +746,7 @@ export function createRuntime(): Runtime {
       }
     }
 
-    const backfillSource = resolve(opts, defaults, "backfill");
+    const backfillSource = resolve(optsRecord, defaults, "backfill");
     if (isObject(backfillSource)) {
       const backfillOut: Record<string, unknown> = {};
       for (const dim of ["signal", "flags"] as const) {
@@ -800,17 +798,17 @@ export function createRuntime(): Runtime {
     }
 
     for (const key of ["retroactive", "scope", "gate"] as const) {
-      if (hasOwn(opts, key)) {
-        effective[key] = structuredClone(opts[key]);
+      if (hasOwn(optsRecord, key)) {
+        effective[key] = structuredClone(optsRecord[key]);
       } else if (hasOwn(defaults, key)) {
         effective[key] = structuredClone(defaults[key]);
       }
     }
 
-    return effective;
+    return effective as AddOpts;
   };
 
-  const runtime: Runtime = {
+  const runtime: RunTime = {
     add(opts) {
       const addDeps = {
         expressionRegistry: deps.expressionRegistry as unknown as Parameters<
@@ -853,7 +851,11 @@ export function createRuntime(): Runtime {
     },
 
     matchExpression(input) {
-      return runMatchExpressionApi(store, deps, input);
+      return runMatchExpressionApi(
+        store,
+        deps,
+        input as Parameters<typeof runMatchExpressionApi>[2],
+      );
     },
 
     onDiagnostic(handler) {
@@ -861,5 +863,5 @@ export function createRuntime(): Runtime {
     },
   };
 
-  return runtime;
+  return runtime as RuntimeCompat;
 }
