@@ -228,6 +228,33 @@ const assertNumber = (value: unknown, context: string): number => {
   return value;
 };
 
+const canonicalRunsMax = (value: unknown, context: string): number => {
+  const resolved = assertNumber(value, context);
+
+  if (Number.isFinite(resolved)) {
+    return Math.max(1, Math.floor(resolved));
+  }
+
+  if (resolved === Number.POSITIVE_INFINITY) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  throw new Error(`${context} must be finite or Infinity.`);
+};
+
+const canonicalRequiredFlagsValue = (
+  value: unknown,
+  context: string,
+): number => {
+  const resolved = assertNumber(value, context);
+
+  if (Number.isFinite(resolved) === false) {
+    throw new Error(`${context} must be finite number.`);
+  }
+
+  return Math.max(0, Math.floor(resolved));
+};
+
 const canonicalMethodScope = (
   source: Exclude<SetDefaults["scope"], undefined>,
   context: string,
@@ -374,7 +401,7 @@ const canonicalMethodDefaultsEntry = (
     assertValidPresentValue(source.runs, "max", `${context}.runs.max`);
     out.runs = {};
     if (hasOwn(source.runs, "max")) {
-      out.runs.max = assertNumber(source.runs.max, `${context}.runs.max`);
+      out.runs.max = canonicalRunsMax(source.runs.max, `${context}.runs.max`);
     }
   }
 
@@ -413,19 +440,19 @@ const canonicalMethodDefaultsEntry = (
 
       out.required.flags = {};
       if (hasOwn(source.required.flags, "min")) {
-        out.required.flags.min = assertNumber(
+        out.required.flags.min = canonicalRequiredFlagsValue(
           source.required.flags.min,
           `${context}.required.flags.min`,
         );
       }
       if (hasOwn(source.required.flags, "max")) {
-        out.required.flags.max = assertNumber(
+        out.required.flags.max = canonicalRequiredFlagsValue(
           source.required.flags.max,
           `${context}.required.flags.max`,
         );
       }
       if (hasOwn(source.required.flags, "changed")) {
-        out.required.flags.changed = assertNumber(
+        out.required.flags.changed = canonicalRequiredFlagsValue(
           source.required.flags.changed,
           `${context}.required.flags.changed`,
         );
@@ -476,7 +503,7 @@ const canonicalMethodDefaultsEntry = (
         );
         dimOut.runs = {};
         if (hasOwn(value.runs, "max")) {
-          dimOut.runs.max = assertNumber(
+          dimOut.runs.max = canonicalRunsMax(
             value.runs.max,
             `${context}.backfill.${dim}.runs.max`,
           );

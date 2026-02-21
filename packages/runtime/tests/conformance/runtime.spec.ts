@@ -185,6 +185,42 @@ describe("conformance/runtime", () => {
     expect(calls).toEqual(["hit"]);
   });
 
+  it("E4.1 — required.flags numbers are canonicalized to non-negative integers", () => {
+    const run = createRuntime();
+
+    run.add({
+      id: "expr:required-canonical",
+      required: { flags: { min: 1.9, max: -3.4, changed: 2.2 } },
+      targets: [() => undefined],
+    });
+
+    const registeredById = run.get("registeredById") as Map<
+      string,
+      {
+        required?: { flags?: { min?: number; max?: number; changed?: number } };
+      }
+    >;
+    const expression = registeredById.get("expr:required-canonical");
+
+    expect(expression?.required?.flags).toEqual({ min: 1, max: 0, changed: 2 });
+  });
+
+  it("E4.2 — empty required payload does not persist on registered expression", () => {
+    const run = createRuntime();
+
+    run.add({
+      id: "expr:required-empty",
+      required: { flags: {} },
+      targets: [() => undefined],
+    });
+
+    const registeredById = run.get("registeredById") as Map<
+      string,
+      { required?: unknown }
+    >;
+
+    expect(registeredById.get("expr:required-empty")?.required).toBeUndefined();
+  });
   it("E5 — default runs.max stays unbounded for repeated matches (Spec §2.11.3, §4.4)", () => {
     const run = createRuntime();
     const calls: string[] = [];

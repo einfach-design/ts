@@ -12,6 +12,128 @@ import type {
   RuntimeTarget,
 } from "../../runs/coreRun.js";
 
+const toValueType = (value: unknown): string =>
+  Array.isArray(value) ? "array" : value === null ? "null" : typeof value;
+
+const isRecordObject = (value: unknown): value is Record<string, unknown> =>
+  isObject(value) && Array.isArray(value) === false;
+
+const canonicalRequiredForAdd = (
+  diagnostics: DiagnosticCollector,
+  source: Record<string, unknown>,
+): RegisteredExpression["required"] => {
+  if (!hasOwn(source, "required")) {
+    return undefined;
+  }
+
+  if (!isRecordObject(source.required)) {
+    diagnostics.emit({
+      code: "add.required.invalid",
+      message: "run.add required must be an object.",
+      severity: "error",
+      data: {
+        field: "required",
+        valueType: toValueType(source.required),
+      },
+    });
+    throw new Error("add.required.invalid");
+  }
+
+  for (const key of Object.keys(source.required)) {
+    if (key !== "flags") {
+      diagnostics.emit({
+        code: "add.required.invalid",
+        message: "run.add required only supports the flags key.",
+        severity: "error",
+        data: {
+          field: "required",
+          key,
+        },
+      });
+      throw new Error("add.required.invalid");
+    }
+  }
+
+  const requiredSource = source.required;
+  const requiredOut: NonNullable<RegisteredExpression["required"]> = {};
+
+  if (hasOwn(requiredSource, "flags")) {
+    if (!isRecordObject(requiredSource.flags)) {
+      diagnostics.emit({
+        code: "add.required.flags.invalid",
+        message: "run.add required.flags must be an object.",
+        severity: "error",
+        data: {
+          field: "required.flags",
+          valueType: toValueType(requiredSource.flags),
+        },
+      });
+      throw new Error("add.required.flags.invalid");
+    }
+
+    for (const key of Object.keys(requiredSource.flags)) {
+      if (key !== "min" && key !== "max" && key !== "changed") {
+        diagnostics.emit({
+          code: "add.required.flags.invalid",
+          message: "run.add required.flags only supports min, max and changed.",
+          severity: "error",
+          data: {
+            field: "required.flags",
+            key,
+          },
+        });
+        throw new Error("add.required.flags.invalid");
+      }
+    }
+
+    const flagsSource = requiredSource.flags;
+    const flagsOut: NonNullable<
+      NonNullable<RegisteredExpression["required"]>["flags"]
+    > = {};
+
+    const normalizeRequiredFlagsNumber = (
+      key: "min" | "max" | "changed",
+      errorCode:
+        | "add.required.flags.minInvalid"
+        | "add.required.flags.maxInvalid"
+        | "add.required.flags.changedInvalid",
+    ): void => {
+      if (!hasOwn(flagsSource, key)) {
+        return;
+      }
+
+      const value = flagsSource[key];
+      if (typeof value !== "number" || Number.isFinite(value) === false) {
+        diagnostics.emit({
+          code: errorCode,
+          message: `run.add required.flags.${key} must be a finite number.`,
+          severity: "error",
+          data: {
+            field: `required.flags.${key}`,
+            valueType: toValueType(value),
+          },
+        });
+        throw new Error(errorCode);
+      }
+
+      flagsOut[key] = Math.max(0, Math.floor(value));
+    };
+
+    normalizeRequiredFlagsNumber("min", "add.required.flags.minInvalid");
+    normalizeRequiredFlagsNumber("max", "add.required.flags.maxInvalid");
+    normalizeRequiredFlagsNumber(
+      "changed",
+      "add.required.flags.changedInvalid",
+    );
+
+    if (Object.keys(flagsOut).length > 0) {
+      requiredOut.flags = flagsOut;
+    }
+  }
+
+  return Object.keys(requiredOut).length > 0 ? requiredOut : undefined;
+};
+
 export function runAdd(
   store: RuntimeStore,
   {
@@ -101,6 +223,7 @@ export function runAdd(
     const expressionFlags = hasOwn(source, "flags")
       ? canonFlagSpecInput(source.flags as FlagSpecInput)
       : undefined;
+    const normalizedRequired = canonicalRequiredForAdd(diagnostics, source);
 
     const ids: string[] = [];
     const retroactive =
@@ -193,12 +316,8 @@ export function runAdd(
         id,
         ...(sig !== undefined ? { signal: sig } : {}),
         ...(expressionFlags ? { flags: expressionFlags } : {}),
-        ...(hasOwn(source, "required")
-          ? {
-              required: source.required as NonNullable<
-                RegisteredExpression["required"]
-              >,
-            }
+        ...(normalizedRequired !== undefined
+          ? { required: normalizedRequired }
           : {}),
         ...(normalizedBackfill !== undefined
           ? { backfill: normalizedBackfill }
