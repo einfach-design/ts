@@ -32,9 +32,7 @@ import type { RegisteredExpression } from "../../runs/coreRun.js";
 const hydrationRequiredKeys = [
   "defaults",
   "flags",
-  "changedFlags",
   "seenFlags",
-  "signal",
   "seenSignals",
   "impulseQ",
   "backfillQ",
@@ -628,6 +626,77 @@ export function runSet(
     return canonical;
   };
 
+  const assertHydrationScopeProjectionBaseline = (
+    value: unknown,
+  ): ScopeProjectionBaseline => {
+    const throwScopeProjectionBaselineInvalid = (message: string): never => {
+      diagnostics.emit({
+        code: "set.hydration.scopeProjectionBaselineInvalid",
+        message,
+        severity: "error",
+        data: {
+          field: "scopeProjectionBaseline",
+          valueType: toValueType(value),
+        },
+      });
+      throw new Error("set.hydration.scopeProjectionBaselineInvalid");
+    };
+
+    if (!isRecordObject(value)) {
+      throwScopeProjectionBaselineInvalid(
+        "Hydration scopeProjectionBaseline must be a consistent object.",
+      );
+    }
+
+    const baseline = value as Record<string, unknown>;
+
+    if (
+      !hasOwn(baseline, "flags") ||
+      !hasOwn(baseline, "seenFlags") ||
+      !hasOwn(baseline, "seenSignals")
+    ) {
+      throwScopeProjectionBaselineInvalid(
+        "Hydration scopeProjectionBaseline must include required keys.",
+      );
+    }
+
+    const readOwnDataProperty = (key: string): unknown => {
+      const descriptor = Object.getOwnPropertyDescriptor(baseline, key);
+      if (!descriptor) {
+        return undefined;
+      }
+      if ("get" in descriptor || "set" in descriptor) {
+        throwScopeProjectionBaselineInvalid(
+          "Hydration scopeProjectionBaseline must use data properties.",
+        );
+      }
+      return descriptor.value;
+    };
+
+    const baselineFlags = readOwnDataProperty("flags");
+    const baselineSeenFlags = readOwnDataProperty("seenFlags");
+    const baselineSeenSignals = readOwnDataProperty("seenSignals");
+    const baselineChangedFlags = hasOwn(baseline, "changedFlags")
+      ? readOwnDataProperty("changedFlags")
+      : undefined;
+    const baselineSignal = hasOwn(baseline, "signal")
+      ? readOwnDataProperty("signal")
+      : undefined;
+
+    return {
+      flags: assertHydrationFlagsView("flags", baselineFlags),
+      changedFlags:
+        hasOwn(baseline, "changedFlags") && baselineChangedFlags !== undefined
+          ? assertHydrationFlagsView("changedFlags", baselineChangedFlags)
+          : undefined,
+      seenFlags: assertHydrationFlagsView("seenFlags", baselineSeenFlags),
+      signal: hasOwn(baseline, "signal")
+        ? assertHydrationSignal(baselineSignal)
+        : undefined,
+      seenSignals: assertHydrationSeenSignals(baselineSeenSignals),
+    };
+  };
+
   store.withRuntimeStack(() => {
     if (!isRecordObject(patch)) {
       const valueType = Array.isArray(patch)
@@ -885,7 +954,9 @@ export function runSet(
       const nextScopeProjectionBaseline =
         hasOwn(hydration, "scopeProjectionBaseline") &&
         hydration.scopeProjectionBaseline !== undefined
-          ? (hydration.scopeProjectionBaseline as ScopeProjectionBaseline)
+          ? assertHydrationScopeProjectionBaseline(
+              hydration.scopeProjectionBaseline,
+            )
           : isPristineHydrationTarget
             ? {
                 flags: nextFlagsTruth,

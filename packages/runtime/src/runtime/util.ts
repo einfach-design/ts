@@ -288,31 +288,31 @@ function readonlyView<T>(value: T): T {
 }
 
 function measureEntryBytes(entry: ImpulseQEntryCanonical): number {
-  const seen = new WeakSet<object>();
-  const serialized = JSON.stringify(entry, (_key, value: unknown) => {
-    if (typeof value === "bigint") {
-      return `${value.toString()}n`;
-    }
+  const budget: {
+    signals: string[];
+    addFlags: string[];
+    removeFlags: string[];
+    useFixedFlags: false | { list: string[]; map: Record<string, true> };
+    livePayload?: string;
+  } = {
+    signals: [...entry.signals],
+    addFlags: [...entry.addFlags],
+    removeFlags: [...entry.removeFlags],
+    useFixedFlags:
+      entry.useFixedFlags === false
+        ? false
+        : {
+            list: [...entry.useFixedFlags.list],
+            map: cloneNullProtoRecord(entry.useFixedFlags.map),
+          },
+  };
 
-    if (typeof value === "function") {
-      return "[function]";
-    }
+  if (hasOwn(entry, "livePayload")) {
+    budget.livePayload =
+      typeof entry.livePayload === "string" ? entry.livePayload : "[opaque]";
+  }
 
-    if (typeof value === "symbol") {
-      return value.toString();
-    }
-
-    if (typeof value === "object" && value !== null) {
-      if (seen.has(value)) {
-        return "[circular]";
-      }
-      seen.add(value);
-    }
-
-    return value;
-  });
-
-  return serialized === undefined ? 0 : serialized.length;
+  return JSON.stringify(budget).length;
 }
 
 export {
