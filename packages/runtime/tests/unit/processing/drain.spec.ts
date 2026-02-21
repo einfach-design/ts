@@ -33,7 +33,7 @@ describe("processing/drain", () => {
     expect(result).toEqual({ cursor: 0, draining: true, aborted: false });
   });
 
-  it("aborts drain on throw and keeps cursor unchanged", () => {
+  it("aborts drain on throw and advances cursor past failing entry", () => {
     const onAbort = vi.fn();
 
     const result = drain({
@@ -53,6 +53,6 @@ describe("processing/drain", () => {
       atCursor: 1,
       phase: "process",
     });
-    expect(result).toEqual({ cursor: 0, draining: false, aborted: true });
+    expect(result).toEqual({ cursor: 2, draining: false, aborted: true });
   });
 });

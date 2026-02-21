@@ -381,7 +381,7 @@ describe("failure-modes/runtime-errors", () => {
       q: { cursor: number; entries: unknown[] };
     };
 
-    expect(impulseQ.q.cursor).toBe(0);
+    expect(impulseQ.q.cursor).toBe(1);
     expect(impulseQ.q.entries).toHaveLength(1);
   });
 
