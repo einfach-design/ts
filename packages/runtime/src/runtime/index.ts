@@ -48,7 +48,13 @@ import { runMatchExpression as runMatchExpressionApi } from "./api/matchExpressi
 import { runOnDiagnostic } from "./api/onDiagnostic.js";
 import { runSet } from "./api/set.js";
 import type { ActOccurrence } from "../processing/actImpulse.js";
-import type { AddOpts, RunGetKey, RunScope, RunTime } from "../index.types.js";
+import type {
+  AddOpts,
+  MatchExpressionOpts,
+  RunGetKey,
+  RunScope,
+  RunTime,
+} from "../index.types.js";
 
 const isFlagSpecValue = (value: unknown): value is FlagSpec["value"] =>
   value === true || value === false || value === "*";
@@ -106,7 +112,7 @@ type RuntimeCompat = Readonly<{
     opts?: { as?: "snapshot" | "reference"; scope?: string },
   ) => unknown;
   set: (patch: Record<string, unknown>) => void;
-  matchExpression: (opts: Parameters<typeof runMatchExpression>[0]) => boolean;
+  matchExpression: (opts: MatchExpressionOpts) => boolean;
   onDiagnostic: (
     handler: (diagnostic: RuntimeDiagnostic) => void,
   ) => () => void;
@@ -157,7 +163,7 @@ export function createRuntime(): RuntimeCompat {
       );
     },
     matchExpression(opts) {
-      return runtime.matchExpression(opts as MatchExpressionInput);
+      return runtime.matchExpression(opts as MatchExpressionOpts);
     },
     remove(id) {
       gcExpressionId(id as string);
@@ -851,11 +857,7 @@ export function createRuntime(): RuntimeCompat {
     },
 
     matchExpression(input) {
-      return runMatchExpressionApi(
-        store,
-        deps,
-        input as Parameters<typeof runMatchExpressionApi>[2],
-      );
+      return runMatchExpressionApi(store, deps, input);
     },
 
     onDiagnostic(handler) {
