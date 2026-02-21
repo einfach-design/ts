@@ -6,15 +6,13 @@
  * @description Runtime wrapper for matchExpression with Spec §4.6 own-property semantics.
  */
 
-import { matchExpression } from "../../match/matchExpression.js";
+import {
+  matchExpression,
+  type MatchExpressionInput,
+} from "../../match/matchExpression.js";
 import type { MatchExpressionOpts } from "../../index.types.js";
 import type { RuntimeStore } from "../store.js";
 import { toMatchFlagsView } from "../util.js";
-
-type MatchExpressionEngineInput = Parameters<typeof matchExpression>[0];
-type MatchExpressionEngineReference = NonNullable<
-  MatchExpressionEngineInput["reference"]
->;
 
 export function runMatchExpression(
   store: RuntimeStore,
@@ -22,7 +20,7 @@ export function runMatchExpression(
   input: MatchExpressionOpts,
 ): boolean {
   return store.withRuntimeStack(() => {
-    const runtimeReference: MatchExpressionEngineReference = {};
+    const runtimeReference: NonNullable<MatchExpressionInput["reference"]> = {};
 
     if (store.signal !== undefined) runtimeReference.signal = store.signal;
     const flags = toMatchFlagsView(store.flagsTruth);
@@ -37,10 +35,10 @@ export function runMatchExpression(
     const engine = deps.runMatchExpression ?? matchExpression;
 
     return engine({
-      ...(input as Omit<MatchExpressionEngineInput, "defaults" | "reference">),
+      ...(input as Omit<MatchExpressionInput, "defaults" | "reference">),
       defaults: mergedDefaults,
       reference:
-        (input.reference as MatchExpressionEngineReference | undefined) ??
+        (input.reference as MatchExpressionInput["reference"]) ??
         runtimeReference,
       fallbackReference: runtimeReference,
     });
