@@ -6,6 +6,24 @@ import { cloneNullProtoRecord } from "../util/nullProto.js";
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
+const READONLY_ERROR = "runtime.readonly";
+
+const ARRAY_MUTATOR_METHODS = new Set([
+  "copyWithin",
+  "fill",
+  "pop",
+  "push",
+  "reverse",
+  "shift",
+  "sort",
+  "splice",
+  "unshift",
+]);
+
+const throwReadonlyError = (): never => {
+  throw new TypeError(READONLY_ERROR);
+};
+
 const toMatchFlagsView = (value: FlagsView | undefined) =>
   value
     ? { map: cloneNullProtoRecord(value.map), list: [...value.list] }
@@ -86,6 +104,189 @@ function snapshot<T>(value: T): T {
   return cloneValue(value) as T;
 }
 
+function readonlyView<T>(value: T): T {
+  const seen = new WeakMap<object, unknown>();
+
+  const toReadonly = (input: unknown): unknown => {
+    if (typeof input !== "object" || input === null) {
+      return input;
+    }
+
+    if (seen.has(input)) {
+      return seen.get(input);
+    }
+
+    if (input instanceof Map) {
+      const mapProxy = new Proxy(input, {
+        get(target, prop) {
+          if (prop === "set" || prop === "delete" || prop === "clear") {
+            return throwReadonlyError;
+          }
+
+          if (prop === "get") {
+            return (key: unknown) => toReadonly(target.get(key));
+          }
+
+          if (prop === "values") {
+            return function* values() {
+              for (const entry of target.values()) {
+                yield toReadonly(entry);
+              }
+            };
+          }
+
+          if (prop === "keys") {
+            return function* keys() {
+              for (const entry of target.keys()) {
+                yield toReadonly(entry);
+              }
+            };
+          }
+
+          if (prop === "entries" || prop === Symbol.iterator) {
+            return function* entries() {
+              for (const [key, mapValue] of target.entries()) {
+                yield [toReadonly(key), toReadonly(mapValue)] as const;
+              }
+            };
+          }
+
+          if (prop === "forEach") {
+            return (
+              callback: (
+                value: unknown,
+                key: unknown,
+                map: ReadonlyMap<unknown, unknown>,
+              ) => void,
+              thisArg?: unknown,
+            ) => {
+              target.forEach((entryValue, entryKey) => {
+                callback.call(
+                  thisArg,
+                  toReadonly(entryValue),
+                  toReadonly(entryKey),
+                  mapProxy,
+                );
+              });
+            };
+          }
+
+          const current = Reflect.get(target, prop, target);
+          if (typeof current === "function") {
+            return current.bind(target);
+          }
+
+          return toReadonly(current);
+        },
+        set: throwReadonlyError,
+        deleteProperty: throwReadonlyError,
+        defineProperty: throwReadonlyError,
+        setPrototypeOf: throwReadonlyError,
+        preventExtensions: throwReadonlyError,
+      });
+
+      seen.set(input, mapProxy);
+      return mapProxy;
+    }
+
+    if (input instanceof Set) {
+      const setProxy = new Proxy(input, {
+        get(target, prop) {
+          if (prop === "add" || prop === "delete" || prop === "clear") {
+            return throwReadonlyError;
+          }
+
+          if (
+            prop === "values" ||
+            prop === "keys" ||
+            prop === Symbol.iterator
+          ) {
+            return function* values() {
+              for (const entry of target.values()) {
+                yield toReadonly(entry);
+              }
+            };
+          }
+
+          if (prop === "entries") {
+            return function* entries() {
+              for (const entry of target.values()) {
+                const readonlyEntry = toReadonly(entry);
+                yield [readonlyEntry, readonlyEntry] as const;
+              }
+            };
+          }
+
+          if (prop === "forEach") {
+            return (
+              callback: (
+                value: unknown,
+                key: unknown,
+                set: ReadonlySet<unknown>,
+              ) => void,
+              thisArg?: unknown,
+            ) => {
+              target.forEach((entryValue) => {
+                const readonlyEntry = toReadonly(entryValue);
+                callback.call(thisArg, readonlyEntry, readonlyEntry, setProxy);
+              });
+            };
+          }
+
+          const current = Reflect.get(target, prop, target);
+          if (typeof current === "function") {
+            return current.bind(target);
+          }
+
+          return toReadonly(current);
+        },
+        set: throwReadonlyError,
+        deleteProperty: throwReadonlyError,
+        defineProperty: throwReadonlyError,
+        setPrototypeOf: throwReadonlyError,
+        preventExtensions: throwReadonlyError,
+      });
+
+      seen.set(input, setProxy);
+      return setProxy;
+    }
+
+    const prototype = Object.getPrototypeOf(input);
+    if (
+      prototype !== Object.prototype &&
+      prototype !== null &&
+      !Array.isArray(input)
+    ) {
+      return input;
+    }
+
+    const proxy = new Proxy(input, {
+      get(target, prop, receiver) {
+        if (Array.isArray(target) && ARRAY_MUTATOR_METHODS.has(String(prop))) {
+          return throwReadonlyError;
+        }
+
+        const current = Reflect.get(target, prop, receiver);
+        if (typeof current === "function") {
+          return current.bind(target);
+        }
+
+        return toReadonly(current);
+      },
+      set: throwReadonlyError,
+      deleteProperty: throwReadonlyError,
+      defineProperty: throwReadonlyError,
+      setPrototypeOf: throwReadonlyError,
+      preventExtensions: throwReadonlyError,
+    });
+
+    seen.set(input, proxy);
+    return proxy;
+  };
+
+  return toReadonly(value) as T;
+}
+
 function measureEntryBytes(entry: ImpulseQEntryCanonical): number {
   let bytes = 0;
 
@@ -113,4 +314,11 @@ function measureEntryBytes(entry: ImpulseQEntryCanonical): number {
   return bytes;
 }
 
-export { hasOwn, isObject, toMatchFlagsView, snapshot, measureEntryBytes };
+export {
+  hasOwn,
+  isObject,
+  toMatchFlagsView,
+  snapshot,
+  readonlyView,
+  measureEntryBytes,
+};

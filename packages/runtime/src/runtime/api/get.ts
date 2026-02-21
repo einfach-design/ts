@@ -8,7 +8,7 @@ import {
 } from "../../state/flagsView.js";
 import { extendSeenSignals, projectSignal } from "../../state/signals.js";
 import type { ImpulseQEntryCanonical } from "../../canon/impulseEntry.js";
-import { snapshot } from "../util.js";
+import { readonlyView, snapshot } from "../util.js";
 import type { RuntimeStore } from "../store.js";
 import type { DiagnosticCollector } from "../../diagnostics/index.js";
 import type { RegistryStore } from "../../state/registry.js";
@@ -156,13 +156,16 @@ const getProjectionSeed = (
   return store.scopeProjectionBaseline;
 };
 
-const wantsScopeProjectionForKey = (resolvedKey: string): boolean =>
+const wantsFlagsProjectionForKey = (resolvedKey: string): boolean =>
+  resolvedKey === "*" ||
   resolvedKey === "flags" ||
   resolvedKey === "changedFlags" ||
   resolvedKey === "seenFlags" ||
   resolvedKey === "signal" ||
-  resolvedKey === "seenSignals" ||
-  resolvedKey === "impulseQ";
+  resolvedKey === "seenSignals";
+
+const wantsImpulseProjectionForKey = (resolvedKey: string): boolean =>
+  resolvedKey === "impulseQ" || resolvedKey === "*";
 
 export function runGet(
   store: RuntimeStore,
@@ -193,8 +196,11 @@ export function runGet(
 
   return store.withRuntimeStack(() => {
     const as = opts?.as ?? "snapshot";
-    const wantsScopeProjection =
-      opts?.scope !== undefined && wantsScopeProjectionForKey(resolvedKey);
+    const wantsScopeProjection = opts?.scope !== undefined;
+    const wantsFlagsProjection =
+      wantsScopeProjection && wantsFlagsProjectionForKey(resolvedKey);
+    const wantsImpulseProjection =
+      wantsScopeProjection && wantsImpulseProjectionForKey(resolvedKey);
 
     let selectedFlags = store.flagsTruth;
     let selectedChangedFlags = store.changedFlags;
@@ -203,7 +209,24 @@ export function runGet(
     let selectedSeenSignals = store.seenSignals;
     let selectedImpulseQ = projectImpulseQ(store.impulseQ, "pending");
 
-    if (wantsScopeProjection) {
+    if (wantsScopeProjection && wantsImpulseProjection) {
+      const scope = resolveScope(opts?.scope);
+      const projectedImpulseQ = projectImpulseQ(store.impulseQ, scope);
+      selectedImpulseQ = projectedImpulseQ;
+
+      if (wantsFlagsProjection) {
+        const projectedFlagsState = projectFlagsState(
+          projectedImpulseQ.q.entries,
+          getProjectionSeed(store, scope),
+        );
+
+        selectedFlags = projectedFlagsState.flags;
+        selectedChangedFlags = projectedFlagsState.changedFlags;
+        selectedSeenFlags = projectedFlagsState.seenFlags;
+        selectedSignal = projectedFlagsState.signal;
+        selectedSeenSignals = projectedFlagsState.seenSignals;
+      }
+    } else if (wantsScopeProjection && wantsFlagsProjection) {
       const scope = resolveScope(opts?.scope);
       const projectedImpulseQ = projectImpulseQ(store.impulseQ, scope);
       const projectedFlagsState = projectFlagsState(
@@ -216,7 +239,6 @@ export function runGet(
       selectedSeenFlags = projectedFlagsState.seenFlags;
       selectedSignal = projectedFlagsState.signal;
       selectedSeenSignals = projectedFlagsState.seenSignals;
-      selectedImpulseQ = projectedImpulseQ;
     }
 
     const selectedDiagnostics = diagnostics.list();
@@ -251,7 +273,7 @@ export function runGet(
         ? valueByKey[resolvedKey as AllowedGetKey]
         : valueByKey["*"];
     if (as === "reference") {
-      return selected;
+      return readonlyView(selected);
     }
 
     return snapshot(selected);

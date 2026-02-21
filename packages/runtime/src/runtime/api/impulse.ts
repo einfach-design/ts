@@ -34,7 +34,7 @@ function handleOuterError(
   }
 
   if (typeof mode === "function") {
-    mode(error);
+    mode(error, { phase });
     return;
   }
 

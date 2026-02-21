@@ -21,6 +21,7 @@ import {
 import { createNullProtoRecord } from "../util/nullProto.js";
 import { measureEntryBytes } from "./util.js";
 import type { DiagnosticCollector } from "../diagnostics/index.js";
+import type { RuntimeErrorContext } from "../index.types.js";
 
 export type RuntimeErrorPhase =
   | "impulse/drain"
@@ -41,7 +42,7 @@ export type RuntimeOnError =
   | "throw"
   | "report"
   | "swallow"
-  | ((error: unknown) => void);
+  | ((error: unknown, ctx: RuntimeErrorContext) => void);
 
 type ImpulseQOnError = RuntimeOnError;
 
@@ -338,7 +339,10 @@ export function initRuntimeStore<
         : "runtime.onError.report";
 
       if (typeof mode === "function") {
-        mode(error);
+        mode(error, {
+          phase,
+          ...(extraData ?? {}),
+        });
         return;
       }
 
