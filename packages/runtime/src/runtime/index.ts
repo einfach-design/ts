@@ -388,38 +388,42 @@ export function createRuntime(): RuntimeCompat {
     }
 
     const impulseTelemetryById = new Map<string, ExpressionTelemetry>();
-    const toOccurrenceContext = (
-      occurrence: ActOccurrence,
-    ): RunOccurrenceContext => {
-      nextOccurrenceSeq += 1;
-      return {
-        ...(occurrence.signal !== undefined
-          ? { signal: occurrence.signal }
-          : {}),
-        referenceFlags,
-        changedFlags: store.changedFlags,
-        addFlags: entry.addFlags,
-        removeFlags: entry.removeFlags,
-        occurrenceHasPayload: Object.prototype.hasOwnProperty.call(
-          occurrence,
-          "payload",
-        ),
-        ...(Object.prototype.hasOwnProperty.call(occurrence, "payload")
-          ? { payload: occurrence.payload }
-          : {}),
-        occurrenceSeq: nextOccurrenceSeq,
-        occurrenceId: `occ:${nextOccurrenceSeq}`,
-        expressionTelemetryById: impulseTelemetryById,
-        skipRegisteredById: new Set<string>(),
-      };
-    };
+    const occurrenceContextByIndex = new Map<number, RunOccurrenceContext>();
 
     const withOccurrenceContext = (
       occurrence: ActOccurrence,
       runner: () => void,
     ): void => {
       const previous = runOccurrenceContext;
-      runOccurrenceContext = toOccurrenceContext(occurrence);
+      const existing = occurrenceContextByIndex.get(occurrence.index);
+
+      if (existing !== undefined) {
+        runOccurrenceContext = existing;
+      } else {
+        nextOccurrenceSeq += 1;
+        const created: RunOccurrenceContext = {
+          ...(occurrence.signal !== undefined
+            ? { signal: occurrence.signal }
+            : {}),
+          referenceFlags,
+          changedFlags: store.changedFlags,
+          addFlags: entry.addFlags,
+          removeFlags: entry.removeFlags,
+          occurrenceHasPayload: Object.prototype.hasOwnProperty.call(
+            occurrence,
+            "payload",
+          ),
+          ...(Object.prototype.hasOwnProperty.call(occurrence, "payload")
+            ? { payload: occurrence.payload }
+            : {}),
+          occurrenceSeq: nextOccurrenceSeq,
+          occurrenceId: `occ:${nextOccurrenceSeq}`,
+          expressionTelemetryById: impulseTelemetryById,
+          skipRegisteredById: new Set<string>(),
+        };
+        occurrenceContextByIndex.set(occurrence.index, created);
+        runOccurrenceContext = created;
+      }
 
       try {
         runner();
