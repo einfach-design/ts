@@ -1,12 +1,15 @@
 import type { ImpulseQEntryCanonical } from "../canon/impulseEntry.js";
 import type { FlagsView } from "../state/flagsView.js";
 import { hasOwn } from "../util/hasOwn.js";
+import { cloneNullProtoRecord } from "../util/nullProto.js";
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
 const toMatchFlagsView = (value: FlagsView | undefined) =>
-  value ? { map: { ...value.map }, list: [...value.list] } : undefined;
+  value
+    ? { map: cloneNullProtoRecord(value.map), list: [...value.list] }
+    : undefined;
 
 function snapshot<T>(value: T): T {
   /**
@@ -69,7 +72,12 @@ function snapshot<T>(value: T): T {
     const out: Record<string, unknown> = {};
     seen.set(input, out);
     for (const [key, nested] of Object.entries(input)) {
-      out[key] = cloneValue(nested);
+      Object.defineProperty(out, key, {
+        value: cloneValue(nested),
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
     }
 
     return out;
@@ -79,11 +87,30 @@ function snapshot<T>(value: T): T {
 }
 
 function measureEntryBytes(entry: ImpulseQEntryCanonical): number {
-  try {
-    return JSON.stringify(entry).length;
-  } catch {
-    return Number.MAX_SAFE_INTEGER;
+  let bytes = 0;
+
+  for (const signal of entry.signals) {
+    bytes += signal.length;
   }
+
+  for (const addFlag of entry.addFlags) {
+    bytes += addFlag.length;
+  }
+
+  for (const removeFlag of entry.removeFlags) {
+    bytes += removeFlag.length;
+  }
+
+  if (entry.useFixedFlags !== false) {
+    bytes += entry.useFixedFlags.list.length;
+  }
+
+  if (hasOwn(entry, "livePayload")) {
+    bytes +=
+      typeof entry.livePayload === "string" ? entry.livePayload.length : 64;
+  }
+
+  return bytes;
 }
 
 export { hasOwn, isObject, toMatchFlagsView, snapshot, measureEntryBytes };

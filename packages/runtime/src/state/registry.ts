@@ -14,6 +14,7 @@ export type RegistryExpression = {
 export type RegistryState<TExpression extends RegistryExpression> = {
   registeredQ: TExpression[];
   registeredById: Map<string, TExpression>;
+  nextAutoId: number;
 };
 
 export type RegistryStore<TExpression extends RegistryExpression> =
@@ -24,6 +25,7 @@ export type RegistryStore<TExpression extends RegistryExpression> =
     compact(): void;
     isRegistered(id: string): boolean;
     activeList(): TExpression[];
+    allocateAutoId(): string;
   };
 
 /**
@@ -42,6 +44,7 @@ export function registry<
 
   const registeredQ: TExpression[] = [];
   const registeredById = new Map<string, TExpression>();
+  let nextAutoId = 0;
   let tombstoneCount = 0;
 
   const register = (expression: TExpression): TExpression => {
@@ -103,14 +106,30 @@ export function registry<
     return registeredQ.filter((expression) => expression.tombstone !== true);
   };
 
+  const allocateAutoId = (): string => {
+    let id = String(nextAutoId);
+    nextAutoId += 1;
+
+    while (registeredById.has(id)) {
+      id = String(nextAutoId);
+      nextAutoId += 1;
+    }
+
+    return id;
+  };
+
   return {
     registeredQ,
     registeredById,
+    get nextAutoId() {
+      return nextAutoId;
+    },
     register,
     resolve,
     remove,
     compact,
     isRegistered,
     activeList,
+    allocateAutoId,
   };
 }

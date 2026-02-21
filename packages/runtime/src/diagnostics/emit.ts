@@ -7,6 +7,12 @@
  */
 
 import { DIAGNOSTIC_CODES } from "./codes.js";
+import { hasOwn } from "../util/hasOwn.js";
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" &&
+  value !== null &&
+  Object.getPrototypeOf(value) === Object.prototype;
 
 export interface RuntimeDiagnostic<TCode extends string = string> {
   readonly code: TCode;
@@ -48,7 +54,7 @@ export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
 ): TDiagnostic {
   const { diagnostic, listeners, collector, onListenerError } = options;
 
-  const isKnownCode = diagnostic.code in DIAGNOSTIC_CODES;
+  const isKnownCode = hasOwn(DIAGNOSTIC_CODES, diagnostic.code);
   const isTestMode =
     typeof process !== "undefined" &&
     (process.env.NODE_ENV === "test" || process.env.VITEST === "true");
@@ -58,7 +64,13 @@ export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
   }
 
   if (collector) {
-    collector.push(diagnostic);
+    const snapshot: TDiagnostic = {
+      ...diagnostic,
+      ...(isPlainObject(diagnostic.data)
+        ? { data: Object.freeze({ ...diagnostic.data }) }
+        : {}),
+    };
+    collector.push(Object.freeze(snapshot));
   }
 
   if (listeners) {
@@ -135,7 +147,7 @@ export function createDiagnosticCollector<
       };
     },
     list() {
-      return diagnostics;
+      return diagnostics.slice();
     },
     clear() {
       diagnostics.length = 0;

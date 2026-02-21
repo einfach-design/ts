@@ -24,6 +24,7 @@ export type ImpulseEntryInput = {
 };
 
 export type ImpulseQEntryCanonical = Readonly<{
+  onError?: RuntimeOnError;
   signals: readonly string[];
   addFlags: readonly string[];
   removeFlags: readonly string[];
@@ -128,6 +129,7 @@ export function canonImpulseEntry(
   return {
     onError,
     entry: {
+      ...(onError !== undefined ? { onError } : {}),
       signals,
       addFlags,
       removeFlags,

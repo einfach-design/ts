@@ -28,9 +28,15 @@ import type {
 import type { RegistryStore } from "../../state/registry.js";
 import type { DiagnosticCollector } from "../../diagnostics/index.js";
 import type { RegisteredExpression } from "../../runs/coreRun.js";
-import { snapshotGetKeys } from "./get.js";
 
-const hydrationRequiredKeys = snapshotGetKeys;
+const hydrationRequiredKeys = [
+  "defaults",
+  "flags",
+  "seenFlags",
+  "seenSignals",
+  "impulseQ",
+  "backfillQ",
+] as const;
 
 const allowedPatchKeys = [
   "flags",
@@ -707,7 +713,9 @@ export function runSet(
         ? assertHydrationFlagsView("changedFlags", hydration.changedFlags)
         : undefined;
       const nextSeenSignals = assertHydrationSeenSignals(hydration.seenSignals);
-      const nextSignal = assertHydrationSignal(hydration.signal);
+      const nextSignal = hasOwn(hydration, "signal")
+        ? assertHydrationSignal(hydration.signal)
+        : undefined;
       const nextBackfillQ = assertHydrationBackfillQ(hydration.backfillQ);
 
       if (!isRecordObject(hydration.impulseQ)) {
@@ -798,6 +806,9 @@ export function runSet(
 
         const canonicalEntry = canonical.entry;
         const storedEntry: ImpulseQEntryCanonical = {
+          ...(canonicalEntry.onError !== undefined
+            ? { onError: canonicalEntry.onError }
+            : {}),
           signals: [...canonicalEntry.signals],
           addFlags: [...canonicalEntry.addFlags],
           removeFlags: [...canonicalEntry.removeFlags],

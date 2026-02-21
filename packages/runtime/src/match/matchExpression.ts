@@ -6,6 +6,7 @@
  * @description Project file.
  */
 import { hasOwn } from "../util/hasOwn.js";
+import { createNullProtoRecord } from "../util/nullProto.js";
 
 export type FlagSpecValue = true | false | "*";
 
@@ -119,8 +120,9 @@ export function matchExpression(input: MatchExpressionInput): boolean {
 
   const specs = input.expression.flags ?? [];
   const specCount = specs.length;
-  const flagsMap = resolvedFlags?.map ?? {};
-  const changedFlagsMap = resolvedChangedFlags?.map ?? {};
+  const flagsMap = resolvedFlags?.map ?? createNullProtoRecord<true>();
+  const changedFlagsMap =
+    resolvedChangedFlags?.map ?? createNullProtoRecord<true>();
 
   const referenceCount = Object.keys(flagsMap).length;
 
@@ -133,7 +135,7 @@ export function matchExpression(input: MatchExpressionInput): boolean {
   }
 
   for (const spec of specs) {
-    const isFlagSet = flagsMap[spec.flag] === true;
+    const isFlagSet = hasOwn(flagsMap, spec.flag);
     const isChanged = hasOwn(changedFlagsMap, spec.flag);
 
     if (isChanged) {
