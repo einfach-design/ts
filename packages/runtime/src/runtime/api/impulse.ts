@@ -10,39 +10,6 @@ import { createFlagsView } from "../../state/flagsView.js";
 import { measureEntryBytes } from "../util.js";
 import type { RuntimeStore } from "../store.js";
 
-function handleOuterError(
-  diagnostics: DiagnosticCollector,
-  mode: RuntimeStore["impulseQ"]["config"]["onError"],
-  error: unknown,
-  phase: "impulse/canon" | "impulse/drain",
-  reportInvalidInput = false,
-): void {
-  if (reportInvalidInput) {
-    diagnostics.emit({
-      code: "impulse.input.invalid",
-      message: "Invalid impulse payload.",
-      severity: "error",
-      data: { phase },
-    });
-  } else if (mode === "report") {
-    diagnostics.emit({
-      code: "runtime.onError.report",
-      message: error instanceof Error ? error.message : "Runtime error",
-      severity: "error",
-      data: { phase },
-    });
-  }
-
-  if (typeof mode === "function") {
-    mode(error, { phase });
-    return;
-  }
-
-  if (mode === "throw") {
-    throw error;
-  }
-}
-
 export function runImpulse(
   store: RuntimeStore,
   {
@@ -59,13 +26,27 @@ export function runImpulse(
     const mode = canonical.onError ?? store.impulseQ.config.onError ?? "report";
 
     if (canonical.entry === undefined) {
-      handleOuterError(
-        diagnostics,
-        mode,
-        new Error("impulse.input.invalid"),
-        "impulse/canon",
-        mode === "report",
-      );
+      const error = new Error("impulse.input.invalid");
+
+      if (mode === "report") {
+        diagnostics.emit({
+          code: "impulse.input.invalid",
+          message: "Invalid impulse payload.",
+          severity: "error",
+          data: { phase: "impulse/canon" },
+        });
+        return;
+      }
+
+      if (mode === "swallow") {
+        return;
+      }
+
+      if (mode === "throw") {
+        throw error;
+      }
+
+      mode(error, { phase: "impulse/canon" });
       return;
     }
 
@@ -95,16 +76,19 @@ export function runImpulse(
 
     try {
       while (store.impulseQ.q.cursor < store.impulseQ.q.entries.length) {
-        const entryAtCursor = store.impulseQ.q.entries[
-          store.impulseQ.q.cursor
-        ] as ImpulseQEntryCanonical | undefined;
+        const cursor = store.impulseQ.q.cursor;
+        const entryAtCursor = store.impulseQ.q.entries[cursor] as
+          | ImpulseQEntryCanonical
+          | undefined;
         const entryMode =
           entryAtCursor?.onError ?? store.impulseQ.config.onError ?? "report";
+        let abortError: unknown;
+
         store.activeOuterOnError = entryAtCursor?.onError;
 
         const result = drain({
-          entries: store.impulseQ.q.entries,
-          cursor: store.impulseQ.q.cursor,
+          entries: store.impulseQ.q.entries.slice(0, cursor + 1),
+          cursor,
           draining: false,
           process: (entry) => {
             const previousOuterOnError = store.activeOuterOnError;
@@ -116,30 +100,25 @@ export function runImpulse(
               store.activeOuterOnError = previousOuterOnError;
             }
           },
+          onAbort: ({ error }) => {
+            abortError = error;
+          },
         });
 
         store.impulseQ.q.cursor = result.cursor;
 
         if (result.aborted) {
-          const abortError = result.abortInfo?.error;
-
-          if (entryMode === "throw") {
-            if (isInnerExpressionAbort(abortError)) {
-              throw abortError.error;
-            }
-
-            throw abortError;
+          if (isInnerExpressionAbort(abortError)) {
+            throw abortError.error;
           }
 
-          handleOuterError(
-            diagnostics,
-            entryMode,
-            isInnerExpressionAbort(abortError) ? abortError.error : abortError,
+          store.reportRuntimeError(
+            abortError,
             "impulse/drain",
-            entryMode === "report",
+            undefined,
+            entryMode,
           );
-
-          continue;
+          break;
         }
       }
 
@@ -173,18 +152,6 @@ export function runImpulse(
       store.impulseQ.q.entries = [...trimmed.entries];
       store.impulseQ.q.cursor = trimmed.cursor;
       store.trimPendingMaxBytes = trimmed.trimPendingMaxBytes;
-    } catch (error) {
-      if (isInnerExpressionAbort(error)) {
-        throw error.error;
-      }
-
-      handleOuterError(
-        diagnostics,
-        mode,
-        error,
-        "impulse/drain",
-        mode === "report",
-      );
     } finally {
       store.draining = false;
       store.activeOuterOnError = undefined;

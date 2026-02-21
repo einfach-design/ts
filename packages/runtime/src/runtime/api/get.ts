@@ -8,7 +8,7 @@ import {
 } from "../../state/flagsView.js";
 import { extendSeenSignals, projectSignal } from "../../state/signals.js";
 import type { ImpulseQEntryCanonical } from "../../canon/impulseEntry.js";
-import { snapshot } from "../util.js";
+import { readonlyView, snapshot } from "../util.js";
 import type { RuntimeStore } from "../store.js";
 import type { DiagnosticCollector } from "../../diagnostics/index.js";
 import type { RegistryStore } from "../../state/registry.js";
@@ -273,7 +273,7 @@ export function runGet(
         ? valueByKey[resolvedKey as AllowedGetKey]
         : valueByKey["*"];
     if (as === "reference") {
-      return selected;
+      return readonlyView(selected);
     }
 
     return snapshot(selected);
