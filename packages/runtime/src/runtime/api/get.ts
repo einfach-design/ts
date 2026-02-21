@@ -157,7 +157,6 @@ const getProjectionSeed = (
 };
 
 const wantsFlagsProjectionForKey = (resolvedKey: string): boolean =>
-  resolvedKey === "*" ||
   resolvedKey === "flags" ||
   resolvedKey === "changedFlags" ||
   resolvedKey === "seenFlags" ||
@@ -165,7 +164,7 @@ const wantsFlagsProjectionForKey = (resolvedKey: string): boolean =>
   resolvedKey === "seenSignals";
 
 const wantsImpulseProjectionForKey = (resolvedKey: string): boolean =>
-  resolvedKey === "impulseQ" || resolvedKey === "*";
+  resolvedKey === "impulseQ";
 
 export function runGet(
   store: RuntimeStore,
