@@ -61,6 +61,15 @@ export const DIAGNOSTIC_CODES = {
       valueType: "string",
     },
   },
+  "set.hydration.scopeProjectionBaselineInvalid": {
+    description:
+      "Hydration scopeProjectionBaseline must be a validated object with canonical scope projection fields.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string",
+    },
+  },
   "set.patch.invalid": {
     description: "set patch value must be an object.",
     severity: "error",

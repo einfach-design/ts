@@ -14,6 +14,7 @@ import {
 } from "../canon/flagSpecInput.js";
 import { hasOwn } from "../util/hasOwn.js";
 import { createNullProtoRecord } from "../util/nullProto.js";
+import type { DispatchError } from "../targets/dispatch.js";
 
 export type RuntimeOccurrence = Readonly<{
   seq: number;
@@ -77,6 +78,23 @@ export type RuntimeTarget =
 export type AppliedExpression = RegisteredExpression & {
   remove: () => void;
   matchFlags: (input: FlagSpecInput) => boolean;
+};
+
+const freezeFlagsView = (value: FlagsView): FlagsView => {
+  Object.freeze(value.map);
+  Object.freeze(value.list);
+  return Object.freeze(value);
+};
+
+const freezeRuntimeOccurrence = (
+  occurrence: RuntimeOccurrence,
+): RuntimeOccurrence => {
+  freezeFlagsView(occurrence.flags);
+  freezeFlagsView(occurrence.changedFlags);
+  Object.freeze(occurrence.addFlags);
+  Object.freeze(occurrence.removeFlags);
+  Object.freeze(occurrence.expression);
+  return Object.freeze(occurrence);
 };
 
 export const coreRun = (args: {
@@ -230,15 +248,15 @@ export const coreRun = (args: {
       ? (expressionTelemetry?.inBackfillQ ?? false)
       : (expressionTelemetry?.inBackfillQ ?? false);
 
-  const actualExpression: RuntimeOccurrence = {
+  const actualExpression: RuntimeOccurrence = freezeRuntimeOccurrence({
     seq: store.occurrenceSeq,
     id: store.occurrenceId,
     q: occurrenceKind,
     ...(store.signal !== undefined ? { signal: store.signal } : {}),
-    flags: store.referenceFlags,
-    changedFlags: store.changedFlags ?? createFlagsView([]),
-    addFlags: store.addFlags,
-    removeFlags: store.removeFlags,
+    flags: createFlagsView([...store.referenceFlags.list]),
+    changedFlags: createFlagsView([...(store.changedFlags?.list ?? [])]),
+    addFlags: [...store.addFlags],
+    removeFlags: [...store.removeFlags],
     expression: Object.freeze({
       id: expression.id,
       ...(backfillSignalRuns !== undefined ? { backfillSignalRuns } : {}),
@@ -251,16 +269,69 @@ export const coreRun = (args: {
       inBackfillQ,
     }),
     ...(store.occurrenceHasPayload ? { payload: store.payload } : {}),
-  };
+  });
 
   let attempted = 0;
 
-  const appliedExpression: AppliedExpression = {
+  const appliedExpressionView: AppliedExpression = {
     ...expression,
+    ...(expression.required !== undefined
+      ? {
+          required: Object.freeze({
+            ...expression.required,
+            ...(expression.required.flags !== undefined
+              ? {
+                  flags: Object.freeze({ ...expression.required.flags }),
+                }
+              : {}),
+          }),
+        }
+      : {}),
+    ...(expression.targets !== undefined
+      ? { targets: [...expression.targets] }
+      : {}),
+    ...(expression.backfill !== undefined
+      ? {
+          backfill: Object.freeze({
+            ...expression.backfill,
+            ...(expression.backfill.signal !== undefined
+              ? {
+                  signal: Object.freeze({
+                    ...expression.backfill.signal,
+                    ...(expression.backfill.signal.runs !== undefined
+                      ? {
+                          runs: Object.freeze({
+                            ...expression.backfill.signal.runs,
+                          }),
+                        }
+                      : {}),
+                  }),
+                }
+              : {}),
+            ...(expression.backfill.flags !== undefined
+              ? {
+                  flags: Object.freeze({
+                    ...expression.backfill.flags,
+                    ...(expression.backfill.flags.runs !== undefined
+                      ? {
+                          runs: Object.freeze({
+                            ...expression.backfill.flags.runs,
+                          }),
+                        }
+                      : {}),
+                  }),
+                }
+              : {}),
+          }),
+        }
+      : {}),
+    ...(expression.runs !== undefined
+      ? { runs: Object.freeze({ ...expression.runs }) }
+      : {}),
     remove: () => {
       runtimeCore.remove(expression.id);
     },
-    matchFlags: (input) => {
+    matchFlags: (input: FlagSpecInput) => {
       const specs = canonFlagSpecInput(input);
       const runtimeFlags = runtimeCore.get("flags") as FlagsView | undefined;
       const flagsMap = runtimeFlags?.map ?? createNullProtoRecord<true>();
@@ -281,11 +352,18 @@ export const coreRun = (args: {
     },
   };
 
+  Object.freeze(appliedExpressionView.targets);
+  const appliedExpression: AppliedExpression = Object.freeze(
+    appliedExpressionView,
+  ) as AppliedExpression;
+
+  const frozenRuntimeCore = Object.freeze(runtimeCore);
+
   const resolveOnError = ():
     | RuntimeOnError
-    | ((issue: { error: unknown }) => void) => {
+    | ((issue: DispatchError) => void) => {
     if (expression.onError === "throw") {
-      return (issue: { error: unknown }) => {
+      return (issue: DispatchError) => {
         throw {
           __runtimeInnerAbort: true,
           error: issue.error,
@@ -295,9 +373,26 @@ export const coreRun = (args: {
 
     const expressionOnError = expression.onError;
     if (typeof expressionOnError === "function") {
-      return (issue: { error: unknown }) => {
+      return (issue: DispatchError) => {
         try {
-          expressionOnError(issue.error);
+          expressionOnError(issue.error, {
+            phase: issue.context.phase,
+            ...(issue.context.targetKind !== undefined
+              ? { targetKind: issue.context.targetKind }
+              : {}),
+            ...(issue.context.handler !== undefined
+              ? { handler: issue.context.handler }
+              : {}),
+            ...(issue.context.signal !== undefined
+              ? { signal: issue.context.signal }
+              : {}),
+            ...(issue.context.expressionId !== undefined
+              ? { expressionId: issue.context.expressionId }
+              : {}),
+            ...(issue.context.occurrenceKind !== undefined
+              ? { occurrenceKind: issue.context.occurrenceKind }
+              : {}),
+          });
         } catch (error) {
           throw { __runtimeInnerAbort: true, error } as InnerExpressionAbort;
         }
@@ -317,7 +412,7 @@ export const coreRun = (args: {
       targetKind,
       target,
       ...(store.signal !== undefined ? { signal: store.signal } : {}),
-      args: [actualExpression, appliedExpression, runtimeCore],
+      args: [actualExpression, appliedExpression, frozenRuntimeCore],
       onError: resolveOnError(),
       context: {
         expressionId: expression.id,

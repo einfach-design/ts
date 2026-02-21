@@ -574,6 +574,89 @@ export function runSet(
     return value;
   };
 
+  const assertHydrationScopeProjectionBaseline = (
+    value: unknown,
+  ): ScopeProjectionBaseline => {
+    if (!isRecordObject(value)) {
+      diagnostics.emit({
+        code: "set.hydration.scopeProjectionBaselineInvalid",
+        message:
+          "Hydration scopeProjectionBaseline must be an object with scope projection fields.",
+        severity: "error",
+        data: {
+          field: "scopeProjectionBaseline",
+          valueType: toValueType(value),
+        },
+      });
+      throw new Error("set.hydration.scopeProjectionBaselineInvalid");
+    }
+
+    const baseline = value as Record<string, unknown>;
+
+    if (!hasOwn(baseline, "flags")) {
+      diagnostics.emit({
+        code: "set.hydration.scopeProjectionBaselineInvalid",
+        message:
+          "Hydration scopeProjectionBaseline must be an object with scope projection fields.",
+        severity: "error",
+        data: {
+          field: "scopeProjectionBaseline",
+          valueType: toValueType(value),
+        },
+      });
+      throw new Error("set.hydration.scopeProjectionBaselineInvalid");
+    }
+
+    if (!hasOwn(baseline, "seenFlags")) {
+      diagnostics.emit({
+        code: "set.hydration.scopeProjectionBaselineInvalid",
+        message:
+          "Hydration scopeProjectionBaseline must be an object with scope projection fields.",
+        severity: "error",
+        data: {
+          field: "scopeProjectionBaseline",
+          valueType: toValueType(value),
+        },
+      });
+      throw new Error("set.hydration.scopeProjectionBaselineInvalid");
+    }
+
+    if (!hasOwn(baseline, "seenSignals")) {
+      diagnostics.emit({
+        code: "set.hydration.scopeProjectionBaselineInvalid",
+        message:
+          "Hydration scopeProjectionBaseline must be an object with scope projection fields.",
+        severity: "error",
+        data: {
+          field: "scopeProjectionBaseline",
+          valueType: toValueType(value),
+        },
+      });
+      throw new Error("set.hydration.scopeProjectionBaselineInvalid");
+    }
+
+    const flags = assertHydrationFlagsView("flags", baseline.flags);
+    const seenFlags = assertHydrationFlagsView("seenFlags", baseline.seenFlags);
+    const seenSignals = assertHydrationSeenSignals(baseline.seenSignals);
+
+    const changedFlags = hasOwn(baseline, "changedFlags")
+      ? baseline.changedFlags === undefined
+        ? undefined
+        : assertHydrationFlagsView("changedFlags", baseline.changedFlags)
+      : undefined;
+    const signal = hasOwn(baseline, "signal")
+      ? assertHydrationSignal(baseline.signal)
+      : undefined;
+
+    return {
+      flags,
+      changedFlags,
+      seenFlags,
+      signal,
+      seenSignals,
+    };
+  };
+
   const assertHydrationBackfillQ = (value: unknown): FlagsView => {
     if (
       !isRecordObject(value) ||
@@ -883,7 +966,9 @@ export function runSet(
       const nextScopeProjectionBaseline =
         hasOwn(hydration, "scopeProjectionBaseline") &&
         hydration.scopeProjectionBaseline !== undefined
-          ? (hydration.scopeProjectionBaseline as ScopeProjectionBaseline)
+          ? assertHydrationScopeProjectionBaseline(
+              hydration.scopeProjectionBaseline,
+            )
           : isPristineHydrationTarget
             ? {
                 flags: nextFlagsTruth,

@@ -26,11 +26,20 @@ export type TargetToken =
   | ((i: unknown, a: unknown, r: unknown) => void)
   | { on: Record<string, unknown> };
 
+export type RuntimeErrorContext = Readonly<{
+  phase: string;
+  expressionId?: string;
+  occurrenceKind?: "registered" | "backfill";
+  targetKind?: "callback" | "object";
+  handler?: string;
+  signal?: string;
+}>;
+
 export type OnError =
   | "throw"
   | "report"
   | "swallow"
-  | ((error: unknown) => void);
+  | ((error: unknown, ctx: RuntimeErrorContext) => void);
 
 export type AddOpts = Readonly<{
   id?: string;
