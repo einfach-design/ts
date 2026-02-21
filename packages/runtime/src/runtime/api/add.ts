@@ -26,11 +26,13 @@ export function runAdd(
   return store.withRuntimeStack(() => {
     const source = isObject(opts) ? opts : {};
     const baseId =
-      typeof source.id === "string"
+      hasOwn(source, "id") && typeof source.id === "string"
         ? source.id
-        : `reg:${expressionRegistry.registeredQ.length + 1}`;
+        : expressionRegistry.allocateAutoId();
     const targets = [
-      ...(Array.isArray(source.targets) ? source.targets : []),
+      ...(hasOwn(source, "targets") && Array.isArray(source.targets)
+        ? source.targets
+        : []),
       ...(hasOwn(source, "target") ? [source.target as RuntimeTarget] : []),
     ];
 
@@ -43,11 +45,14 @@ export function runAdd(
       throw new Error("add.target.required");
     }
 
-    const signals = Array.isArray(source.signals)
-      ? source.signals
-      : source.signal !== undefined
-        ? [source.signal as string]
-        : [undefined];
+    const signals =
+      hasOwn(source, "signals") && Array.isArray(source.signals)
+        ? source.signals.length === 0
+          ? [undefined]
+          : source.signals
+        : hasOwn(source, "signal") && source.signal !== undefined
+          ? [source.signal as string]
+          : [undefined];
 
     for (const target of targets) {
       if (typeof target === "function") {
@@ -98,10 +103,14 @@ export function runAdd(
       : undefined;
 
     const ids: string[] = [];
-    const retroactive = source.retroactive === true;
+    const retroactive =
+      hasOwn(source, "retroactive") && source.retroactive === true;
     const runsMax =
-      isObject(source.runs) && typeof source.runs.max === "number"
-        ? Math.max(1, source.runs.max)
+      hasOwn(source, "runs") &&
+      isObject(source.runs) &&
+      typeof source.runs.max === "number" &&
+      Number.isFinite(source.runs.max)
+        ? Math.max(1, Math.floor(source.runs.max))
         : Number.POSITIVE_INFINITY;
 
     const readBackfillGateRunsMax = (
@@ -123,9 +132,32 @@ export function runAdd(
       }
 
       return hasOwn(gateConfig.runs, "max") &&
-        typeof gateConfig.runs.max === "number"
-        ? Math.max(1, gateConfig.runs.max)
+        typeof gateConfig.runs.max === "number" &&
+        Number.isFinite(gateConfig.runs.max)
+        ? Math.max(1, Math.floor(gateConfig.runs.max))
         : fallback;
+    };
+
+    const readBackfillDebt = (gate: "signal" | "flags"): number | undefined => {
+      if (!hasOwn(source, "backfill") || !isObject(source.backfill)) {
+        return undefined;
+      }
+
+      const backfill = source.backfill;
+      if (!hasOwn(backfill, gate) || !isObject(backfill[gate])) {
+        return undefined;
+      }
+
+      const gateConfig = backfill[gate];
+      if (!hasOwn(gateConfig, "debt") || typeof gateConfig.debt !== "number") {
+        return undefined;
+      }
+
+      if (!Number.isFinite(gateConfig.debt)) {
+        return 0;
+      }
+
+      return Math.max(0, Math.floor(gateConfig.debt));
     };
 
     const createNormalizedBackfill = (): RegisteredExpression["backfill"] => {
@@ -133,24 +165,19 @@ export function runAdd(
         return undefined;
       }
 
+      const signalDebt = readBackfillDebt("signal");
+      const flagsDebt = readBackfillDebt("flags");
+
       return {
         signal: {
-          ...(isObject(source.backfill) &&
-          isObject(source.backfill.signal) &&
-          hasOwn(source.backfill.signal, "debt")
-            ? { debt: source.backfill.signal.debt as number }
-            : {}),
+          ...(signalDebt !== undefined ? { debt: signalDebt } : {}),
           runs: {
             used: 0,
             max: readBackfillGateRunsMax("signal", Number.POSITIVE_INFINITY),
           },
         },
         flags: {
-          ...(isObject(source.backfill) &&
-          isObject(source.backfill.flags) &&
-          hasOwn(source.backfill.flags, "debt")
-            ? { debt: source.backfill.flags.debt as number }
-            : {}),
+          ...(flagsDebt !== undefined ? { debt: flagsDebt } : {}),
           runs: {
             used: 0,
             max: readBackfillGateRunsMax("flags", Number.POSITIVE_INFINITY),
@@ -166,7 +193,7 @@ export function runAdd(
         id,
         ...(sig !== undefined ? { signal: sig } : {}),
         ...(expressionFlags ? { flags: expressionFlags } : {}),
-        ...(source.required !== undefined
+        ...(hasOwn(source, "required")
           ? {
               required: source.required as NonNullable<
                 RegisteredExpression["required"]

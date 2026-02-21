@@ -18,6 +18,7 @@ import {
   projectSignal,
   type SeenSignals,
 } from "../state/signals.js";
+import { createNullProtoRecord } from "../util/nullProto.js";
 import { measureEntryBytes } from "./util.js";
 import type { DiagnosticCollector } from "../diagnostics/index.js";
 
@@ -118,7 +119,10 @@ export function initRuntimeStore<
   let seenFlags: FlagsView = createFlagsView([]);
 
   let signal: string | undefined;
-  let seenSignals: SeenSignals = { list: [], map: {} };
+  let seenSignals: SeenSignals = {
+    list: [],
+    map: createNullProtoRecord<true>(),
+  };
 
   let backfillQ = createBackfillQ<TExpression>();
 
@@ -145,7 +149,7 @@ export function initRuntimeStore<
     changedFlags: undefined,
     seenFlags: createFlagsView([]),
     signal: undefined,
-    seenSignals: { list: [], map: {} },
+    seenSignals: { list: [], map: createNullProtoRecord<true>() },
   };
 
   const applyTrimmedAppliedEntriesToScopeBaseline = (
@@ -185,7 +189,7 @@ export function initRuntimeStore<
       changedFlags: undefined,
       seenFlags: createFlagsView([]),
       signal: undefined,
-      seenSignals: { list: [], map: {} },
+      seenSignals: { list: [], map: createNullProtoRecord<true>() },
     };
   };
 

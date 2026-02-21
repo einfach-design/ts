@@ -13,6 +13,7 @@ import type { RuntimeStore } from "../store.js";
 import type { DiagnosticCollector } from "../../diagnostics/index.js";
 import type { RegistryStore } from "../../state/registry.js";
 import type { RegisteredExpression } from "../../runs/coreRun.js";
+import { createNullProtoRecord } from "../../util/nullProto.js";
 
 export const snapshotGetKeys = [
   "defaults",
@@ -148,7 +149,7 @@ const getProjectionSeed = (
       changedFlags: createFlagsView([]),
       seenFlags: createFlagsView([]),
       signal: undefined,
-      seenSignals: { list: [], map: {} },
+      seenSignals: { list: [], map: createNullProtoRecord<true>() },
     };
   }
 

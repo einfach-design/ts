@@ -179,37 +179,27 @@ export function dispatch(input: DispatchInput): DispatchResult {
   }
 
   let attempted = 0;
-  attempted += callHandler(
-    target.on[EVERY_RUN_HANDLER],
-    args,
-    onError,
-    reportError,
-    {
-      phase: "target/object",
-      targetKind,
-      handler: EVERY_RUN_HANDLER,
-      ...(signal !== undefined ? { signal } : {}),
-      ...(context ?? {}),
-    },
-  );
+  if (hasOwn(target.on, EVERY_RUN_HANDLER)) {
+    attempted += callHandler(
+      target.on[EVERY_RUN_HANDLER],
+      args,
+      onError,
+      reportError,
+      {
+        phase: "target/object",
+        targetKind,
+        handler: EVERY_RUN_HANDLER,
+        ...(signal !== undefined ? { signal } : {}),
+        ...(context ?? {}),
+      },
+    );
+  }
 
-  if (signal && signal !== EVERY_RUN_HANDLER) {
-    if (!Object.prototype.hasOwnProperty.call(target.on, signal)) {
-      reportDispatchError(
-        onError,
-        reportError,
-        {
-          phase: "target/object",
-          targetKind,
-          handler: signal,
-          signal,
-          ...(context ?? {}),
-        },
-        `Object target is missing handler for signal "${signal}".`,
-      );
-      return { attempted };
-    }
-
+  if (
+    signal !== undefined &&
+    signal !== EVERY_RUN_HANDLER &&
+    hasOwn(target.on, signal)
+  ) {
     attempted += callHandler(target.on[signal], args, onError, reportError, {
       phase: "target/object",
       targetKind,
@@ -220,3 +210,4 @@ export function dispatch(input: DispatchInput): DispatchResult {
 
   return { attempted };
 }
+import { hasOwn } from "../util/hasOwn.js";

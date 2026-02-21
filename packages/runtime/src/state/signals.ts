@@ -6,6 +6,10 @@
  * @description Signal state helpers (seenSignals + scalar signal projection).
  */
 import { hasOwn } from "../util/hasOwn.js";
+import {
+  cloneNullProtoRecord,
+  createNullProtoRecord,
+} from "../util/nullProto.js";
 
 export type Signal = string;
 
@@ -33,13 +37,13 @@ function cloneSeenSignals(input: SeenSignals | undefined): {
   if (input === undefined) {
     return {
       list: [],
-      map: {},
+      map: createNullProtoRecord<true>(),
     };
   }
 
   return {
     list: [...input.list],
-    map: { ...input.map },
+    map: cloneNullProtoRecord(input.map),
   };
 }
 
@@ -70,7 +74,7 @@ export function extendSeenSignals(
   }
 
   for (const signal of nextSignals) {
-    if (seen.map[signal] === true) {
+    if (hasOwn(seen.map, signal)) {
       continue;
     }
 

@@ -52,8 +52,8 @@ function canonicalRetain(retain: number | boolean | undefined): number {
     return 0;
   }
 
-  if (typeof retain === "number" && Number.isNaN(retain) === false) {
-    return Math.max(0, retain);
+  if (typeof retain === "number" && Number.isFinite(retain)) {
+    return Math.max(0, Math.floor(retain));
   }
 
   return 0;
@@ -64,8 +64,8 @@ function canonicalMaxBytes(maxBytes: number | undefined): number {
     return Number.POSITIVE_INFINITY;
   }
 
-  if (typeof maxBytes === "number" && Number.isNaN(maxBytes) === false) {
-    return Math.max(0, maxBytes);
+  if (typeof maxBytes === "number" && Number.isFinite(maxBytes)) {
+    return Math.max(0, Math.floor(maxBytes));
   }
 
   return Number.POSITIVE_INFINITY;

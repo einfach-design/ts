@@ -70,6 +70,9 @@ export function runImpulse(
     }
 
     const storedEntry: ImpulseQEntryCanonical = {
+      ...(canonical.entry.onError !== undefined
+        ? { onError: canonical.entry.onError }
+        : {}),
       signals: [...canonical.entry.signals],
       addFlags: [...canonical.entry.addFlags],
       removeFlags: [...canonical.entry.removeFlags],
@@ -88,54 +91,88 @@ export function runImpulse(
       return;
     }
 
-    store.activeOuterOnError = canonical.onError;
     store.draining = true;
 
     try {
-      const result = drain({
-        entries: store.impulseQ.q.entries,
-        cursor: store.impulseQ.q.cursor,
-        draining: false,
-        process: processImpulseEntry,
-        onAbort: (info) => {
-          throw info.error;
-        },
-      });
+      while (store.impulseQ.q.cursor < store.impulseQ.q.entries.length) {
+        const entryAtCursor = store.impulseQ.q.entries[
+          store.impulseQ.q.cursor
+        ] as ImpulseQEntryCanonical | undefined;
+        const entryMode =
+          entryAtCursor?.onError ?? store.impulseQ.config.onError ?? "report";
+        store.activeOuterOnError = entryAtCursor?.onError;
 
-      if (!result.aborted) {
-        store.impulseQ.q.cursor = result.cursor;
+        const result = drain({
+          entries: store.impulseQ.q.entries,
+          cursor: store.impulseQ.q.cursor,
+          draining: false,
+          process: (entry) => {
+            const previousOuterOnError = store.activeOuterOnError;
+            store.activeOuterOnError = entry.onError;
 
-        const prevEntries = store.impulseQ.q.entries;
-        const prevCursor = store.impulseQ.q.cursor;
-
-        const trimmed = trim({
-          entries: prevEntries,
-          cursor: prevCursor,
-          retain: store.impulseQ.config.retain,
-          maxBytes: store.impulseQ.config.maxBytes,
-          runtimeStackActive: true,
-          trimPendingMaxBytes: store.trimPendingMaxBytes,
-          measureBytes: measureEntryBytes,
-          ...(store.impulseQ.config.onTrim !== undefined
-            ? { onTrim: store.impulseQ.config.onTrim }
-            : {}),
+            try {
+              processImpulseEntry(entry);
+            } finally {
+              store.activeOuterOnError = previousOuterOnError;
+            }
+          },
         });
 
-        if (trimmed.onTrimError !== undefined) {
-          store.reportRuntimeError(trimmed.onTrimError, "trim/onTrim");
-        }
+        store.impulseQ.q.cursor = result.cursor;
 
-        const removedCount = Math.max(0, prevCursor - trimmed.cursor);
-        if (removedCount > 0) {
-          store.applyTrimmedAppliedEntriesToScopeBaseline(
-            prevEntries.slice(0, removedCount),
+        if (result.aborted) {
+          const abortError = result.abortInfo?.error;
+
+          if (entryMode === "throw") {
+            if (isInnerExpressionAbort(abortError)) {
+              throw abortError.error;
+            }
+
+            throw abortError;
+          }
+
+          handleOuterError(
+            diagnostics,
+            entryMode,
+            isInnerExpressionAbort(abortError) ? abortError.error : abortError,
+            "impulse/drain",
+            entryMode === "report",
           );
-        }
 
-        store.impulseQ.q.entries = [...trimmed.entries];
-        store.impulseQ.q.cursor = trimmed.cursor;
-        store.trimPendingMaxBytes = trimmed.trimPendingMaxBytes;
+          continue;
+        }
       }
+
+      const prevEntries = store.impulseQ.q.entries;
+      const prevCursor = store.impulseQ.q.cursor;
+
+      const trimmed = trim({
+        entries: prevEntries,
+        cursor: prevCursor,
+        retain: store.impulseQ.config.retain,
+        maxBytes: store.impulseQ.config.maxBytes,
+        runtimeStackActive: true,
+        trimPendingMaxBytes: store.trimPendingMaxBytes,
+        measureBytes: measureEntryBytes,
+        ...(store.impulseQ.config.onTrim !== undefined
+          ? { onTrim: store.impulseQ.config.onTrim }
+          : {}),
+      });
+
+      if (trimmed.onTrimError !== undefined) {
+        store.reportRuntimeError(trimmed.onTrimError, "trim/onTrim");
+      }
+
+      const removedCount = Math.max(0, prevCursor - trimmed.cursor);
+      if (removedCount > 0) {
+        store.applyTrimmedAppliedEntriesToScopeBaseline(
+          prevEntries.slice(0, removedCount),
+        );
+      }
+
+      store.impulseQ.q.entries = [...trimmed.entries];
+      store.impulseQ.q.cursor = trimmed.cursor;
+      store.trimPendingMaxBytes = trimmed.trimPendingMaxBytes;
     } catch (error) {
       if (isInnerExpressionAbort(error)) {
         throw error.error;

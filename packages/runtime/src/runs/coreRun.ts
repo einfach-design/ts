@@ -12,6 +12,8 @@ import {
   canonFlagSpecInput,
   type FlagSpecInput,
 } from "../canon/flagSpecInput.js";
+import { hasOwn } from "../util/hasOwn.js";
+import { createNullProtoRecord } from "../util/nullProto.js";
 
 export type RuntimeOccurrence = Readonly<{
   seq: number;
@@ -261,10 +263,10 @@ export const coreRun = (args: {
     matchFlags: (input) => {
       const specs = canonFlagSpecInput(input);
       const runtimeFlags = runtimeCore.get("flags") as FlagsView | undefined;
-      const flagsMap = runtimeFlags?.map ?? {};
+      const flagsMap = runtimeFlags?.map ?? createNullProtoRecord<true>();
 
       for (const spec of specs) {
-        const isFlagSet = flagsMap[spec.flag] === true;
+        const isFlagSet = hasOwn(flagsMap, spec.flag);
 
         if (
           spec.value !== "*" &&

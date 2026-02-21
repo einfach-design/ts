@@ -6,6 +6,8 @@
  * @description Project file.
  */
 
+import { createNullProtoRecord, setNullProtoTrue } from "../util/nullProto.js";
+
 export type Flag = string;
 
 export type FlagsView = {
@@ -18,14 +20,14 @@ export type FlagsView = {
  */
 export function createFlagsView(input: readonly Flag[]): FlagsView {
   const list: Flag[] = [];
-  const map: Record<Flag, true> = {};
+  const map: Record<Flag, true> = createNullProtoRecord<true>();
 
   for (const flag of input) {
     if (Object.prototype.hasOwnProperty.call(map, flag)) {
       continue;
     }
 
-    map[flag] = true;
+    setNullProtoTrue(map, flag);
     list.push(flag);
   }
 
@@ -45,7 +47,7 @@ export function applyFlagDeltas(
 ): FlagsView {
   const removeSet = new Set(removeFlags);
   const nextList: Flag[] = [];
-  const nextMap: Record<Flag, true> = {};
+  const nextMap: Record<Flag, true> = createNullProtoRecord<true>();
 
   for (const flag of previous.list) {
     if (removeSet.has(flag)) {
@@ -56,7 +58,7 @@ export function applyFlagDeltas(
       continue;
     }
 
-    nextMap[flag] = true;
+    setNullProtoTrue(nextMap, flag);
     nextList.push(flag);
   }
 
@@ -69,11 +71,11 @@ export function applyFlagDeltas(
       continue;
     }
 
-    nextMap[flag] = true;
+    setNullProtoTrue(nextMap, flag);
     nextList.push(flag);
   }
 
-  return createFlagsView(nextList);
+  return { list: nextList, map: nextMap };
 }
 
 export function extendSeenFlags(

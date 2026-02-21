@@ -34,6 +34,7 @@ import {
   type DispatchInput,
 } from "../targets/dispatch.js";
 import { hasOwn, isObject, toMatchFlagsView } from "./util.js";
+import { createNullProtoRecord } from "../util/nullProto.js";
 import { initRuntimeStore } from "./store.js";
 import {
   coreRun as coreRunImpl,
@@ -387,8 +388,6 @@ export function createRuntime(): RuntimeCompat {
     }
 
     const impulseTelemetryById = new Map<string, ExpressionTelemetry>();
-    const skipRegisteredById = new Set<string>();
-
     const toOccurrenceContext = (
       occurrence: ActOccurrence,
     ): RunOccurrenceContext => {
@@ -411,7 +410,7 @@ export function createRuntime(): RuntimeCompat {
         occurrenceSeq: nextOccurrenceSeq,
         occurrenceId: `occ:${nextOccurrenceSeq}`,
         expressionTelemetryById: impulseTelemetryById,
-        skipRegisteredById,
+        skipRegisteredById: new Set<string>(),
       };
     };
 
@@ -538,7 +537,7 @@ export function createRuntime(): RuntimeCompat {
             const current = runOccurrenceContext.expressionTelemetryById.get(
               expression.id,
             );
-            const isInBackfillQ = store.backfillQ.map[expression.id] === true;
+            const isInBackfillQ = hasOwn(store.backfillQ.map, expression.id);
 
             // Safety rule: do not create telemetry entries for non-backfill-relevant expressions.
             if (current === undefined && !isInBackfillQ) {
@@ -636,7 +635,7 @@ export function createRuntime(): RuntimeCompat {
 
         if (
           expression.signal !== undefined &&
-          store.seenSignals.map[expression.signal] !== true
+          !hasOwn(store.seenSignals.map, expression.signal)
         ) {
           continue;
         }
@@ -647,7 +646,10 @@ export function createRuntime(): RuntimeCompat {
           changedFlags: { map: Record<string, true>; list: string[] };
         } = {
           flags: toMatchFlagsView(runOccurrenceContext.referenceFlags)!,
-          changedFlags: { map: {}, list: [] },
+          changedFlags: {
+            map: createNullProtoRecord<true>(),
+            list: [],
+          },
         };
 
         if (expression.signal !== undefined) {

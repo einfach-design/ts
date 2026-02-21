@@ -27,7 +27,7 @@ export type BackfillQSnapshot = {
 export function createBackfillQ<
   TExpression extends BackfillExpression,
 >(): BackfillQ<TExpression> {
-  return { list: [], map: {} };
+  return { list: [], map: createNullProtoRecord<true>() };
 }
 
 /**
@@ -44,12 +44,12 @@ export function appendIfAbsent<TExpression extends BackfillExpression>(
     return false;
   }
 
-  if (backfillQ.map[id] === true) {
+  if (hasOwn(backfillQ.map, id)) {
     return false;
   }
 
   backfillQ.list.push(expression);
-  backfillQ.map[id] = true;
+  setNullProtoTrue(backfillQ.map, id);
   return true;
 }
 
@@ -60,10 +60,11 @@ export function toBackfillQSnapshot<TExpression extends BackfillExpression>(
   backfillQ: BackfillQ<TExpression>,
 ): BackfillQSnapshot {
   const list = backfillQ.list.map((expression) => expression.id);
-  const map = Object.fromEntries(list.map((id) => [id, true])) as Record<
-    string,
-    true
-  >;
+  const map = createNullProtoRecord<true>();
+
+  for (const id of list) {
+    setNullProtoTrue(map, id);
+  }
 
   return { list, map };
 }
@@ -74,7 +75,7 @@ export function toBackfillQSnapshot<TExpression extends BackfillExpression>(
 export function resetBackfillQ<
   TExpression extends BackfillExpression,
 >(): BackfillQ<TExpression> {
-  return { list: [], map: {} };
+  return { list: [], map: createNullProtoRecord<true>() };
 }
 
 /**
@@ -106,3 +107,5 @@ export function assertBackfillQInvariant<
     }
   }
 }
+import { hasOwn } from "../util/hasOwn.js";
+import { createNullProtoRecord, setNullProtoTrue } from "../util/nullProto.js";

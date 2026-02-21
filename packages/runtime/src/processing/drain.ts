@@ -26,6 +26,7 @@ export type DrainResult = Readonly<{
   cursor: number;
   draining: boolean;
   aborted: boolean;
+  abortInfo?: DrainAbortInfo;
 }>;
 
 /**
@@ -55,9 +56,14 @@ export function drain<TEntry>(opts: DrainOptions<TEntry>): DrainResult {
       });
 
       return {
-        cursor: startCursor,
+        cursor: index + 1,
         draining: false,
         aborted: true,
+        abortInfo: {
+          atCursor: index,
+          phase: "process",
+          error,
+        },
       };
     }
   }
