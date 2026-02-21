@@ -204,6 +204,88 @@ describe("conformance/get-set", () => {
     expect(snap.q.entries[0]!.livePayload).toBe(payload);
   });
 
+  it('A1m — defaults.methods is settable and visible via get("defaults")', () => {
+    const run = createRuntime();
+
+    run.set({
+      defaults: { methods: { on: { runs: { max: 2 } } } },
+    } as unknown as Record<string, unknown>);
+
+    const d = run.get("defaults") as {
+      methods: {
+        on: { runs?: { max?: number } };
+        when: Record<string, unknown>;
+      };
+    };
+    expect(d.methods.on.runs?.max).toBe(2);
+    expect(typeof d.methods.when).toBe("object");
+  });
+
+  it("A1n — run.on overlays runs.max from defaults.methods.on", () => {
+    const run = createRuntime();
+    run.set({
+      defaults: { methods: { on: { runs: { max: 1 } } } },
+    } as unknown as Record<string, unknown>);
+
+    run.on({
+      signal: "x",
+      runs: { max: 999 },
+      target: () => {},
+    } as Record<string, unknown>);
+
+    const first = [
+      ...(
+        run.get("registeredById") as Map<
+          string,
+          { signal?: string; runs?: { max?: number } }
+        >
+      ).values(),
+    ].find((entry) => entry?.signal === "x");
+    expect(first?.runs?.max).toBe(999);
+
+    run.on({ signal: "y", target: () => {} } as Record<string, unknown>);
+
+    const second = [
+      ...(
+        run.get("registeredById") as Map<
+          string,
+          { signal?: string; runs?: { max?: number } }
+        >
+      ).values(),
+    ].find((entry) => entry?.signal === "y");
+    expect(second?.runs?.max).toBe(1);
+  });
+
+  it("A1o — run.when overlays backfill.signal.runs.max from defaults.methods.when", () => {
+    const run = createRuntime();
+    run.set({
+      defaults: {
+        methods: {
+          when: { backfill: { signal: { runs: { max: 3 } } } },
+        },
+      },
+    } as unknown as Record<string, unknown>);
+
+    run.when({
+      signal: "z",
+      target: () => {},
+      backfill: { signal: { debt: 1 } },
+    } as Record<string, unknown>);
+
+    const expression = [
+      ...(
+        run.get("registeredById") as Map<
+          string,
+          {
+            signal?: string;
+            backfill?: { signal?: { runs?: { max?: number } } };
+          }
+        >
+      ).values(),
+    ].find((entry) => entry?.signal === "z");
+    expect(expression?.backfill?.signal?.runs?.max).toBe(3);
+  });
+
   it("A1k — hydration must clear trimPendingMaxBytes (no post-hydration stack-exit trim)", () => {
     const run = createRuntime();
     run.set({ impulseQ: { config: { retain: true } } } as Record<

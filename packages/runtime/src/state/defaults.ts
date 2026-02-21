@@ -19,6 +19,46 @@ export type DefaultsDimGate = Readonly<{
   force: true | undefined;
 }>;
 
+export type MethodName = "on" | "when";
+
+type MethodDefaultsScope =
+  | Scope
+  | Readonly<{
+      signal?: Scope | SetDefaultsDimScope;
+      flags?: Scope | SetDefaultsDimScope;
+    }>;
+
+type MethodDefaultsGate =
+  | boolean
+  | Readonly<{
+      signal?: boolean | SetDefaultsDimGate;
+      flags?: boolean | SetDefaultsDimGate;
+    }>;
+
+export type MethodDefaultsEntry = Readonly<{
+  runs?: Readonly<{ max?: number }>;
+  required?: Readonly<{
+    flags?: Readonly<{ min?: number; max?: number; changed?: number }>;
+  }>;
+  backfill?: Readonly<{
+    signal?: Readonly<{ runs?: Readonly<{ max?: number }> }>;
+    flags?: Readonly<{ runs?: Readonly<{ max?: number }> }>;
+  }>;
+  scope?: MethodDefaultsScope;
+  gate?: MethodDefaultsGate;
+  retroactive?: boolean;
+}>;
+
+export type MethodDefaults = Readonly<{
+  on: MethodDefaultsEntry;
+  when: MethodDefaultsEntry;
+}>;
+
+export type SetMethodDefaults = Readonly<{
+  on?: MethodDefaultsEntry;
+  when?: MethodDefaultsEntry;
+}>;
+
 export type Defaults = Readonly<{
   scope: Readonly<{
     signal: DefaultsDimScope;
@@ -28,6 +68,7 @@ export type Defaults = Readonly<{
     signal: DefaultsDimGate;
     flags: DefaultsDimGate;
   }>;
+  methods: MethodDefaults;
 }>;
 
 export type SetDefaultsDimScope = Readonly<{
@@ -53,6 +94,7 @@ export type SetDefaults = Readonly<{
         signal?: boolean | SetDefaultsDimGate;
         flags?: boolean | SetDefaultsDimGate;
       }>;
+  methods?: SetMethodDefaults;
 }>;
 
 export type ResolvedDefaults = Defaults;
@@ -172,6 +214,401 @@ type CanonicalSetDefaults = {
     signal?: Readonly<{ value: boolean; force: true | undefined }>;
     flags?: Readonly<{ value: boolean; force: true | undefined }>;
   };
+  methods?: {
+    on?: MethodDefaultsEntry;
+    when?: MethodDefaultsEntry;
+  };
+};
+
+const assertNumber = (value: unknown, context: string): number => {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    throw new Error(`${context} must be number.`);
+  }
+
+  return value;
+};
+
+const canonicalMethodScope = (
+  source: Exclude<SetDefaults["scope"], undefined>,
+  context: string,
+): MethodDefaultsScope => {
+  if (typeof source === "string") {
+    return canonicalScopeDim(source, context).value;
+  }
+
+  if (!isRecord(source)) {
+    throw new Error(`${context} must be Scope or object.`);
+  }
+
+  assertValidPresentValue(source, "signal", `${context}.signal`);
+  assertValidPresentValue(source, "flags", `${context}.flags`);
+
+  const out: {
+    signal?: SetDefaultsDimScope;
+    flags?: SetDefaultsDimScope;
+  } = {};
+
+  if (hasOwn(source, "signal")) {
+    const canonical = canonicalScopeDim(
+      source.signal as Scope | SetDefaultsDimScope,
+      `${context}.signal`,
+    );
+    out.signal = {
+      value: canonical.value,
+      ...(canonical.force === true ? { force: true } : {}),
+    };
+  }
+
+  if (hasOwn(source, "flags")) {
+    const canonical = canonicalScopeDim(
+      source.flags as Scope | SetDefaultsDimScope,
+      `${context}.flags`,
+    );
+    out.flags = {
+      value: canonical.value,
+      ...(canonical.force === true ? { force: true } : {}),
+    };
+  }
+
+  return out;
+};
+
+const canonicalMethodGate = (
+  source: Exclude<SetDefaults["gate"], undefined>,
+  context: string,
+): MethodDefaultsGate => {
+  if (typeof source === "boolean") {
+    return source;
+  }
+
+  if (!isRecord(source)) {
+    throw new Error(`${context} must be boolean or object.`);
+  }
+
+  assertValidPresentValue(source, "signal", `${context}.signal`);
+  assertValidPresentValue(source, "flags", `${context}.flags`);
+
+  const out: {
+    signal?: SetDefaultsDimGate;
+    flags?: SetDefaultsDimGate;
+  } = {};
+
+  if (hasOwn(source, "signal")) {
+    const canonical = canonicalGateDim(
+      source.signal as boolean | SetDefaultsDimGate,
+      `${context}.signal`,
+    );
+    out.signal = {
+      value: canonical.value,
+      ...(canonical.force === true ? { force: true } : {}),
+    };
+  }
+
+  if (hasOwn(source, "flags")) {
+    const canonical = canonicalGateDim(
+      source.flags as boolean | SetDefaultsDimGate,
+      `${context}.flags`,
+    );
+    out.flags = {
+      value: canonical.value,
+      ...(canonical.force === true ? { force: true } : {}),
+    };
+  }
+
+  return out;
+};
+
+const canonicalMethodDefaultsEntry = (
+  source: unknown,
+  context: string,
+): MethodDefaultsEntry => {
+  if (!isRecord(source)) {
+    throw new Error(`${context} must be object.`);
+  }
+
+  assertValidPresentValue(source, "runs", `${context}.runs`);
+  assertValidPresentValue(source, "required", `${context}.required`);
+  assertValidPresentValue(source, "backfill", `${context}.backfill`);
+  assertValidPresentValue(source, "scope", `${context}.scope`);
+  assertValidPresentValue(source, "gate", `${context}.gate`);
+  assertValidPresentValue(source, "retroactive", `${context}.retroactive`);
+
+  if (
+    hasOwn(source, "signals") ||
+    hasOwn(source, "flags") ||
+    hasOwn(source, "targets")
+  ) {
+    throw new Error(`${context} must not contain signals/flags/targets.`);
+  }
+
+  for (const key of Object.keys(source)) {
+    if (
+      key !== "runs" &&
+      key !== "required" &&
+      key !== "backfill" &&
+      key !== "scope" &&
+      key !== "gate" &&
+      key !== "retroactive"
+    ) {
+      throw new Error(`${context}.${key} is not supported.`);
+    }
+  }
+
+  const out: {
+    runs?: { max?: number };
+    required?: { flags?: { min?: number; max?: number; changed?: number } };
+    backfill?: {
+      signal?: { runs?: { max?: number } };
+      flags?: { runs?: { max?: number } };
+    };
+    scope?: MethodDefaultsScope;
+    gate?: MethodDefaultsGate;
+    retroactive?: boolean;
+  } = {};
+
+  if (hasOwn(source, "runs")) {
+    if (!isRecord(source.runs)) {
+      throw new Error(`${context}.runs must be object.`);
+    }
+
+    assertValidPresentValue(source.runs, "max", `${context}.runs.max`);
+    out.runs = {};
+    if (hasOwn(source.runs, "max")) {
+      out.runs.max = assertNumber(source.runs.max, `${context}.runs.max`);
+    }
+  }
+
+  if (hasOwn(source, "required")) {
+    if (!isRecord(source.required)) {
+      throw new Error(`${context}.required must be object.`);
+    }
+
+    assertValidPresentValue(
+      source.required,
+      "flags",
+      `${context}.required.flags`,
+    );
+    out.required = {};
+
+    if (hasOwn(source.required, "flags")) {
+      if (!isRecord(source.required.flags)) {
+        throw new Error(`${context}.required.flags must be object.`);
+      }
+
+      assertValidPresentValue(
+        source.required.flags,
+        "min",
+        `${context}.required.flags.min`,
+      );
+      assertValidPresentValue(
+        source.required.flags,
+        "max",
+        `${context}.required.flags.max`,
+      );
+      assertValidPresentValue(
+        source.required.flags,
+        "changed",
+        `${context}.required.flags.changed`,
+      );
+
+      out.required.flags = {};
+      if (hasOwn(source.required.flags, "min")) {
+        out.required.flags.min = assertNumber(
+          source.required.flags.min,
+          `${context}.required.flags.min`,
+        );
+      }
+      if (hasOwn(source.required.flags, "max")) {
+        out.required.flags.max = assertNumber(
+          source.required.flags.max,
+          `${context}.required.flags.max`,
+        );
+      }
+      if (hasOwn(source.required.flags, "changed")) {
+        out.required.flags.changed = assertNumber(
+          source.required.flags.changed,
+          `${context}.required.flags.changed`,
+        );
+      }
+    }
+  }
+
+  if (hasOwn(source, "backfill")) {
+    if (!isRecord(source.backfill)) {
+      throw new Error(`${context}.backfill must be object.`);
+    }
+
+    assertValidPresentValue(
+      source.backfill,
+      "signal",
+      `${context}.backfill.signal`,
+    );
+    assertValidPresentValue(
+      source.backfill,
+      "flags",
+      `${context}.backfill.flags`,
+    );
+
+    out.backfill = {};
+
+    for (const dim of ["signal", "flags"] as const) {
+      if (!hasOwn(source.backfill, dim)) {
+        continue;
+      }
+
+      const value = source.backfill[dim];
+      if (!isRecord(value)) {
+        throw new Error(`${context}.backfill.${dim} must be object.`);
+      }
+
+      assertValidPresentValue(value, "runs", `${context}.backfill.${dim}.runs`);
+
+      const dimOut: { runs?: { max?: number } } = {};
+      if (hasOwn(value, "runs")) {
+        if (!isRecord(value.runs)) {
+          throw new Error(`${context}.backfill.${dim}.runs must be object.`);
+        }
+
+        assertValidPresentValue(
+          value.runs,
+          "max",
+          `${context}.backfill.${dim}.runs.max`,
+        );
+        dimOut.runs = {};
+        if (hasOwn(value.runs, "max")) {
+          dimOut.runs.max = assertNumber(
+            value.runs.max,
+            `${context}.backfill.${dim}.runs.max`,
+          );
+        }
+      }
+
+      out.backfill[dim] = dimOut;
+    }
+  }
+
+  if (hasOwn(source, "scope")) {
+    out.scope = canonicalMethodScope(
+      source.scope as Exclude<SetDefaults["scope"], undefined>,
+      `${context}.scope`,
+    );
+  }
+
+  if (hasOwn(source, "gate")) {
+    out.gate = canonicalMethodGate(
+      source.gate as Exclude<SetDefaults["gate"], undefined>,
+      `${context}.gate`,
+    );
+  }
+
+  if (hasOwn(source, "retroactive")) {
+    if (typeof source.retroactive !== "boolean") {
+      throw new Error(`${context}.retroactive must be boolean.`);
+    }
+    out.retroactive = source.retroactive;
+  }
+
+  return out;
+};
+
+const cloneMethodDefaultsEntry = (
+  entry: MethodDefaultsEntry,
+): MethodDefaultsEntry => {
+  const out: {
+    runs?: { max?: number };
+    required?: { flags?: { min?: number; max?: number; changed?: number } };
+    backfill?: {
+      signal?: { runs?: { max?: number } };
+      flags?: { runs?: { max?: number } };
+    };
+    scope?: MethodDefaultsScope;
+    gate?: MethodDefaultsGate;
+    retroactive?: boolean;
+  } = {};
+
+  if (hasOwn(entry, "runs")) {
+    out.runs = { ...(entry.runs ?? {}) };
+  }
+  if (hasOwn(entry, "required")) {
+    out.required = {};
+    if (entry.required !== undefined && hasOwn(entry.required, "flags")) {
+      out.required.flags = { ...(entry.required.flags ?? {}) };
+    }
+  }
+  if (hasOwn(entry, "backfill")) {
+    out.backfill = {};
+    if (entry.backfill !== undefined && hasOwn(entry.backfill, "signal")) {
+      out.backfill.signal = {};
+      if (
+        entry.backfill.signal !== undefined &&
+        hasOwn(entry.backfill.signal, "runs")
+      ) {
+        out.backfill.signal.runs = { ...(entry.backfill.signal.runs ?? {}) };
+      }
+    }
+    if (entry.backfill !== undefined && hasOwn(entry.backfill, "flags")) {
+      out.backfill.flags = {};
+      if (
+        entry.backfill.flags !== undefined &&
+        hasOwn(entry.backfill.flags, "runs")
+      ) {
+        out.backfill.flags.runs = { ...(entry.backfill.flags.runs ?? {}) };
+      }
+    }
+  }
+  if (hasOwn(entry, "scope")) {
+    if (typeof entry.scope === "string") {
+      out.scope = entry.scope;
+    } else if (entry.scope !== undefined) {
+      const scopeOut: {
+        signal?: Scope | SetDefaultsDimScope;
+        flags?: Scope | SetDefaultsDimScope;
+      } = {};
+      if (hasOwn(entry.scope, "signal") && entry.scope.signal !== undefined) {
+        scopeOut.signal =
+          typeof entry.scope.signal === "string"
+            ? entry.scope.signal
+            : { ...entry.scope.signal };
+      }
+      if (hasOwn(entry.scope, "flags") && entry.scope.flags !== undefined) {
+        scopeOut.flags =
+          typeof entry.scope.flags === "string"
+            ? entry.scope.flags
+            : { ...entry.scope.flags };
+      }
+      out.scope = scopeOut;
+    }
+  }
+  if (hasOwn(entry, "gate")) {
+    if (typeof entry.gate === "boolean") {
+      out.gate = entry.gate;
+    } else if (entry.gate !== undefined) {
+      const gateOut: {
+        signal?: boolean | SetDefaultsDimGate;
+        flags?: boolean | SetDefaultsDimGate;
+      } = {};
+      if (hasOwn(entry.gate, "signal") && entry.gate.signal !== undefined) {
+        gateOut.signal =
+          typeof entry.gate.signal === "boolean"
+            ? entry.gate.signal
+            : { ...entry.gate.signal };
+      }
+      if (hasOwn(entry.gate, "flags") && entry.gate.flags !== undefined) {
+        gateOut.flags =
+          typeof entry.gate.flags === "boolean"
+            ? entry.gate.flags
+            : { ...entry.gate.flags };
+      }
+      out.gate = gateOut;
+    }
+  }
+  if (hasOwn(entry, "retroactive")) {
+    if (entry.retroactive !== undefined) {
+      out.retroactive = entry.retroactive;
+    }
+  }
+
+  return out;
 };
 
 function canonicalizeSetDefaults(
@@ -187,6 +624,7 @@ function canonicalizeSetDefaults(
 
   assertValidPresentValue(input, "scope", "defaults.scope");
   assertValidPresentValue(input, "gate", "defaults.gate");
+  assertValidPresentValue(input, "methods", "defaults.methods");
 
   const output: CanonicalSetDefaults = {};
 
@@ -254,13 +692,42 @@ function canonicalizeSetDefaults(
     }
   }
 
+  if (hasOwn(input, "methods")) {
+    if (!isRecord(input.methods)) {
+      throw new Error("defaults.methods must be object.");
+    }
+
+    assertValidPresentValue(input.methods, "on", "defaults.methods.on");
+    assertValidPresentValue(input.methods, "when", "defaults.methods.when");
+
+    output.methods = {};
+
+    if (hasOwn(input.methods, "on")) {
+      output.methods.on = canonicalMethodDefaultsEntry(
+        input.methods.on,
+        "defaults.methods.on",
+      );
+    }
+
+    if (hasOwn(input.methods, "when")) {
+      output.methods.when = canonicalMethodDefaultsEntry(
+        input.methods.when,
+        "defaults.methods.when",
+      );
+    }
+  }
+
   return output;
 }
 
 /**
  * Baseline defaults as required by the Runtime specification.
  */
-export const globalDefaults: Defaults = {
+const globalDefaultsBase: {
+  scope: Defaults["scope"];
+  gate: Defaults["gate"];
+  methods?: MethodDefaults;
+} = {
   scope: {
     signal: { value: "applied", force: undefined },
     flags: { value: "applied", force: undefined },
@@ -270,6 +737,18 @@ export const globalDefaults: Defaults = {
     flags: { value: true, force: undefined },
   },
 };
+
+Object.defineProperty(globalDefaultsBase, "methods", {
+  value: {
+    on: {},
+    when: {},
+  },
+  enumerable: false,
+  writable: false,
+  configurable: false,
+});
+
+export const globalDefaults: Defaults = globalDefaultsBase as Defaults;
 
 type Candidate<TValue> = Readonly<{ value: TValue; force: true | undefined }>;
 
@@ -384,6 +863,21 @@ export function resolveDefaults(
           : baseline.gate.flags,
       ]),
     },
+    methods: !hasOwn(call, "methods")
+      ? {
+          on: cloneMethodDefaultsEntry(baseline.methods.on),
+          when: cloneMethodDefaultsEntry(baseline.methods.when),
+        }
+      : {
+          on:
+            call.methods !== undefined && hasOwn(call.methods, "on")
+              ? cloneMethodDefaultsEntry(call.methods.on ?? {})
+              : cloneMethodDefaultsEntry(baseline.methods.on),
+          when:
+            call.methods !== undefined && hasOwn(call.methods, "when")
+              ? cloneMethodDefaultsEntry(call.methods.when ?? {})
+              : cloneMethodDefaultsEntry(baseline.methods.when),
+        },
   };
 }
 

@@ -68,6 +68,8 @@ type Runtime = Readonly<{
     onError?: "throw" | "report" | "swallow" | ((error: unknown) => void);
     retroactive?: boolean;
   }) => () => void;
+  on: (opts: Record<string, unknown>) => () => void;
+  when: (opts: Record<string, unknown>) => () => void;
   impulse: (opts?: unknown) => void;
   get: (
     key?: string,
@@ -677,6 +679,137 @@ export function createRuntime(): Runtime {
     runMatchExpression,
   };
 
+  const buildEffectiveAddOpts = (
+    method: "on" | "when",
+    opts: Record<string, unknown>,
+  ): Record<string, unknown> => {
+    const defaults = store.defaults.methods[method] as Record<string, unknown>;
+    const effective: Record<string, unknown> = { ...opts };
+
+    const resolve = (
+      fromOpts: Record<string, unknown>,
+      fromDefaults: Record<string, unknown>,
+      key: string,
+    ): unknown => {
+      if (hasOwn(fromOpts, key)) {
+        return fromOpts[key];
+      }
+      if (hasOwn(fromDefaults, key)) {
+        return fromDefaults[key];
+      }
+      return undefined;
+    };
+
+    const runsSource = resolve(opts, defaults, "runs");
+    if (isObject(runsSource) && hasOwn(runsSource, "max")) {
+      const nextRuns = isObject(opts.runs)
+        ? { ...(opts.runs as Record<string, unknown>) }
+        : {};
+      nextRuns.max = runsSource.max;
+      effective.runs = nextRuns;
+    }
+
+    const requiredSource = resolve(opts, defaults, "required");
+    if (isObject(requiredSource)) {
+      const requiredFlags = isObject(requiredSource.flags)
+        ? requiredSource.flags
+        : undefined;
+      if (requiredFlags !== undefined) {
+        const requiredOut: Record<string, unknown> = isObject(opts.required)
+          ? { ...(opts.required as Record<string, unknown>) }
+          : {};
+        const requiredFlagsOut: Record<string, unknown> = isObject(
+          (opts.required as Record<string, unknown> | undefined)?.flags,
+        )
+          ? {
+              ...((opts.required as Record<string, unknown>).flags as Record<
+                string,
+                unknown
+              >),
+            }
+          : {};
+        if (hasOwn(requiredFlags, "min")) {
+          requiredFlagsOut.min = requiredFlags.min;
+        }
+        if (hasOwn(requiredFlags, "max")) {
+          requiredFlagsOut.max = requiredFlags.max;
+        }
+        if (hasOwn(requiredFlags, "changed")) {
+          requiredFlagsOut.changed = requiredFlags.changed;
+        }
+        if (
+          hasOwn(requiredFlagsOut, "min") ||
+          hasOwn(requiredFlagsOut, "max") ||
+          hasOwn(requiredFlagsOut, "changed")
+        ) {
+          requiredOut.flags = requiredFlagsOut;
+          effective.required = requiredOut;
+        }
+      }
+    }
+
+    const backfillSource = resolve(opts, defaults, "backfill");
+    if (isObject(backfillSource)) {
+      const backfillOut: Record<string, unknown> = {};
+      for (const dim of ["signal", "flags"] as const) {
+        const optsDim = isObject(
+          (opts.backfill as Record<string, unknown>)?.[dim],
+        )
+          ? ((opts.backfill as Record<string, unknown>)[dim] as Record<
+              string,
+              unknown
+            >)
+          : undefined;
+        const defaultsDim = isObject(
+          (defaults.backfill as Record<string, unknown>)?.[dim],
+        )
+          ? ((defaults.backfill as Record<string, unknown>)[dim] as Record<
+              string,
+              unknown
+            >)
+          : undefined;
+        const optsRuns = isObject(optsDim?.runs)
+          ? (optsDim.runs as Record<string, unknown>)
+          : undefined;
+        const defaultsRuns = isObject(defaultsDim?.runs)
+          ? (defaultsDim.runs as Record<string, unknown>)
+          : undefined;
+
+        const hasRunsMax =
+          (optsRuns !== undefined && hasOwn(optsRuns, "max")) ||
+          (defaultsRuns !== undefined && hasOwn(defaultsRuns, "max"));
+        if (!hasRunsMax) {
+          continue;
+        }
+
+        const dimOut: Record<string, unknown> = optsDim ? { ...optsDim } : {};
+        const runsOut: Record<string, unknown> = optsRuns
+          ? { ...optsRuns }
+          : {};
+        runsOut.max =
+          optsRuns !== undefined && hasOwn(optsRuns, "max")
+            ? optsRuns.max
+            : defaultsRuns?.max;
+        dimOut.runs = runsOut;
+        backfillOut[dim] = dimOut;
+      }
+
+      if (Object.keys(backfillOut).length > 0) {
+        effective.backfill = backfillOut;
+      }
+    }
+
+    for (const key of ["retroactive", "scope", "gate"] as const) {
+      if (hasOwn(opts, key)) {
+        effective[key] = structuredClone(opts[key]);
+      } else if (hasOwn(defaults, key)) {
+        effective[key] = structuredClone(defaults[key]);
+      }
+    }
+
+    return effective;
+  };
+
   const runtime: Runtime = {
     add(opts) {
       const addDeps = {
@@ -697,6 +830,14 @@ export function createRuntime(): Runtime {
           gcExpressionId(id);
         }
       };
+    },
+
+    on(opts) {
+      return runtime.add(buildEffectiveAddOpts("on", opts));
+    },
+
+    when(opts) {
+      return runtime.add(buildEffectiveAddOpts("when", opts));
     },
 
     impulse(opts) {
