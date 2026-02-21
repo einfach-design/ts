@@ -231,6 +231,8 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     shape: {
       field: "string",
+      key: "string?",
+      valueType: "string?",
     },
   },
   "add.required.flags.invalid": {
@@ -239,6 +241,8 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     shape: {
       field: "string",
+      key: "string?",
+      valueType: "string?",
     },
   },
   "add.required.flags.minInvalid": {
@@ -246,6 +250,7 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     shape: {
       field: "string",
+      valueType: "string?",
     },
   },
   "add.required.flags.maxInvalid": {
@@ -253,6 +258,7 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     shape: {
       field: "string",
+      valueType: "string?",
     },
   },
   "add.required.flags.changedInvalid": {
@@ -260,6 +266,57 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     shape: {
       field: "string",
+      valueType: "string?",
+    },
+  },
+  "add.runs.invalid": {
+    description: "add runs value must be an object.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string?",
+    },
+  },
+  "add.runs.max.invalid": {
+    description: "add runs.max must be a number, finite or positive infinity.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string?",
+    },
+  },
+  "add.backfill.signal.runs.invalid": {
+    description: "add backfill.signal.runs must be an object.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string?",
+    },
+  },
+  "add.backfill.signal.runs.max.invalid": {
+    description:
+      "add backfill.signal.runs.max must be a number, finite or positive infinity.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string?",
+    },
+  },
+  "add.backfill.flags.runs.invalid": {
+    description: "add backfill.flags.runs must be an object.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string?",
+    },
+  },
+  "add.backfill.flags.runs.max.invalid": {
+    description:
+      "add backfill.flags.runs.max must be a number, finite or positive infinity.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string?",
     },
   },
   "get.key.invalid": {
