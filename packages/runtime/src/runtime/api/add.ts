@@ -241,7 +241,11 @@ export function runAdd(
         continue;
       }
 
-      if (!isObject(target) || !isObject(target.on)) {
+      if (
+        !isObject(target) ||
+        !hasOwn(target, "on") ||
+        !isRecordObject(target.on)
+      ) {
         diagnostics.emit({
           code: "add.objectTarget.missingEntrypoint",
           message: "Object target must expose an object `on` entrypoint.",
@@ -290,20 +294,61 @@ export function runAdd(
       hasOwn(source, "retroactive") && source.retroactive === true;
     const runsMax = canonicalRunsMaxForAdd(diagnostics, source);
 
+    const readBackfillSource = (): Record<string, unknown> | undefined => {
+      if (!hasOwn(source, "backfill")) {
+        return undefined;
+      }
+
+      if (!isRecordObject(source.backfill)) {
+        diagnostics.emit({
+          code: "add.backfill.invalid",
+          message: "run.add backfill must be an object.",
+          severity: "error",
+          data: {
+            field: "backfill",
+            valueType: toValueType(source.backfill),
+          },
+        });
+        throw new Error("add.backfill.invalid");
+      }
+
+      return source.backfill;
+    };
+
+    const readBackfillGateConfig = (
+      backfill: Record<string, unknown>,
+      gate: "signal" | "flags",
+    ): Record<string, unknown> | undefined => {
+      if (!hasOwn(backfill, gate)) {
+        return undefined;
+      }
+
+      if (!isRecordObject(backfill[gate])) {
+        const code = `add.backfill.${gate}.invalid` as const;
+        diagnostics.emit({
+          code,
+          message: `run.add backfill.${gate} must be an object.`,
+          severity: "error",
+          data: {
+            field: `backfill.${gate}`,
+            valueType: toValueType(backfill[gate]),
+          },
+        });
+        throw new Error(code);
+      }
+
+      return backfill[gate];
+    };
+
     const readBackfillGateRunsMax = (
       gate: "signal" | "flags",
+      gateConfig: Record<string, unknown> | undefined,
       fallback: number,
     ): number => {
-      if (!hasOwn(source, "backfill") || !isObject(source.backfill)) {
+      if (gateConfig === undefined) {
         return fallback;
       }
 
-      const backfill = source.backfill;
-      if (!hasOwn(backfill, gate) || !isRecordObject(backfill[gate])) {
-        return fallback;
-      }
-
-      const gateConfig = backfill[gate];
       if (!hasOwn(gateConfig, "runs")) {
         return fallback;
       }
@@ -363,49 +408,69 @@ export function runAdd(
       throw new Error(code);
     };
 
-    const readBackfillDebt = (gate: "signal" | "flags"): number | undefined => {
-      if (!hasOwn(source, "backfill") || !isObject(source.backfill)) {
+    const readBackfillDebt = (
+      gate: "signal" | "flags",
+      gateConfig: Record<string, unknown> | undefined,
+    ): number | undefined => {
+      if (gateConfig === undefined) {
         return undefined;
       }
 
-      const backfill = source.backfill;
-      if (!hasOwn(backfill, gate) || !isObject(backfill[gate])) {
+      if (!hasOwn(gateConfig, "debt")) {
         return undefined;
       }
 
-      const gateConfig = backfill[gate];
-      if (!hasOwn(gateConfig, "debt") || typeof gateConfig.debt !== "number") {
-        return undefined;
+      const debt = gateConfig.debt;
+      if (typeof debt !== "number" || Number.isFinite(debt) === false) {
+        const code = `add.backfill.${gate}.debt.invalid` as const;
+        diagnostics.emit({
+          code,
+          message: `run.add backfill.${gate}.debt must be a finite number.`,
+          severity: "error",
+          data: {
+            field: `backfill.${gate}.debt`,
+            valueType: toValueType(debt),
+          },
+        });
+        throw new Error(code);
       }
 
-      if (!Number.isFinite(gateConfig.debt)) {
-        return 0;
-      }
-
-      return Math.max(0, Math.floor(gateConfig.debt));
+      return Math.max(0, Math.floor(debt));
     };
 
     const createNormalizedBackfill = (): RegisteredExpression["backfill"] => {
-      if (!hasOwn(source, "backfill")) {
+      const backfill = readBackfillSource();
+      if (backfill === undefined) {
         return undefined;
       }
 
-      const signalDebt = readBackfillDebt("signal");
-      const flagsDebt = readBackfillDebt("flags");
+      const signalGateConfig = readBackfillGateConfig(backfill, "signal");
+      const flagsGateConfig = readBackfillGateConfig(backfill, "flags");
+
+      const signalDebt = readBackfillDebt("signal", signalGateConfig);
+      const flagsDebt = readBackfillDebt("flags", flagsGateConfig);
 
       return {
         signal: {
           ...(signalDebt !== undefined ? { debt: signalDebt } : {}),
           runs: {
             used: 0,
-            max: readBackfillGateRunsMax("signal", Number.POSITIVE_INFINITY),
+            max: readBackfillGateRunsMax(
+              "signal",
+              signalGateConfig,
+              Number.POSITIVE_INFINITY,
+            ),
           },
         },
         flags: {
           ...(flagsDebt !== undefined ? { debt: flagsDebt } : {}),
           runs: {
             used: 0,
-            max: readBackfillGateRunsMax("flags", Number.POSITIVE_INFINITY),
+            max: readBackfillGateRunsMax(
+              "flags",
+              flagsGateConfig,
+              Number.POSITIVE_INFINITY,
+            ),
           },
         },
       };

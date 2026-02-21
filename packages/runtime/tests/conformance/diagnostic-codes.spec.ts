@@ -198,6 +198,91 @@ describe("conformance/diagnostic-codes", () => {
     expect(codes).toContain("add.runs.max.invalid");
   });
 
+  it("emits add.backfill.invalid for invalid backfill root", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.add({
+        targets: [() => undefined],
+        backfill: [],
+      } as unknown as Record<string, unknown>),
+    ).toThrow("add.backfill.invalid");
+    expect(codes).toContain("add.backfill.invalid");
+  });
+
+  it("emits add.backfill.signal.invalid for invalid backfill signal gate", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.add({
+        targets: [() => undefined],
+        backfill: { signal: null },
+      } as unknown as Record<string, unknown>),
+    ).toThrow("add.backfill.signal.invalid");
+    expect(codes).toContain("add.backfill.signal.invalid");
+  });
+
+  it("emits add.backfill.flags.invalid for invalid backfill flags gate", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.add({
+        targets: [() => undefined],
+        backfill: { flags: [] },
+      } as unknown as Record<string, unknown>),
+    ).toThrow("add.backfill.flags.invalid");
+    expect(codes).toContain("add.backfill.flags.invalid");
+  });
+
+  it("emits add.backfill.signal.debt.invalid for non-finite backfill signal debt", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.add({
+        targets: [() => undefined],
+        backfill: { signal: { debt: Number.POSITIVE_INFINITY } },
+      }),
+    ).toThrow("add.backfill.signal.debt.invalid");
+    expect(codes).toContain("add.backfill.signal.debt.invalid");
+  });
+
+  it("emits add.backfill.flags.debt.invalid for non-number backfill flags debt", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.add({
+        targets: [() => undefined],
+        backfill: { flags: { debt: "1" } },
+      } as unknown as Record<string, unknown>),
+    ).toThrow("add.backfill.flags.debt.invalid");
+    expect(codes).toContain("add.backfill.flags.debt.invalid");
+  });
+
   it("emits add.backfill.signal.runs.max.invalid for non-number backfill signal runs.max", () => {
     const run = createRuntime();
     const codes: string[] = [];

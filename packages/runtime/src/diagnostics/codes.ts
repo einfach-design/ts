@@ -285,6 +285,46 @@ export const DIAGNOSTIC_CODES = {
       valueType: "string?",
     },
   },
+  "add.backfill.invalid": {
+    description: "add backfill value must be an object.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string?",
+    },
+  },
+  "add.backfill.signal.invalid": {
+    description: "add backfill.signal must be an object.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string?",
+    },
+  },
+  "add.backfill.flags.invalid": {
+    description: "add backfill.flags must be an object.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string?",
+    },
+  },
+  "add.backfill.signal.debt.invalid": {
+    description: "add backfill.signal.debt must be a finite number.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string?",
+    },
+  },
+  "add.backfill.flags.debt.invalid": {
+    description: "add backfill.flags.debt must be a finite number.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string?",
+    },
+  },
   "add.backfill.signal.runs.invalid": {
     description: "add backfill.signal.runs must be an object.",
     severity: "error",
