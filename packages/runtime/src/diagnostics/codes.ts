@@ -225,6 +225,43 @@ export const DIAGNOSTIC_CODES = {
       signal: "string",
     },
   },
+  "add.required.invalid": {
+    description:
+      "add required value must be an object with supported keys only.",
+    severity: "error",
+    shape: {
+      field: "string",
+    },
+  },
+  "add.required.flags.invalid": {
+    description:
+      "add required.flags value must be an object with supported keys only.",
+    severity: "error",
+    shape: {
+      field: "string",
+    },
+  },
+  "add.required.flags.minInvalid": {
+    description: "add required.flags.min must be a finite number.",
+    severity: "error",
+    shape: {
+      field: "string",
+    },
+  },
+  "add.required.flags.maxInvalid": {
+    description: "add required.flags.max must be a finite number.",
+    severity: "error",
+    shape: {
+      field: "string",
+    },
+  },
+  "add.required.flags.changedInvalid": {
+    description: "add required.flags.changed must be a finite number.",
+    severity: "error",
+    shape: {
+      field: "string",
+    },
+  },
   "get.key.invalid": {
     description: "get was called with an unknown key.",
     severity: "error",

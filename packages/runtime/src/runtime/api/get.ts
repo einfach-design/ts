@@ -91,23 +91,37 @@ const projectFlagsState = (
 
 const toCanonicalImpulseQConfig = (
   config: RuntimeStore["impulseQ"]["config"],
-): RuntimeStore["impulseQ"]["config"] => ({
-  ...config,
-  retain:
+): RuntimeStore["impulseQ"]["config"] => {
+  const retain =
     config.retain === true
       ? Number.POSITIVE_INFINITY
       : config.retain === false || config.retain === undefined
         ? 0
-        : typeof config.retain === "number" &&
-            Number.isNaN(config.retain) === false
-          ? Math.max(0, config.retain)
-          : 0,
-  maxBytes:
-    typeof config.maxBytes === "number" &&
-    Number.isNaN(config.maxBytes) === false
-      ? Math.max(0, config.maxBytes)
-      : Number.POSITIVE_INFINITY,
-});
+        : typeof config.retain === "number"
+          ? config.retain === Number.POSITIVE_INFINITY
+            ? Number.POSITIVE_INFINITY
+            : Number.isFinite(config.retain)
+              ? Math.max(0, Math.floor(config.retain))
+              : 0
+          : 0;
+
+  const maxBytes =
+    config.maxBytes === undefined
+      ? Number.POSITIVE_INFINITY
+      : typeof config.maxBytes === "number"
+        ? config.maxBytes === Number.POSITIVE_INFINITY
+          ? Number.POSITIVE_INFINITY
+          : Number.isFinite(config.maxBytes)
+            ? Math.max(0, Math.floor(config.maxBytes))
+            : Number.POSITIVE_INFINITY
+        : Number.POSITIVE_INFINITY;
+
+  return {
+    ...config,
+    retain,
+    maxBytes,
+  };
+};
 
 const projectImpulseQ = (
   impulseQ: RuntimeStore["impulseQ"],

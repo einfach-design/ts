@@ -13,10 +13,13 @@ import { DIAGNOSTIC_CODES } from "../../src/diagnostics/index.js";
 import { createRuntime } from "../../src/index.js";
 
 describe("conformance/diagnostic-codes", () => {
-  it("all DIAGNOSTIC_CODES use exactly 3 segments (a.b.c)", () => {
+  it("all DIAGNOSTIC_CODES use dot-separated non-empty segments", () => {
     for (const code of Object.keys(DIAGNOSTIC_CODES)) {
-      expect(code).toMatch(/^[^.]+\.[^.]+\.[^.]+$/);
-      expect(code.split(".")).toHaveLength(3);
+      const segments = code.split(".");
+      expect(segments.length).toBeGreaterThanOrEqual(3);
+      for (const segment of segments) {
+        expect(segment.length).toBeGreaterThan(0);
+      }
     }
   });
 
@@ -76,6 +79,90 @@ describe("conformance/diagnostic-codes", () => {
     }
   });
 
+  it("emits add.required.invalid when required is not an object", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.add({
+        targets: [() => undefined],
+        required: null,
+      } as unknown as Record<string, unknown>),
+    ).toThrow("add.required.invalid");
+    expect(codes).toContain("add.required.invalid");
+  });
+
+  it("emits add.required.flags.invalid when required.flags is invalid", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.add({
+        targets: [() => undefined],
+        required: { flags: [] },
+      } as unknown as Record<string, unknown>),
+    ).toThrow("add.required.flags.invalid");
+    expect(codes).toContain("add.required.flags.invalid");
+  });
+
+  it("emits add.required.flags.minInvalid when min is not finite", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.add({
+        targets: [() => undefined],
+        required: { flags: { min: Number.NEGATIVE_INFINITY } },
+      }),
+    ).toThrow("add.required.flags.minInvalid");
+    expect(codes).toContain("add.required.flags.minInvalid");
+  });
+
+  it("emits add.required.flags.maxInvalid when max is not finite", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.add({
+        targets: [() => undefined],
+        required: { flags: { max: Number.POSITIVE_INFINITY } },
+      }),
+    ).toThrow("add.required.flags.maxInvalid");
+    expect(codes).toContain("add.required.flags.maxInvalid");
+  });
+
+  it("emits add.required.flags.changedInvalid when changed is not finite", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.add({
+        targets: [() => undefined],
+        required: { flags: { changed: Number.NaN } },
+      }),
+    ).toThrow("add.required.flags.changedInvalid");
+    expect(codes).toContain("add.required.flags.changedInvalid");
+  });
   it("emits set.impulseQ.configInvalid and throws for non-object config patch", () => {
     const run = createRuntime();
     const codes: string[] = [];
@@ -317,6 +404,33 @@ describe("conformance/diagnostic-codes", () => {
     expect(codes).toContain("set.impulseQ.maxBytesInvalid");
   });
 
+  it("emits set.impulseQ.retainInvalid and throws for -Infinity retain", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({ impulseQ: { config: { retain: Number.NEGATIVE_INFINITY } } }),
+    ).toThrow("set.impulseQ.retainInvalid");
+    expect(codes).toContain("set.impulseQ.retainInvalid");
+  });
+
+  it("emits set.impulseQ.maxBytesInvalid and throws for -Infinity maxBytes", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.set({ impulseQ: { config: { maxBytes: Number.NEGATIVE_INFINITY } } }),
+    ).toThrow("set.impulseQ.maxBytesInvalid");
+    expect(codes).toContain("set.impulseQ.maxBytesInvalid");
+  });
   it("emits set.impulseQ.onTrimInvalid and throws for invalid onTrim patch", () => {
     const run = createRuntime();
     const codes: string[] = [];

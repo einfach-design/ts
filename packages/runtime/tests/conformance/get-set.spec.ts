@@ -1228,12 +1228,33 @@ describe("conformance/get-set", () => {
     expect(impulseQ.config.retain).toBe(0);
     expect(impulseQ.config.maxBytes).toBe(Number.POSITIVE_INFINITY);
 
-    run.set({ impulseQ: { config: { retain: -3, maxBytes: -2 } } });
+    run.set({ impulseQ: { config: { retain: -3.9, maxBytes: -2.2 } } });
     impulseQ = run.get("impulseQ", { as: "snapshot" }) as {
       config: { retain: number; maxBytes: number };
     };
     expect(impulseQ.config.retain).toBe(0);
     expect(impulseQ.config.maxBytes).toBe(0);
+
+    run.set({ impulseQ: { config: { retain: 4.8, maxBytes: 7.9 } } });
+    impulseQ = run.get("impulseQ", { as: "snapshot" }) as {
+      config: { retain: number; maxBytes: number };
+    };
+    expect(impulseQ.config.retain).toBe(4);
+    expect(impulseQ.config.maxBytes).toBe(7);
+
+    run.set({
+      impulseQ: {
+        config: {
+          retain: Number.POSITIVE_INFINITY,
+          maxBytes: Number.POSITIVE_INFINITY,
+        },
+      },
+    });
+    impulseQ = run.get("impulseQ", { as: "snapshot" }) as {
+      config: { retain: number; maxBytes: number };
+    };
+    expect(impulseQ.config.retain).toBe(Number.POSITIVE_INFINITY);
+    expect(impulseQ.config.maxBytes).toBe(Number.POSITIVE_INFINITY);
   });
 
   it("B6 — signals patch updates signal/seenSignals without queue processing (Spec §4.2)", () => {

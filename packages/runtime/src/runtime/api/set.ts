@@ -268,7 +268,24 @@ const canonicalRetainForSet = (
       throw new Error("set.impulseQ.retainInvalid");
     }
 
-    return Math.max(0, retain);
+    if (retain === Number.POSITIVE_INFINITY) {
+      return Number.POSITIVE_INFINITY;
+    }
+
+    if (Number.isFinite(retain)) {
+      return Math.max(0, Math.floor(retain));
+    }
+
+    diagnostics.emit({
+      code: "set.impulseQ.retainInvalid",
+      message: "impulseQ.config.retain must be a boolean or a non-NaN number.",
+      severity: "error",
+      data: {
+        field: "retain",
+        valueType: toValueType(retain),
+      },
+    });
+    throw new Error("set.impulseQ.retainInvalid");
   }
 
   diagnostics.emit({
@@ -305,7 +322,24 @@ const canonicalMaxBytesForSet = (
       throw new Error("set.impulseQ.maxBytesInvalid");
     }
 
-    return Math.max(0, maxBytes);
+    if (maxBytes === Number.POSITIVE_INFINITY) {
+      return Number.POSITIVE_INFINITY;
+    }
+
+    if (Number.isFinite(maxBytes)) {
+      return Math.max(0, Math.floor(maxBytes));
+    }
+
+    diagnostics.emit({
+      code: "set.impulseQ.maxBytesInvalid",
+      message: "impulseQ.config.maxBytes must be a non-NaN number.",
+      severity: "error",
+      data: {
+        field: "maxBytes",
+        valueType: toValueType(maxBytes),
+      },
+    });
+    throw new Error("set.impulseQ.maxBytesInvalid");
   }
 
   diagnostics.emit({
