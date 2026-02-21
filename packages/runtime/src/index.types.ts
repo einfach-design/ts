@@ -6,6 +6,13 @@
  * @description Public contract entrypoint for the runtime package.
  */
 
+import type {
+  FlagSpecValue,
+  FlagSpec,
+  FlagsView,
+  MatchExpressionInput,
+} from "./match/matchExpression.js";
+
 export type RunScope = "applied" | "pending" | "pendingOnly";
 
 export type Diagnostic = Readonly<{
@@ -70,47 +77,32 @@ export type RunGetKey =
 
 export type RunSetInput = Readonly<Record<string, unknown>>;
 
-export type MatchFlagSpecValue = true | false | "*";
+export type MatchFlagSpecValue = FlagSpecValue;
 
-export type MatchFlagSpec = Readonly<{
-  flag: string;
-  value: MatchFlagSpecValue;
-}>;
+export type MatchFlagSpec = FlagSpec;
 
-export type MatchFlagsView = Readonly<{
-  map: Record<string, true>;
-  list?: readonly string[];
-}>;
+export type MatchFlagsView = Readonly<FlagsView>;
 
-export type MatchExpressionOpts = Readonly<{
-  expression: Readonly<{
-    signal?: unknown;
-    flags?: readonly MatchFlagSpec[];
-    required?: Readonly<{
-      flags?: Readonly<{
-        min?: number;
-        max?: number;
-        changed?: number;
-      }>;
-    }>;
-  }>;
-  defaults?: Readonly<{
-    gate: Readonly<{
-      signal: Readonly<{ value: boolean }>;
-      flags: Readonly<{ value: boolean }>;
-    }>;
-  }>;
-  gate?: Readonly<{
-    signal?: boolean;
-    flags?: boolean;
-  }>;
-  reference?: Readonly<{
-    signal?: unknown;
-    flags?: MatchFlagsView;
-    changedFlags?: MatchFlagsView | undefined;
-  }>;
+type MatchExpressionEngineInput = Omit<
+  MatchExpressionInput,
+  "defaults" | "fallbackReference" | "reference" | "changedFlags"
+>;
+
+type MatchExpressionReference = Omit<
+  NonNullable<MatchExpressionInput["reference"]>,
+  "flags" | "changedFlags"
+> & {
+  flags?: MatchFlagsView;
   changedFlags?: MatchFlagsView | undefined;
-}>;
+};
+
+export type MatchExpressionOpts = Readonly<
+  MatchExpressionEngineInput & {
+    defaults?: MatchExpressionInput["defaults"];
+    reference?: Readonly<MatchExpressionReference>;
+    changedFlags?: MatchFlagsView | undefined;
+  }
+>;
 
 export type RunTime = Readonly<{
   add: (opts: AddOpts) => () => void;

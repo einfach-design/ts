@@ -7,7 +7,7 @@
  */
 import { hasOwn } from "../util/hasOwn.js";
 
-type FlagSpecValue = true | false | "*";
+export type FlagSpecValue = true | false | "*";
 
 export type FlagsView = {
   map: Record<string, true>;
