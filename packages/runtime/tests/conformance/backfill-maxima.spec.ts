@@ -29,8 +29,11 @@ describe("conformance/backfill-maxima", () => {
     >;
 
     const expression = byId.get("expr:maxed");
-    if (expression?.backfill?.signal?.runs !== undefined) {
-      expression.backfill.signal.runs.max = 0;
+    const signalRuns = expression?.backfill?.signal?.runs;
+    if (signalRuns !== undefined) {
+      expect(() => {
+        (signalRuns as { max: number }).max = 0;
+      }).toThrow("runtime.readonly");
     }
 
     const after = (
@@ -46,5 +49,6 @@ describe("conformance/backfill-maxima", () => {
 
     expect(after?.backfill?.signal?.debt).toBe(2);
     expect(after?.backfill?.signal?.runs?.used).toBe(0);
+    expect(after?.backfill?.signal?.runs?.max).toBe(1);
   });
 });

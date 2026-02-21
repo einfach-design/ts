@@ -1500,18 +1500,20 @@ describe("conformance/get-set", () => {
     ]);
   });
 
-  it("A10 — get(as:'reference') returns live unsafe reference", () => {
+  it("A10 — get(as:'reference') returns read-only throw-on-write view", () => {
     const run = createRuntime();
     const flagsRef = run.get("flags", { as: "reference" }) as {
       list: string[];
       map: Record<string, true>;
     };
 
-    flagsRef.map.injected = true;
+    expect(() => {
+      (flagsRef.map as Record<string, unknown>).injected = true;
+    }).toThrow("runtime.readonly");
     expect(
-      (run.get("flags", { as: "reference" }) as { map: Record<string, true> })
+      (run.get("flags", { as: "snapshot" }) as { map: Record<string, unknown> })
         .map.injected,
-    ).toBe(true);
+    ).toBeUndefined();
 
     run.impulse({ addFlags: ["x"] });
     expect((run.get("flags") as { list: string[] }).list).toContain("x");

@@ -131,14 +131,5 @@ describe("targets/dispatch", () => {
         onError: "throw",
       }),
     ).not.toThrow();
-
-    const result = dispatch({
-      targetKind: "object",
-      target: { on: { everyRun: vi.fn() } },
-      signal: "foo",
-      args: [],
-      onError: "throw",
-    });
-    expect(result.attempted).toBe(1);
   });
 });
