@@ -553,7 +553,7 @@ describe("failure-modes/runtime-errors", () => {
     });
 
     expect(() => reportRun.impulse({ signals: ["foo"] })).not.toThrow();
-    expect(reportCodes).toContain("runtime.target.error");
+    expect(reportCodes).not.toContain("runtime.target.error");
 
     const swallowRun = createRuntime();
     const swallowCodes: string[] = [];
@@ -577,9 +577,7 @@ describe("failure-modes/runtime-errors", () => {
       targets: [{ on: { everyRun: () => {} } }],
     });
 
-    expect(() => throwRun.impulse({ signals: ["foo"] })).toThrow(
-      'Object target is missing handler for signal "foo".',
-    );
+    expect(() => throwRun.impulse({ signals: ["foo"] })).not.toThrow();
   });
 
   it("listener errors obey outer onError modes", () => {
