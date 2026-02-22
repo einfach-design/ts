@@ -48,6 +48,10 @@ function canonicalRetain(retain: number | boolean | undefined): number {
     return Number.POSITIVE_INFINITY;
   }
 
+  if (retain === Number.POSITIVE_INFINITY) {
+    return Number.POSITIVE_INFINITY;
+  }
+
   if (retain === false || retain === undefined) {
     return 0;
   }

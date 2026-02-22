@@ -202,6 +202,15 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     shape: {},
   },
+  "add.signals.dedup": {
+    description:
+      "add signals list was deduplicated while preserving first occurrence order.",
+    severity: "warn",
+    shape: {
+      signals: "unknown[]",
+      deduped: "string[]",
+    },
+  },
   "add.objectTarget.missingEntrypoint": {
     description:
       "Object target must provide an `on` object entrypoint for dispatch.",

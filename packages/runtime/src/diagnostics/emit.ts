@@ -63,21 +63,22 @@ export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
     throw new Error("diagnostics.code.unknown");
   }
 
+  const snapshot: TDiagnostic = Object.freeze({
+    ...diagnostic,
+    ...(isPlainObject(diagnostic.data)
+      ? { data: Object.freeze({ ...diagnostic.data }) }
+      : {}),
+  }) as TDiagnostic;
+
   if (collector) {
-    const snapshot: TDiagnostic = {
-      ...diagnostic,
-      ...(isPlainObject(diagnostic.data)
-        ? { data: Object.freeze({ ...diagnostic.data }) }
-        : {}),
-    };
-    collector.push(Object.freeze(snapshot));
+    collector.push(snapshot);
   }
 
   if (listeners) {
     let listenerIndex = 0;
     for (const listener of listeners) {
       try {
-        listener(diagnostic);
+        listener(snapshot);
       } catch (error) {
         const handlerName = listener.name || undefined;
 
@@ -86,7 +87,7 @@ export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
           listener,
           listenerIndex,
           ...(handlerName !== undefined ? { handlerName } : {}),
-          diagnostic,
+          diagnostic: snapshot,
         });
 
         if (!options.__emittingListenerError) {
@@ -118,7 +119,7 @@ export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
     }
   }
 
-  return diagnostic;
+  return snapshot;
 }
 
 export function createDiagnosticCollector<

@@ -79,6 +79,28 @@ describe("conformance/diagnostic-codes", () => {
     }
   });
 
+  it("emits add.signals.dedup when add.signals contains duplicates", () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.add({
+        targets: [() => undefined],
+        signals: ["a", "a", "b", "b", "a"],
+      }),
+    ).not.toThrow();
+
+    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+      code: string;
+      data?: { deduped?: string[] };
+    }>;
+    const dedupDiagnostic = diagnostics.find(
+      (diagnostic) => diagnostic.code === "add.signals.dedup",
+    );
+
+    expect(dedupDiagnostic).toBeDefined();
+    expect(dedupDiagnostic?.data?.deduped).toEqual(["a", "b"]);
+  });
+
   it("emits add.required.invalid when required is not an object", () => {
     const run = createRuntime();
     const codes: string[] = [];
