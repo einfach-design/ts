@@ -278,6 +278,15 @@ export const DIAGNOSTIC_CODES = {
       valueType: "string?",
     },
   },
+  "add.onError.invalid": {
+    description:
+      'add onError must be "throw", "report", "swallow", or a function.',
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string",
+    },
+  },
   "add.runs.invalid": {
     description: "add runs value must be an object.",
     severity: "error",

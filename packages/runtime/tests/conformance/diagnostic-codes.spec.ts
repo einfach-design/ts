@@ -186,6 +186,26 @@ describe("conformance/diagnostic-codes", () => {
     expect(codes).toContain("add.required.flags.changedInvalid");
   });
 
+  it("emits add.onError.invalid when onError is invalid", () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.add({
+        targets: [() => undefined],
+        onError: "nope" as never,
+      }),
+    ).toThrow("add.onError.invalid");
+
+    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+      code: string;
+    }>;
+
+    expect(
+      diagnostics.some(
+        (diagnostic) => diagnostic.code === "add.onError.invalid",
+      ),
+    ).toBe(true);
+  });
   it("emits add.runs.invalid when runs is not an object", () => {
     const run = createRuntime();
     const codes: string[] = [];

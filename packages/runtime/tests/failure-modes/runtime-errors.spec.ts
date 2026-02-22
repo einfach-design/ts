@@ -95,6 +95,33 @@ describe("failure-modes/runtime-errors", () => {
     });
   });
 
+  it("catches canonicalization getter throws and reports impulse/canon", () => {
+    const run = createRuntime();
+    const diagnostics: Array<{ code: string; data?: { phase?: string } }> = [];
+
+    run.onDiagnostic((diagnostic) => {
+      diagnostics.push(
+        diagnostic as { code: string; data?: { phase?: string } },
+      );
+    });
+
+    const opts = {
+      onError: "report",
+      get signals() {
+        throw new Error("getter-boom");
+      },
+    };
+
+    expect(() => run.impulse(opts as Record<string, unknown>)).not.toThrow();
+    expect(diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "impulse.input.invalid",
+          data: expect.objectContaining({ phase: "impulse/canon" }),
+        }),
+      ]),
+    );
+  });
   describe("outer phase: impulse/drain", () => {
     it("rejects malformed hydration queue entries before drain processing", () => {
       const run = createRuntime();
@@ -665,5 +692,35 @@ describe("failure-modes/runtime-errors", () => {
       diagnostics.filter((code) => code === "runs.max.exceeded"),
     ).toHaveLength(1);
     expect(calls).toEqual(["hit"]);
+  });
+
+  it("defaults add.onError to report and reports target callback failures", () => {
+    const run = createRuntime();
+    const diagnostics: Array<{ code: string; data?: { phase?: string } }> = [];
+
+    run.onDiagnostic((diagnostic) => {
+      diagnostics.push(
+        diagnostic as { code: string; data?: { phase?: string } },
+      );
+    });
+
+    run.add({
+      id: "expr:default-onError",
+      targets: [
+        () => {
+          throw new Error("boom");
+        },
+      ],
+    });
+
+    expect(() => run.impulse({ addFlags: ["a"] })).not.toThrow();
+    expect(diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "runtime.target.error",
+          data: expect.objectContaining({ phase: "target/callback" }),
+        }),
+      ]),
+    );
   });
 });

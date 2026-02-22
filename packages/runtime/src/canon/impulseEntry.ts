@@ -71,6 +71,13 @@ const isFlagsView = (value: unknown): value is FlagsView => {
   return true;
 };
 
+const isRuntimeOnError = (value: unknown): value is RuntimeOnError =>
+  value === undefined ||
+  value === "throw" ||
+  value === "report" ||
+  value === "swallow" ||
+  typeof value === "function";
+
 const sourceWithOnError = (
   value: Record<string, unknown>,
 ): Record<string, unknown> => {
@@ -86,10 +93,11 @@ export function canonImpulseEntry(
   input: unknown,
 ): ImpulseEntryCanonicalization {
   const source = isObjectNonNull(input) ? sourceWithOnError(input) : {};
-  const onError =
-    isObjectNonNull(input) && hasOwn(input, "onError")
-      ? (input.onError as RuntimeOnError)
-      : undefined;
+  const hasInputOnError = isObjectNonNull(input) && hasOwn(input, "onError");
+  const onErrorCandidate = hasInputOnError ? input.onError : undefined;
+  const onError = isRuntimeOnError(onErrorCandidate)
+    ? onErrorCandidate
+    : undefined;
 
   const signals = hasOwn(source, "signals") ? source.signals : [];
   if (
@@ -122,8 +130,15 @@ export function canonImpulseEntry(
     } else if (isFlagsView(source.useFixedFlags)) {
       useFixedFlags = source.useFixedFlags;
     } else {
-      return { entry: undefined, onError };
+      return {
+        entry: undefined,
+        onError: hasInputOnError ? onError : undefined,
+      };
     }
+  }
+
+  if (hasInputOnError && onError === undefined) {
+    return { entry: undefined, onError: undefined };
   }
 
   return {

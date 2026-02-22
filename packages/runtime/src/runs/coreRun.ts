@@ -399,7 +399,11 @@ export const coreRun = (args: {
       };
     }
 
-    return expression.onError ?? "throw";
+    if (expressionOnError === "report" || expressionOnError === "swallow") {
+      return expressionOnError;
+    }
+
+    return "report";
   };
 
   for (const target of expression.targets) {
