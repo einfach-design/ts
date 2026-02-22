@@ -512,6 +512,9 @@ export function runSet(
     const normalizedList = (valueRecord.list as unknown[]).map((entry) =>
       String(entry),
     );
+    if (new Set(normalizedList).size !== normalizedList.length) {
+      emitHydrationFlagsViewInvalid(field, value);
+    }
     const canonical = createFlagsView(normalizedList);
     const incomingMap = valueRecord.map as Record<string, unknown>;
 
@@ -558,9 +561,21 @@ export function runSet(
       throw new Error("set.hydration.seenSignalsInvalid");
     }
 
-    const canonical = createFlagsView(
-      (value.list as unknown[]).map((entry) => String(entry)),
+    const normalizedList = (value.list as unknown[]).map((entry) =>
+      String(entry),
     );
+    if (new Set(normalizedList).size !== normalizedList.length) {
+      diagnostics.emit({
+        code: "set.hydration.seenSignalsInvalid",
+        message:
+          "Hydration seenSignals must be a consistent { list, map } object.",
+        severity: "error",
+        data: { field: "seenSignals", valueType: toValueType(value) },
+      });
+      throw new Error("set.hydration.seenSignalsInvalid");
+    }
+
+    const canonical = createFlagsView(normalizedList);
     const incomingMap = value.map as Record<string, unknown>;
 
     for (const signal of canonical.list) {
@@ -628,9 +643,21 @@ export function runSet(
       throw new Error("set.hydration.backfillQInvalid");
     }
 
-    const canonical = createFlagsView(
-      (value.list as unknown[]).map((entry) => String(entry)),
+    const normalizedList = (value.list as unknown[]).map((entry) =>
+      String(entry),
     );
+    if (new Set(normalizedList).size !== normalizedList.length) {
+      diagnostics.emit({
+        code: "set.hydration.seenSignalsInvalid",
+        message:
+          "Hydration seenSignals must be a consistent { list, map } object.",
+        severity: "error",
+        data: { field: "seenSignals", valueType: toValueType(value) },
+      });
+      throw new Error("set.hydration.seenSignalsInvalid");
+    }
+
+    const canonical = createFlagsView(normalizedList);
     const incomingMap = value.map as Record<string, unknown>;
 
     for (const id of canonical.list) {

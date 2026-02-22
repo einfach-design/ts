@@ -79,6 +79,23 @@ describe("conformance/diagnostic-codes", () => {
     }
   });
 
+  it("emits add.signals.invalid when add.signals contains non-strings", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.add({
+        targets: [() => undefined],
+        signals: ["ok", 1] as unknown as string[],
+      }),
+    ).toThrow("add.signals.invalid");
+    expect(codes).toContain("add.signals.invalid");
+  });
+
   it("emits add.signals.dedup when add.signals contains duplicates", () => {
     const run = createRuntime();
 
@@ -774,6 +791,40 @@ describe("conformance/diagnostic-codes", () => {
 
     const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
     s.seenSignals = [];
+
+    expect(() => run.set(s)).toThrow("set.hydration.seenSignalsInvalid");
+    expect(codes).toContain("set.hydration.seenSignalsInvalid");
+  });
+
+  it("emits set.hydration.flagsViewInvalid and throws for hydration with duplicate flags.list entries", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown> & {
+      flags: { list: string[]; map: Record<string, true> };
+    };
+    s.flags = { list: ["dup", "dup"], map: { dup: true } };
+
+    expect(() => run.set(s)).toThrow("set.hydration.flagsViewInvalid");
+    expect(codes).toContain("set.hydration.flagsViewInvalid");
+  });
+
+  it("emits set.hydration.seenSignalsInvalid and throws for hydration with duplicate seenSignals.list entries", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown> & {
+      seenSignals: { list: string[]; map: Record<string, true> };
+    };
+    s.seenSignals = { list: ["dup", "dup"], map: { dup: true } };
 
     expect(() => run.set(s)).toThrow("set.hydration.seenSignalsInvalid");
     expect(codes).toContain("set.hydration.seenSignalsInvalid");

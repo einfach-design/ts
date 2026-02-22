@@ -107,4 +107,27 @@ describe("canon/impulseEntry", () => {
       entry: undefined,
     });
   });
+  it("ignores unrelated throwing getters", () => {
+    const input = {
+      signals: [],
+      addFlags: [],
+      removeFlags: [],
+      get boom() {
+        throw new Error("boom");
+      },
+    };
+
+    expect(() => canonImpulseEntry(input)).not.toThrow();
+    const result = canonImpulseEntry(input);
+    expect(result.entry).toBeDefined();
+  });
+
+  it("returns undefined entry + onError for invalid own onError", () => {
+    expect(
+      canonImpulseEntry({ onError: "nope" as never, signals: [] }),
+    ).toEqual({
+      entry: undefined,
+      onError: undefined,
+    });
+  });
 });

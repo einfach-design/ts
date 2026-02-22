@@ -132,4 +132,26 @@ describe("targets/dispatch", () => {
       }),
     ).not.toThrow();
   });
+  it("includes context.signal for signal-specific object handler errors", () => {
+    const onError = vi.fn();
+
+    dispatch({
+      targetKind: "object",
+      target: {
+        on: {
+          foo: () => {
+            throw new Error("boom");
+          },
+        },
+      },
+      signal: "foo",
+      args: [],
+      onError,
+    });
+
+    const issue = onError.mock.calls[0]?.[0];
+    expect(issue.context.phase).toBe("target/object");
+    expect(issue.context.handler).toBe("foo");
+    expect(issue.context.signal).toBe("foo");
+  });
 });
