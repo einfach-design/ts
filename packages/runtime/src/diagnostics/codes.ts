@@ -211,6 +211,15 @@ export const DIAGNOSTIC_CODES = {
       deduped: "string[]",
     },
   },
+  "add.signals.invalid": {
+    description: "add signals/signal values must be strings when provided.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string",
+      index: "number?",
+    },
+  },
   "add.objectTarget.missingEntrypoint": {
     description:
       "Object target must provide an `on` object entrypoint for dispatch.",

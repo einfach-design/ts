@@ -203,22 +203,31 @@ export function initRuntimeStore<
     try {
       return fn();
     } finally {
-      runtimeStackDepth -= 1;
-      if (runtimeStackDepth === 0 && trimPendingMaxBytes) {
+      if (runtimeStackDepth === 1 && trimPendingMaxBytes && !draining) {
         const prevEntries = impulseQ.q.entries;
         const prevCursor = impulseQ.q.cursor;
-        const trimmed = trim({
-          entries: prevEntries,
-          cursor: prevCursor,
-          retain: impulseQ.config.retain,
-          maxBytes: impulseQ.config.maxBytes,
-          runtimeStackActive: false,
-          trimPendingMaxBytes,
-          measureBytes: measureEntryBytes,
-          ...(impulseQ.config.onTrim !== undefined
-            ? { onTrim: impulseQ.config.onTrim }
-            : {}),
-        });
+        const prevPendingCount = Math.max(0, prevEntries.length - prevCursor);
+        const drainingBeforeTrim = draining;
+        draining = true;
+
+        const trimmed = (() => {
+          try {
+            return trim({
+              entries: prevEntries,
+              cursor: prevCursor,
+              retain: impulseQ.config.retain,
+              maxBytes: impulseQ.config.maxBytes,
+              runtimeStackActive: false,
+              trimPendingMaxBytes,
+              measureBytes: measureEntryBytes,
+              ...(impulseQ.config.onTrim !== undefined
+                ? { onTrim: impulseQ.config.onTrim }
+                : {}),
+            });
+          } finally {
+            draining = drainingBeforeTrim;
+          }
+        })();
 
         if (trimmed.onTrimError !== undefined) {
           store.reportRuntimeError(trimmed.onTrimError, "trim/onTrim");
@@ -231,10 +240,20 @@ export function initRuntimeStore<
           );
         }
 
-        impulseQ.q.entries = [...trimmed.entries];
+        const pendingEntriesEnqueuedDuringTrim =
+          impulseQ.q.entries.length > prevCursor + prevPendingCount
+            ? impulseQ.q.entries.slice(prevCursor + prevPendingCount)
+            : [];
+
+        impulseQ.q.entries = [
+          ...trimmed.entries,
+          ...pendingEntriesEnqueuedDuringTrim,
+        ];
         impulseQ.q.cursor = trimmed.cursor;
         trimPendingMaxBytes = trimmed.trimPendingMaxBytes;
       }
+
+      runtimeStackDepth -= 1;
     }
   };
 

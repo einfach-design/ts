@@ -6,6 +6,8 @@
  * @description Project file.
  */
 
+import { hasOwn } from "../util/hasOwn.js";
+
 const EVERY_RUN_HANDLER = "everyRun";
 
 export type DispatchTargetKind = "callback" | "object";
@@ -204,10 +206,10 @@ export function dispatch(input: DispatchInput): DispatchResult {
       phase: "target/object",
       targetKind,
       handler: signal,
+      ...(signal !== undefined ? { signal } : {}),
       ...(context ?? {}),
     });
   }
 
   return { attempted };
 }
-import { hasOwn } from "../util/hasOwn.js";

@@ -78,13 +78,6 @@ const isRuntimeOnError = (value: unknown): value is RuntimeOnError =>
   value === "swallow" ||
   typeof value === "function";
 
-const sourceWithOnError = (
-  value: Record<string, unknown>,
-): Record<string, unknown> => {
-  const { onError: _onError, ...rest } = value;
-  return rest;
-};
-
 /**
  * Canonicalize a `run.impulse(opts)` payload into a queue entry + outer onError mode.
  * Returns `entry: undefined` for invalid entry payloads.
@@ -92,9 +85,13 @@ const sourceWithOnError = (
 export function canonImpulseEntry(
   input: unknown,
 ): ImpulseEntryCanonicalization {
-  const source = isObjectNonNull(input) ? sourceWithOnError(input) : {};
-  const hasInputOnError = isObjectNonNull(input) && hasOwn(input, "onError");
-  const onErrorCandidate = hasInputOnError ? input.onError : undefined;
+  if (!isObjectNonNull(input)) {
+    return { entry: undefined, onError: undefined };
+  }
+
+  const source = input as Record<string, unknown>;
+  const hasInputOnError = hasOwn(source, "onError");
+  const onErrorCandidate = hasInputOnError ? source.onError : undefined;
   const onError = isRuntimeOnError(onErrorCandidate)
     ? onErrorCandidate
     : undefined;
@@ -130,10 +127,7 @@ export function canonImpulseEntry(
     } else if (isFlagsView(source.useFixedFlags)) {
       useFixedFlags = source.useFixedFlags;
     } else {
-      return {
-        entry: undefined,
-        onError: hasInputOnError ? onError : undefined,
-      };
+      return { entry: undefined, onError };
     }
   }
 

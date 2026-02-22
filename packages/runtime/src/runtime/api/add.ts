@@ -257,20 +257,58 @@ export function runAdd(
       throw new Error("add.target.required");
     }
 
-    const signals =
+    if (hasOwn(source, "signals") && !Array.isArray(source.signals)) {
+      diagnostics.emit({
+        code: "add.signals.invalid",
+        message: "run.add signals must be an array of strings.",
+        severity: "error",
+        data: { field: "signals", valueType: toValueType(source.signals) },
+      });
+      throw new Error("add.signals.invalid");
+    }
+
+    if (hasOwn(source, "signals") && Array.isArray(source.signals)) {
+      for (const [index, value] of source.signals.entries()) {
+        if (typeof value !== "string") {
+          diagnostics.emit({
+            code: "add.signals.invalid",
+            message: "run.add signals must be an array of strings.",
+            severity: "error",
+            data: { field: "signals", valueType: "string", index },
+          });
+          throw new Error("add.signals.invalid");
+        }
+      }
+    }
+
+    if (
+      hasOwn(source, "signal") &&
+      source.signal !== undefined &&
+      typeof source.signal !== "string"
+    ) {
+      diagnostics.emit({
+        code: "add.signals.invalid",
+        message: "run.add signal must be a string when present.",
+        severity: "error",
+        data: { field: "signal", valueType: "string" },
+      });
+      throw new Error("add.signals.invalid");
+    }
+
+    const signals: Array<string | undefined> =
       hasOwn(source, "signals") && Array.isArray(source.signals)
         ? source.signals.length === 0
           ? [undefined]
           : (() => {
               const deduped: string[] = [];
-              const seen = new Set<unknown>();
+              const seen = new Set<string>();
 
               for (const signal of source.signals) {
                 if (seen.has(signal)) {
                   continue;
                 }
                 seen.add(signal);
-                deduped.push(signal as string);
+                deduped.push(signal);
               }
 
               if (deduped.length < source.signals.length) {
