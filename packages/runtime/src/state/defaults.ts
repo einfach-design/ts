@@ -638,6 +638,128 @@ const cloneMethodDefaultsEntry = (
   return out;
 };
 
+const mergeMethodDefaultsEntry = (
+  baseline: MethodDefaultsEntry,
+  override: MethodDefaultsEntry | undefined,
+): MethodDefaultsEntry => {
+  if (override === undefined) {
+    return cloneMethodDefaultsEntry(baseline);
+  }
+
+  const out = cloneMethodDefaultsEntry(baseline) as {
+    runs?: { max?: number };
+    required?: { flags?: { min?: number; max?: number; changed?: number } };
+    backfill?: {
+      signal?: { runs?: { max?: number } };
+      flags?: { runs?: { max?: number } };
+    };
+    scope?: MethodDefaultsScope;
+    gate?: MethodDefaultsGate;
+    retroactive?: boolean;
+  };
+
+  if (hasOwn(override, "runs")) {
+    out.runs = {
+      ...(out.runs ?? {}),
+      ...(override.runs ?? {}),
+    };
+  }
+
+  if (hasOwn(override, "required")) {
+    out.required = {
+      ...(out.required ?? {}),
+      ...(override.required ?? {}),
+    };
+
+    if (override.required !== undefined && hasOwn(override.required, "flags")) {
+      out.required.flags = {
+        ...(out.required.flags ?? {}),
+        ...(override.required.flags ?? {}),
+      };
+    }
+  }
+
+  if (hasOwn(override, "backfill")) {
+    out.backfill = {
+      ...(out.backfill ?? {}),
+      ...(override.backfill ?? {}),
+    };
+
+    if (
+      override.backfill !== undefined &&
+      hasOwn(override.backfill, "signal")
+    ) {
+      out.backfill.signal = {
+        ...(out.backfill.signal ?? {}),
+        ...(override.backfill.signal ?? {}),
+      };
+
+      if (
+        override.backfill.signal !== undefined &&
+        hasOwn(override.backfill.signal, "runs")
+      ) {
+        out.backfill.signal.runs = {
+          ...(out.backfill.signal.runs ?? {}),
+          ...(override.backfill.signal.runs ?? {}),
+        };
+      }
+    }
+
+    if (override.backfill !== undefined && hasOwn(override.backfill, "flags")) {
+      out.backfill.flags = {
+        ...(out.backfill.flags ?? {}),
+        ...(override.backfill.flags ?? {}),
+      };
+
+      if (
+        override.backfill.flags !== undefined &&
+        hasOwn(override.backfill.flags, "runs")
+      ) {
+        out.backfill.flags.runs = {
+          ...(out.backfill.flags.runs ?? {}),
+          ...(override.backfill.flags.runs ?? {}),
+        };
+      }
+    }
+  }
+
+  if (hasOwn(override, "scope")) {
+    if (typeof override.scope === "string") {
+      out.scope = override.scope;
+    } else if (override.scope !== undefined) {
+      if (typeof out.scope === "string" || out.scope === undefined) {
+        out.scope = {};
+      }
+
+      out.scope = {
+        ...(out.scope as Exclude<MethodDefaultsScope, Scope>),
+        ...override.scope,
+      };
+    }
+  }
+
+  if (hasOwn(override, "gate")) {
+    if (typeof override.gate === "boolean") {
+      out.gate = override.gate;
+    } else if (override.gate !== undefined) {
+      if (typeof out.gate === "boolean" || out.gate === undefined) {
+        out.gate = {};
+      }
+
+      out.gate = {
+        ...(out.gate as Exclude<MethodDefaultsGate, boolean>),
+        ...override.gate,
+      };
+    }
+  }
+
+  if (hasOwn(override, "retroactive") && override.retroactive !== undefined) {
+    out.retroactive = override.retroactive;
+  }
+
+  return out;
+};
+
 function canonicalizeSetDefaults(
   input: SetDefaults | undefined,
 ): CanonicalSetDefaults {
@@ -898,11 +1020,14 @@ export function resolveDefaults(
       : {
           on:
             call.methods !== undefined && hasOwn(call.methods, "on")
-              ? cloneMethodDefaultsEntry(call.methods.on ?? {})
+              ? mergeMethodDefaultsEntry(baseline.methods.on, call.methods.on)
               : cloneMethodDefaultsEntry(baseline.methods.on),
           when:
             call.methods !== undefined && hasOwn(call.methods, "when")
-              ? cloneMethodDefaultsEntry(call.methods.when ?? {})
+              ? mergeMethodDefaultsEntry(
+                  baseline.methods.when,
+                  call.methods.when,
+                )
               : cloneMethodDefaultsEntry(baseline.methods.when),
         },
   };
