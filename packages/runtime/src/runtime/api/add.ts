@@ -18,6 +18,36 @@ const toValueType = (value: unknown): string =>
 const isRecordObject = (value: unknown): value is Record<string, unknown> =>
   isObject(value) && Array.isArray(value) === false;
 
+const canonicalOnErrorForAdd = (
+  diagnostics: DiagnosticCollector,
+  source: Record<string, unknown>,
+): RuntimeOnError => {
+  if (!hasOwn(source, "onError")) {
+    return "report";
+  }
+
+  const onError = source.onError;
+  if (onError === "throw" || onError === "report" || onError === "swallow") {
+    return onError;
+  }
+
+  if (typeof onError === "function") {
+    return onError as RuntimeOnError;
+  }
+
+  diagnostics.emit({
+    code: "add.onError.invalid",
+    message:
+      'run.add onError must be "throw", "report", "swallow", or a function.',
+    severity: "error",
+    data: {
+      field: "onError",
+      valueType: toValueType(onError),
+    },
+  });
+  throw new Error("add.onError.invalid");
+};
+
 const canonicalRunsMaxForAdd = (
   diagnostics: DiagnosticCollector,
   source: Record<string, unknown>,
@@ -319,6 +349,7 @@ export function runAdd(
     const retroactive =
       hasOwn(source, "retroactive") && source.retroactive === true;
     const runsMax = canonicalRunsMaxForAdd(diagnostics, source);
+    const onError = canonicalOnErrorForAdd(diagnostics, source);
 
     const readBackfillSource = (): Record<string, unknown> | undefined => {
       if (!hasOwn(source, "backfill")) {
@@ -515,9 +546,7 @@ export function runAdd(
         ...(normalizedBackfill !== undefined
           ? { backfill: normalizedBackfill }
           : {}),
-        ...(hasOwn(source, "onError")
-          ? { onError: source.onError as RuntimeOnError }
-          : {}),
+        onError,
         runs: {
           used: 0,
           max: runsMax,

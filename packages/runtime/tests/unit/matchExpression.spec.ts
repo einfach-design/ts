@@ -87,6 +87,43 @@ describe("matchExpression", () => {
     expect(matchExpression(input)).toBe(true);
   });
 
+  it("clamps max threshold to specCount for specCount=0", () => {
+    const input: MatchExpressionInput = {
+      expression: {
+        required: { flags: { max: 0 } },
+      },
+      defaults: {
+        gate: {
+          signal: { value: true },
+          flags: { value: true },
+        },
+      },
+      reference: {
+        flags: flags("a", "b"),
+      },
+    };
+
+    expect(matchExpression(input)).toBe(true);
+  });
+
+  it("clamps changed threshold to specCount for specCount=0", () => {
+    const input: MatchExpressionInput = {
+      expression: {
+        required: { flags: { changed: 5 } },
+      },
+      defaults: {
+        gate: {
+          signal: { value: true },
+          flags: { value: true },
+        },
+      },
+      reference: {
+        changedFlags: flags("a"),
+      },
+    };
+
+    expect(matchExpression(input)).toBe(true);
+  });
   it("supports changed=0 by disabling changed threshold", () => {
     const input = baseInput();
     input.expression.required = { flags: { changed: 0 } };

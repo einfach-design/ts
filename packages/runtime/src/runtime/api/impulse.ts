@@ -22,7 +22,36 @@ export function runImpulse(
   opts?: unknown,
 ): void {
   store.withRuntimeStack(() => {
-    const canonical = canonImpulseEntry(opts);
+    let canonical: ReturnType<typeof canonImpulseEntry> | undefined;
+
+    try {
+      canonical = canonImpulseEntry(opts);
+    } catch {
+      const mode = store.impulseQ.config.onError ?? "report";
+      const error = new Error("impulse.input.invalid");
+
+      if (mode === "report") {
+        diagnostics.emit({
+          code: "impulse.input.invalid",
+          message: "Invalid impulse payload.",
+          severity: "error",
+          data: { phase: "impulse/canon" },
+        });
+        return;
+      }
+
+      if (mode === "swallow") {
+        return;
+      }
+
+      if (mode === "throw") {
+        throw error;
+      }
+
+      mode(error, { phase: "impulse/canon" });
+      return;
+    }
+
     const mode = canonical.onError ?? store.impulseQ.config.onError ?? "report";
 
     if (canonical.entry === undefined) {
