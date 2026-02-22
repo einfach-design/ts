@@ -1661,4 +1661,43 @@ describe("conformance/get-set", () => {
       }),
     ).toEqual(scopeProjectionBaselineBefore);
   });
+
+  it("set(flags) lehnt non-string list items ab", () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.set({ flags: { list: [1], map: { "1": true } } } as unknown as Record<
+        string,
+        unknown
+      >),
+    ).toThrow("set.flags.invalid");
+  });
+
+  it("hydration backfillQ.list lehnt non-string ab", () => {
+    const run = createRuntime();
+    run.add({ id: "e1", targets: [() => {}] });
+
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown> & {
+      backfillQ?: unknown;
+    };
+    snap.backfillQ = { list: [1], map: { "1": true } };
+
+    expect(() => run.set(snap)).toThrow("set.hydration.backfillQInvalid");
+  });
+
+  it("hydration backfillQ duplicates emit backfillQInvalid", () => {
+    const run = createRuntime();
+    const diagnostics: string[] = [];
+    run.onDiagnostic((d) => diagnostics.push(d.code));
+
+    run.add({ id: "e1", targets: [() => {}] });
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown> & {
+      backfillQ?: unknown;
+    };
+    snap.backfillQ = { list: ["e1", "e1"], map: { e1: true } };
+
+    expect(() => run.set(snap)).toThrow("set.hydration.backfillQInvalid");
+    expect(diagnostics).toContain("set.hydration.backfillQInvalid");
+    expect(diagnostics).not.toContain("set.hydration.seenSignalsInvalid");
+  });
 });

@@ -45,6 +45,7 @@ export type RuntimeCore = Readonly<{
 export type RegisteredExpression = {
   id: string;
   signal?: string;
+  payload?: unknown;
   flags?: unknown;
   required?: { flags?: { min?: number; max?: number; changed?: number } };
   targets: RuntimeTarget[];
