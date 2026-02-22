@@ -342,6 +342,214 @@ describe("conformance/use-case-coverage/signals-occurrences", () => {
   });
 });
 
+describe("conformance/use-case-coverage/signals-registration", () => {
+  it("SREG01 — signals:[] means no signal and no suffixed ids", () => {
+    const run = createRuntime();
+
+    run.when({ id: "uc:SREG01", signals: [], targets: [() => undefined] });
+
+    expect(registeredById(run).has("uc:SREG01")).toBe(true);
+    expect(registeredById(run).has("uc:SREG01:0")).toBe(false);
+    expect(
+      (registeredById(run).get("uc:SREG01") as { signal?: string }).signal,
+    ).toBeUndefined();
+  });
+
+  it("SREG02 — signals are deduped by first occurrence + diagnostic", () => {
+    const run = createRuntime();
+
+    run.when({
+      id: "uc:SREG02",
+      signals: ["a", "a", "b"],
+      targets: [() => undefined],
+    });
+
+    expect(registeredById(run).has("uc:SREG02:0")).toBe(true);
+    expect(registeredById(run).has("uc:SREG02:1")).toBe(true);
+    expect(
+      (registeredById(run).get("uc:SREG02:0") as { signal?: string }).signal,
+    ).toBe("a");
+    expect(
+      (registeredById(run).get("uc:SREG02:1") as { signal?: string }).signal,
+    ).toBe("b");
+
+    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+      code: string;
+      data?: { deduped?: string[] };
+    }>;
+    const dedupDiagnostic = diagnostics.find(
+      (diagnostic) => diagnostic.code === "add.signals.dedup",
+    );
+
+    expect(dedupDiagnostic).toBeDefined();
+    expect(dedupDiagnostic?.data?.deduped).toEqual(["a", "b"]);
+  });
+
+  it("SREG03 — remove closure removes all signal-derived expressions", () => {
+    const run = createRuntime();
+
+    const remove = run.when({
+      id: "uc:SREG03",
+      signals: ["s1", "s2"],
+      targets: [() => undefined],
+    });
+
+    expect(registeredById(run).has("uc:SREG03:0")).toBe(true);
+    expect(registeredById(run).has("uc:SREG03:1")).toBe(true);
+
+    remove();
+
+    expect(registeredById(run).has("uc:SREG03:0")).toBe(false);
+    expect(registeredById(run).has("uc:SREG03:1")).toBe(false);
+  });
+
+  it("SREG04 — invalid signal throws even when signals is set", () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.when({
+        id: "uc:SREG04",
+        signals: ["ok"],
+        signal: 123 as never,
+        targets: [() => undefined],
+      } as never),
+    ).toThrow("add.signals.invalid");
+
+    expect(registeredById(run).has("uc:SREG04")).toBe(false);
+    expect(registeredById(run).has("uc:SREG04:0")).toBe(false);
+
+    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+      code: string;
+    }>;
+    expect(
+      diagnostics.some(
+        (diagnostic) => diagnostic.code === "add.signals.invalid",
+      ),
+    ).toBe(true);
+  });
+
+  it("SREG05 — non-string signal item throws + diagnostic index", () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.when({
+        id: "uc:SREG05",
+        signals: ["a", 1] as unknown as string[],
+        targets: [() => undefined],
+      }),
+    ).toThrow("add.signals.invalid");
+
+    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+      code: string;
+      data?: { index?: number };
+    }>;
+    const invalidSignalDiagnostic = diagnostics.find(
+      (diagnostic) => diagnostic.code === "add.signals.invalid",
+    );
+
+    expect(invalidSignalDiagnostic).toBeDefined();
+    expect(invalidSignalDiagnostic?.data?.index).toBe(1);
+  });
+});
+
+describe("conformance/use-case-coverage/object-target-validation", () => {
+  it("OBJ01 — missing on entrypoint throws + diagnostic", () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.when({
+        id: "uc:OBJ01",
+        signal: "s",
+        targets: [{} as never],
+      }),
+    ).toThrow("add.objectTarget.missingEntrypoint");
+
+    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+      code: string;
+    }>;
+    expect(
+      diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "add.objectTarget.missingEntrypoint",
+      ),
+    ).toBe(true);
+    expect(registeredById(run).has("uc:OBJ01")).toBe(false);
+  });
+
+  it("OBJ02 — missing handler throws + diagnostic signal", () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.when({
+        id: "uc:OBJ02",
+        signal: "s",
+        targets: [{ on: {} } as never],
+      }),
+    ).toThrow("add.objectTarget.missingHandler");
+
+    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+      code: string;
+      data?: { signal?: string };
+    }>;
+    const missingHandlerDiagnostic = diagnostics.find(
+      (diagnostic) => diagnostic.code === "add.objectTarget.missingHandler",
+    );
+
+    expect(missingHandlerDiagnostic).toBeDefined();
+    expect(missingHandlerDiagnostic?.data?.signal).toBe("s");
+    expect(registeredById(run).has("uc:OBJ02")).toBe(false);
+  });
+
+  it("OBJ03 — non-callable handler throws + diagnostic signal", () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.when({
+        id: "uc:OBJ03",
+        signal: "s",
+        targets: [{ on: { s: 123 } } as never],
+      }),
+    ).toThrow("add.objectTarget.nonCallableHandler");
+
+    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+      code: string;
+      data?: { signal?: string };
+    }>;
+    const nonCallableDiagnostic = diagnostics.find(
+      (diagnostic) => diagnostic.code === "add.objectTarget.nonCallableHandler",
+    );
+
+    expect(nonCallableDiagnostic).toBeDefined();
+    expect(nonCallableDiagnostic?.data?.signal).toBe("s");
+    expect(registeredById(run).has("uc:OBJ03")).toBe(false);
+  });
+
+  it("OBJ04 — reserved everyRun signal throws missingHandler", () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.when({
+        id: "uc:OBJ04",
+        signals: ["everyRun"],
+        targets: [{ on: { everyRun: () => undefined } } as never],
+      }),
+    ).toThrow("add.objectTarget.missingHandler");
+
+    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+      code: string;
+      data?: { signal?: string };
+    }>;
+    const missingHandlerDiagnostic = diagnostics.find(
+      (diagnostic) => diagnostic.code === "add.objectTarget.missingHandler",
+    );
+
+    expect(missingHandlerDiagnostic).toBeDefined();
+    expect(missingHandlerDiagnostic?.data?.signal).toBe("everyRun");
+    expect(registeredById(run).has("uc:OBJ04")).toBe(false);
+    expect(registeredById(run).has("uc:OBJ04:0")).toBe(false);
+  });
+});
+
 describe("conformance/use-case-coverage/retroactive", () => {
   it("RA01 — retroactive + seen signal deploys immediately", () => {
     const run = createRuntime();
