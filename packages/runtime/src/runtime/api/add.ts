@@ -182,10 +182,9 @@ const canonicalRequiredForAdd = (
     > = {};
 
     const normalizeRequiredFlagsNumber = (
-      key: "min" | "max" | "changed",
+      key: "min" | "changed",
       errorCode:
         | "add.required.flags.minInvalid"
-        | "add.required.flags.maxInvalid"
         | "add.required.flags.changedInvalid",
     ): void => {
       if (!hasOwn(flagsSource, key)) {
@@ -210,7 +209,28 @@ const canonicalRequiredForAdd = (
     };
 
     normalizeRequiredFlagsNumber("min", "add.required.flags.minInvalid");
-    normalizeRequiredFlagsNumber("max", "add.required.flags.maxInvalid");
+
+    if (hasOwn(flagsSource, "max")) {
+      const max = flagsSource.max;
+      if (max === Number.POSITIVE_INFINITY && hasOwn(source, "flags")) {
+        flagsOut.max = Number.POSITIVE_INFINITY;
+      } else if (typeof max === "number" && Number.isFinite(max)) {
+        flagsOut.max = Math.max(0, Math.floor(max));
+      } else {
+        diagnostics.emit({
+          code: "add.required.flags.maxInvalid",
+          message:
+            "run.add required.flags.max must be a finite number or positive infinity.",
+          severity: "error",
+          data: {
+            field: "required.flags.max",
+            valueType: toValueType(max),
+          },
+        });
+        throw new Error("add.required.flags.maxInvalid");
+      }
+    }
+
     normalizeRequiredFlagsNumber(
       "changed",
       "add.required.flags.changedInvalid",
