@@ -98,6 +98,26 @@ const freezeRuntimeOccurrence = (
   return Object.freeze(occurrence);
 };
 
+const isPlainObject = (value: unknown): value is Record<string, unknown> => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  return Object.getPrototypeOf(value) === Object.prototype;
+};
+
+const cloneAppliedFlags = (value: unknown): unknown => {
+  if (!Array.isArray(value)) {
+    return value;
+  }
+
+  return Object.freeze(
+    value.map((spec) =>
+      isPlainObject(spec) ? Object.freeze({ ...spec }) : spec,
+    ),
+  );
+};
+
 export const coreRun = (args: {
   expression: RegisteredExpression;
   store: {
@@ -276,6 +296,9 @@ export const coreRun = (args: {
 
   const appliedExpressionView: AppliedExpression = {
     ...expression,
+    ...(expression.flags !== undefined
+      ? { flags: cloneAppliedFlags(expression.flags) }
+      : {}),
     ...(expression.required !== undefined
       ? {
           required: Object.freeze({

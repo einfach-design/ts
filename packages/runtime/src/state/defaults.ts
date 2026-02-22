@@ -638,6 +638,92 @@ const cloneMethodDefaultsEntry = (
   return out;
 };
 
+const mergeMethodDefaultsEntry = (
+  base: MethodDefaultsEntry,
+  patch: MethodDefaultsEntry,
+): MethodDefaultsEntry => {
+  const next = cloneMethodDefaultsEntry(base) as {
+    runs?: { max?: number };
+    required?: { flags?: { min?: number; max?: number; changed?: number } };
+    backfill?: {
+      signal?: { runs?: { max?: number } };
+      flags?: { runs?: { max?: number } };
+    };
+    scope?: MethodDefaultsScope;
+    gate?: MethodDefaultsGate;
+    retroactive?: boolean;
+  };
+
+  if (hasOwn(patch, "runs")) {
+    next.runs = { ...(next.runs ?? {}), ...(patch.runs ?? {}) };
+  }
+  if (hasOwn(patch, "required")) {
+    next.required = {
+      ...(next.required ?? {}),
+      ...(patch.required ?? {}),
+      ...(patch.required !== undefined && hasOwn(patch.required, "flags")
+        ? {
+            flags: {
+              ...(next.required?.flags ?? {}),
+              ...(patch.required.flags ?? {}),
+            },
+          }
+        : {}),
+    };
+  }
+  if (hasOwn(patch, "backfill")) {
+    next.backfill = {
+      ...(next.backfill ?? {}),
+      ...(patch.backfill ?? {}),
+      ...(patch.backfill !== undefined && hasOwn(patch.backfill, "signal")
+        ? {
+            signal: {
+              ...(next.backfill?.signal ?? {}),
+              ...(patch.backfill.signal ?? {}),
+              ...(patch.backfill.signal !== undefined &&
+              hasOwn(patch.backfill.signal, "runs")
+                ? {
+                    runs: {
+                      ...(next.backfill?.signal?.runs ?? {}),
+                      ...(patch.backfill.signal.runs ?? {}),
+                    },
+                  }
+                : {}),
+            },
+          }
+        : {}),
+      ...(patch.backfill !== undefined && hasOwn(patch.backfill, "flags")
+        ? {
+            flags: {
+              ...(next.backfill?.flags ?? {}),
+              ...(patch.backfill.flags ?? {}),
+              ...(patch.backfill.flags !== undefined &&
+              hasOwn(patch.backfill.flags, "runs")
+                ? {
+                    runs: {
+                      ...(next.backfill?.flags?.runs ?? {}),
+                      ...(patch.backfill.flags.runs ?? {}),
+                    },
+                  }
+                : {}),
+            },
+          }
+        : {}),
+    };
+  }
+  if (hasOwn(patch, "scope") && patch.scope !== undefined) {
+    next.scope = patch.scope;
+  }
+  if (hasOwn(patch, "gate") && patch.gate !== undefined) {
+    next.gate = patch.gate;
+  }
+  if (hasOwn(patch, "retroactive") && patch.retroactive !== undefined) {
+    next.retroactive = patch.retroactive;
+  }
+
+  return next;
+};
+
 function canonicalizeSetDefaults(
   input: SetDefaults | undefined,
 ): CanonicalSetDefaults {
@@ -898,11 +984,17 @@ export function resolveDefaults(
       : {
           on:
             call.methods !== undefined && hasOwn(call.methods, "on")
-              ? cloneMethodDefaultsEntry(call.methods.on ?? {})
+              ? mergeMethodDefaultsEntry(
+                  baseline.methods.on,
+                  call.methods.on ?? {},
+                )
               : cloneMethodDefaultsEntry(baseline.methods.on),
           when:
             call.methods !== undefined && hasOwn(call.methods, "when")
-              ? cloneMethodDefaultsEntry(call.methods.when ?? {})
+              ? mergeMethodDefaultsEntry(
+                  baseline.methods.when,
+                  call.methods.when ?? {},
+                )
               : cloneMethodDefaultsEntry(baseline.methods.when),
         },
   };

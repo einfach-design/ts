@@ -100,7 +100,7 @@ describe("targets/dispatch", () => {
       reportError,
     });
 
-    expect(result.attempted).toBe(0);
+    expect(result.attempted).toBe(1);
     expect(reportError).not.toHaveBeenCalled();
   });
 

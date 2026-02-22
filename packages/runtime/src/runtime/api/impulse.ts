@@ -153,6 +153,7 @@ export function runImpulse(
 
       const prevEntries = store.impulseQ.q.entries;
       const prevCursor = store.impulseQ.q.cursor;
+      const prevPendingCount = Math.max(0, prevEntries.length - prevCursor);
 
       const trimmed = trim({
         entries: prevEntries,
@@ -178,7 +179,15 @@ export function runImpulse(
         );
       }
 
-      store.impulseQ.q.entries = [...trimmed.entries];
+      const pendingEntriesEnqueuedDuringTrim =
+        store.impulseQ.q.entries.length > prevCursor + prevPendingCount
+          ? store.impulseQ.q.entries.slice(prevCursor + prevPendingCount)
+          : [];
+
+      store.impulseQ.q.entries = [
+        ...trimmed.entries,
+        ...pendingEntriesEnqueuedDuringTrim,
+      ];
       store.impulseQ.q.cursor = trimmed.cursor;
       store.trimPendingMaxBytes = trimmed.trimPendingMaxBytes;
     } finally {

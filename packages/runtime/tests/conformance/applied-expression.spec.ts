@@ -86,4 +86,32 @@ describe("conformance/applied-expression", () => {
 
     run.impulse({ livePayload: "impulsePayload" });
   });
+
+  it("appliedExpression.flags is defensive and cannot be mutated externally", () => {
+    const run = createRuntime();
+    let capturedFlags: unknown;
+    let calls = 0;
+
+    run.when({
+      id: "expr:applied-flags-defensive",
+      flags: { a: false },
+      targets: [
+        (_i: unknown, a: { flags?: Record<string, unknown> }) => {
+          calls += 1;
+          capturedFlags = a.flags;
+        },
+      ],
+    } as unknown as Record<string, unknown>);
+
+    run.impulse({ addFlags: ["a"] });
+    expect(calls).toBe(1);
+
+    const leaked = capturedFlags as Record<string, unknown>;
+    expect(() => {
+      leaked.b = false;
+    }).toThrow();
+
+    run.impulse({ addFlags: ["b"] });
+    expect(calls).toBe(1);
+  });
 });
