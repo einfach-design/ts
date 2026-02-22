@@ -274,8 +274,21 @@ export const coreRun = (args: {
 
   let attempted = 0;
 
+  const clonedFlags = Array.isArray(expression.flags)
+    ? Object.freeze(
+        expression.flags.map((spec) =>
+          typeof spec === "object" &&
+          spec !== null &&
+          Object.getPrototypeOf(spec) === Object.prototype
+            ? Object.freeze({ ...spec })
+            : spec,
+        ),
+      )
+    : expression.flags;
+
   const appliedExpressionView: AppliedExpression = {
     ...expression,
+    flags: clonedFlags,
     ...(expression.required !== undefined
       ? {
           required: Object.freeze({

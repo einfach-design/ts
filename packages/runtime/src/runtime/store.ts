@@ -203,16 +203,16 @@ export function initRuntimeStore<
     try {
       return fn();
     } finally {
-      if (runtimeStackDepth === 1 && trimPendingMaxBytes && !draining) {
-        const prevEntries = impulseQ.q.entries;
-        const prevCursor = impulseQ.q.cursor;
-        const prevPendingCount = Math.max(0, prevEntries.length - prevCursor);
-        const drainingBeforeTrim = draining;
-        draining = true;
+      try {
+        if (runtimeStackDepth === 1 && trimPendingMaxBytes && !draining) {
+          const prevEntries = impulseQ.q.entries;
+          const prevCursor = impulseQ.q.cursor;
+          const prevPendingCount = Math.max(0, prevEntries.length - prevCursor);
+          const drainingBeforeTrim = draining;
+          draining = true;
 
-        const trimmed = (() => {
           try {
-            return trim({
+            const trimmed = trim({
               entries: prevEntries,
               cursor: prevCursor,
               retain: impulseQ.config.retain,
@@ -224,36 +224,36 @@ export function initRuntimeStore<
                 ? { onTrim: impulseQ.config.onTrim }
                 : {}),
             });
+
+            if (trimmed.onTrimError !== undefined) {
+              store.reportRuntimeError(trimmed.onTrimError, "trim/onTrim");
+            }
+
+            const removedCount = Math.max(0, prevCursor - trimmed.cursor);
+            if (removedCount > 0) {
+              applyTrimmedAppliedEntriesToScopeBaseline(
+                prevEntries.slice(0, removedCount),
+              );
+            }
+
+            const pendingEntriesEnqueuedDuringTrim =
+              impulseQ.q.entries.length > prevCursor + prevPendingCount
+                ? impulseQ.q.entries.slice(prevCursor + prevPendingCount)
+                : [];
+
+            impulseQ.q.entries = [
+              ...trimmed.entries,
+              ...pendingEntriesEnqueuedDuringTrim,
+            ];
+            impulseQ.q.cursor = trimmed.cursor;
+            trimPendingMaxBytes = trimmed.trimPendingMaxBytes;
           } finally {
             draining = drainingBeforeTrim;
           }
-        })();
-
-        if (trimmed.onTrimError !== undefined) {
-          store.reportRuntimeError(trimmed.onTrimError, "trim/onTrim");
         }
-
-        const removedCount = Math.max(0, prevCursor - trimmed.cursor);
-        if (removedCount > 0) {
-          applyTrimmedAppliedEntriesToScopeBaseline(
-            prevEntries.slice(0, removedCount),
-          );
-        }
-
-        const pendingEntriesEnqueuedDuringTrim =
-          impulseQ.q.entries.length > prevCursor + prevPendingCount
-            ? impulseQ.q.entries.slice(prevCursor + prevPendingCount)
-            : [];
-
-        impulseQ.q.entries = [
-          ...trimmed.entries,
-          ...pendingEntriesEnqueuedDuringTrim,
-        ];
-        impulseQ.q.cursor = trimmed.cursor;
-        trimPendingMaxBytes = trimmed.trimPendingMaxBytes;
+      } finally {
+        runtimeStackDepth -= 1;
       }
-
-      runtimeStackDepth -= 1;
     }
   };
 
