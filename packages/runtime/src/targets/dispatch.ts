@@ -128,7 +128,7 @@ function callHandler(
       context,
     });
 
-    return 0;
+    return 1;
   }
 }
 
