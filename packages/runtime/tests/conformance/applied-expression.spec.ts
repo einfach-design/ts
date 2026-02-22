@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createRuntime } from "../../src/index.js";
 import { createFlagsView } from "../../src/state/flagsView.js";
+import { coreRun, type RegisteredExpression } from "../../src/runs/coreRun.js";
 
 describe("conformance/applied-expression", () => {
   it("remove() removes expression deterministically and prevents future occurrences", () => {
@@ -85,5 +86,84 @@ describe("conformance/applied-expression", () => {
     } as unknown as Record<string, unknown>);
 
     run.impulse({ livePayload: "impulsePayload" });
+  });
+  it("appliedExpression.flags ist isoliert (Mutation darf Matching nicht verändern)", () => {
+    let captured: string[] | undefined;
+    let calls = 0;
+
+    const expression: RegisteredExpression = {
+      id: "expr:flags-isolation",
+      flags: ["a"],
+      targets: [
+        (_i, a) => {
+          calls += 1;
+          captured = (a as { flags?: string[] }).flags;
+        },
+      ],
+    };
+
+    const runCore = () =>
+      coreRun({
+        expression,
+        store: {
+          flagsTruth: createFlagsView(["a"]),
+          referenceFlags: createFlagsView(["a"]),
+          changedFlags: createFlagsView(["a"]),
+          addFlags: ["a"],
+          removeFlags: [],
+          occurrenceHasPayload: false,
+          occurrenceSeq: 1,
+          occurrenceId: "occ:1",
+          defaults: {},
+          expressionTelemetryById: new Map(),
+        },
+        toMatchFlagsView: (v) =>
+          v === undefined
+            ? undefined
+            : { map: { ...v.map }, list: [...v.list] },
+        createFlagsView,
+        matchExpression: ({ expression: input }) => {
+          const specs = input.flags as
+            | Array<{ flag?: string } | string>
+            | undefined;
+          const first = specs?.[0];
+          if (typeof first === "string") {
+            return first === "a";
+          }
+          return first?.flag === "a";
+        },
+        dispatch: (x) => {
+          const { target, args } = x as {
+            target: unknown;
+            args: [unknown, unknown, unknown];
+          };
+
+          if (typeof target === "function") {
+            target(...args);
+            return { attempted: 1 };
+          }
+          return { attempted: 0 };
+        },
+        gate: { signal: true, flags: true },
+        runtimeCore: {
+          get: () => undefined,
+          matchExpression: () => undefined,
+          remove: () => undefined,
+        },
+      });
+
+    runCore();
+    expect(calls).toBe(1);
+    expect(captured).toBeDefined();
+
+    try {
+      captured!.splice(0, captured!.length, "b");
+    } catch {
+      // no-op: mutation must not affect runtime matching
+    }
+
+    runCore();
+
+    expect(calls).toBe(2);
   });
 });
