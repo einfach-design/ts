@@ -34,34 +34,31 @@ describe("conformance/matchExpression", () => {
     expect(result).toBe(true);
   });
 
-  it("D — own-property semantics: missing fields must fall back to defaults (Spec §4.6)", () => {
+  it("D — own-property semantics: gate.flags should only apply when set as own-property (Spec §4.6)", () => {
     const run = createRuntime();
 
-    // Two calls differ only by defaults; missing required.flags.min should be resolved via defaults.
     const baseInput = {
       expression: {
-        required: { flags: {} },
+        flags: [{ flag: "a", value: true }],
+        required: { flags: { min: 1 } },
       },
       reference: {
-        flags: { map: { a: true }, list: ["a"] },
+        flags: { map: {}, list: [] },
       },
+      defaults: { gate: { signal: { value: true }, flags: { value: false } } },
     };
 
-    const matchWithMin1 = run.matchExpression({
+    const matchWithoutOwnFlags = run.matchExpression({
       ...baseInput,
-      defaults: { gate: { signal: { value: true }, flags: { value: true } } },
-      // fallback min=1 via defaults is a spec-level behavior; we expect true here.
+      gate: {},
     } as MatchExpressionInput);
 
-    const matchWithMin2 = run.matchExpression({
+    const matchWithOwnFlags = run.matchExpression({
       ...baseInput,
-      defaults: { gate: { signal: { value: true }, flags: { value: true } } },
-      // If defaults changed to require 2 flags, we expect false (spec behavior).
-      // This relies on wrapper resolving thresholds from defaults; current impl may not (red).
-      expression: { required: { flags: { min: 2 } } },
+      gate: { flags: true },
     } as MatchExpressionInput);
 
-    expect(matchWithMin1).toBe(true);
-    expect(matchWithMin2).toBe(false);
+    expect(matchWithoutOwnFlags).toBe(true);
+    expect(matchWithOwnFlags).toBe(false);
   });
 });
