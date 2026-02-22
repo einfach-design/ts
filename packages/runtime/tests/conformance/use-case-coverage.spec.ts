@@ -498,3 +498,189 @@ describe("conformance/use-case-coverage/errors-isolation-order", () => {
     expect(order).toEqual(["A", "B"]);
   });
 });
+
+describe("conformance/use-case-coverage/id-registration", () => {
+  it("B01 — duplicate id registration throws and keeps first expression", () => {
+    const run = createRuntime();
+    const noop = () => undefined;
+
+    run.when({ id: "uc:B01", flags: { d: false }, targets: [noop] });
+
+    expect(() =>
+      run.when({ id: "uc:B01", flags: { d: false }, targets: [noop] }),
+    ).toThrow(/Duplicate registered expression id/i);
+    expect(registeredById(run).has("uc:B01")).toBe(true);
+  });
+
+  it("B02 — deregister then re-register with same id is allowed", () => {
+    const run = createRuntime();
+    let calls = 0;
+
+    run.when({
+      id: "uc:B02",
+      runs: { max: 1 },
+      flags: { x: false },
+      targets: [() => calls++],
+    });
+
+    run.impulse({ addFlags: ["x"] });
+    expect(calls).toBe(1);
+    expect(registeredById(run).has("uc:B02")).toBe(false);
+
+    run.when({
+      id: "uc:B02",
+      runs: { max: 1 },
+      flags: { x: true },
+      targets: [() => calls++],
+    });
+
+    run.impulse({ removeFlags: ["x"] });
+    expect(calls).toBe(2);
+    expect(registeredById(run).has("uc:B02")).toBe(false);
+  });
+
+  it("B03 — runtimeCore.remove for unknown id is a no-op", () => {
+    const run = createRuntime();
+    let calls = 0;
+
+    run.add({
+      id: "uc:B03",
+      targets: [
+        (_i, _a, runtimeCore) => {
+          (runtimeCore as { remove: (id: string) => void }).remove(
+            "does-not-exist",
+          );
+          calls += 1;
+        },
+      ],
+    });
+
+    run.impulse({ signals: ["s"] });
+    expect(calls).toBe(1);
+  });
+});
+
+describe("conformance/use-case-coverage/required-flags-thresholds", () => {
+  it("C05 — required.flags.min=1 supports OR semantics in steady-state", () => {
+    const run = createRuntime();
+    run.impulse({ addFlags: ["a"] });
+
+    let calls = 0;
+    run.when({
+      id: "uc:C05",
+      signal: "tick",
+      flags: { a: true, b: true },
+      required: { flags: { min: 1, changed: 0 } },
+      targets: [() => calls++],
+    });
+
+    run.impulse({ signals: ["tick"] });
+    expect(calls).toBe(1);
+
+    run.impulse({ removeFlags: ["a"] });
+    run.impulse({ signals: ["tick"] });
+    expect(calls).toBe(1);
+  });
+
+  it("C06 — required.flags.max=1 blocks when two specs match in steady-state", () => {
+    const run = createRuntime();
+    run.impulse({ addFlags: ["a"] });
+
+    let calls = 0;
+    run.when({
+      id: "uc:C06",
+      signal: "tick",
+      flags: { a: true, b: true },
+      required: { flags: { min: 0, max: 1, changed: 0 } },
+      targets: [() => calls++],
+    });
+
+    run.impulse({ signals: ["tick"] });
+    expect(calls).toBe(1);
+
+    run.impulse({ addFlags: ["b"] });
+    run.impulse({ signals: ["tick"] });
+    expect(calls).toBe(1);
+  });
+
+  it("C07 — required.flags.changed=2 requires both specs changed in one impulse", () => {
+    const run = createRuntime();
+    let calls = 0;
+
+    run.when({
+      id: "uc:C07",
+      flags: { a: "*", b: "*" },
+      required: { flags: { changed: 2 } },
+      targets: [() => calls++],
+    });
+
+    run.impulse({ addFlags: ["a"] });
+    expect(calls).toBe(0);
+    run.impulse({ addFlags: ["b"] });
+    expect(calls).toBe(0);
+    run.impulse({ removeFlags: ["a", "b"] });
+    expect(calls).toBe(1);
+  });
+
+  it("C08 — without flags specs changed clamps to 0 and signal gate decides", () => {
+    const run = createRuntime();
+    let calls = 0;
+
+    run.add({
+      id: "uc:C08",
+      signal: "s",
+      required: { flags: { changed: 5 } },
+      targets: [() => calls++],
+    });
+
+    run.impulse({ signals: ["t"] });
+    expect(calls).toBe(0);
+    run.impulse({ signals: ["s"] });
+    expect(calls).toBe(1);
+  });
+
+  it("E03 — signal + flags needs changed:0 for steady-state feature-enabled case", () => {
+    const run = createRuntime();
+    run.impulse({ addFlags: ["enabled"] });
+
+    let a = 0;
+    run.when({
+      id: "uc:E03:A",
+      signal: "submit",
+      flags: { enabled: true },
+      targets: [() => a++],
+    });
+    run.impulse({ signals: ["submit"] });
+    expect(a).toBe(0);
+
+    let b = 0;
+    run.when({
+      id: "uc:E03:B",
+      signal: "submit",
+      flags: { enabled: true },
+      required: { flags: { changed: 0 } },
+      targets: [() => b++],
+    });
+    run.impulse({ signals: ["submit"] });
+    expect(b).toBe(1);
+  });
+});
+
+describe("conformance/use-case-coverage/required-flags-infinity", () => {
+  it("INF — required.flags.max accepts Infinity and stores it", () => {
+    const run = createRuntime();
+
+    run.when({
+      id: "uc:INF",
+      flags: { inf: "*" },
+      required: { flags: { max: Number.POSITIVE_INFINITY } },
+      targets: [() => undefined],
+    });
+
+    const expression = registeredById(run).get("uc:INF") as {
+      required: { flags: { max: number } };
+    };
+
+    expect(expression.required.flags.max).toBe(Number.POSITIVE_INFINITY);
+  });
+});
