@@ -509,9 +509,13 @@ export function runSet(
       emitHydrationFlagsViewInvalid(field, value);
     }
 
-    const normalizedList = (valueRecord.list as unknown[]).map((entry) =>
-      String(entry),
-    );
+    for (const entry of valueRecord.list as unknown[]) {
+      if (typeof entry !== "string") {
+        emitHydrationFlagsViewInvalid(field, value);
+      }
+    }
+
+    const normalizedList = valueRecord.list as string[];
     if (new Set(normalizedList).size !== normalizedList.length) {
       emitHydrationFlagsViewInvalid(field, value);
     }
@@ -561,9 +565,20 @@ export function runSet(
       throw new Error("set.hydration.seenSignalsInvalid");
     }
 
-    const normalizedList = (value.list as unknown[]).map((entry) =>
-      String(entry),
-    );
+    for (const entry of value.list as unknown[]) {
+      if (typeof entry !== "string") {
+        diagnostics.emit({
+          code: "set.hydration.seenSignalsInvalid",
+          message:
+            "Hydration seenSignals must be a consistent { list, map } object.",
+          severity: "error",
+          data: { field: "seenSignals", valueType: toValueType(value) },
+        });
+        throw new Error("set.hydration.seenSignalsInvalid");
+      }
+    }
+
+    const normalizedList = value.list as string[];
     if (new Set(normalizedList).size !== normalizedList.length) {
       diagnostics.emit({
         code: "set.hydration.seenSignalsInvalid",
@@ -643,18 +658,29 @@ export function runSet(
       throw new Error("set.hydration.backfillQInvalid");
     }
 
-    const normalizedList = (value.list as unknown[]).map((entry) =>
-      String(entry),
-    );
+    for (const entry of value.list as unknown[]) {
+      if (typeof entry !== "string") {
+        diagnostics.emit({
+          code: "set.hydration.backfillQInvalid",
+          message:
+            "Hydration backfillQ must be a consistent { list, map } object.",
+          severity: "error",
+          data: { field: "backfillQ", valueType: toValueType(value) },
+        });
+        throw new Error("set.hydration.backfillQInvalid");
+      }
+    }
+
+    const normalizedList = value.list as string[];
     if (new Set(normalizedList).size !== normalizedList.length) {
       diagnostics.emit({
-        code: "set.hydration.seenSignalsInvalid",
+        code: "set.hydration.backfillQInvalid",
         message:
-          "Hydration seenSignals must be a consistent { list, map } object.",
+          "Hydration backfillQ must be a consistent { list, map } object.",
         severity: "error",
-        data: { field: "seenSignals", valueType: toValueType(value) },
+        data: { field: "backfillQ", valueType: toValueType(value) },
       });
-      throw new Error("set.hydration.seenSignalsInvalid");
+      throw new Error("set.hydration.backfillQInvalid");
     }
 
     const canonical = createFlagsView(normalizedList);
@@ -1064,9 +1090,37 @@ export function runSet(
         throw new Error("set.flags.invalid");
       }
 
-      const normalizedList = (incoming.list as unknown[]).map((flag) =>
-        String(flag),
-      );
+      for (const flag of incoming.list as unknown[]) {
+        if (typeof flag !== "string") {
+          diagnostics.emit({
+            code: "set.flags.invalid",
+            message: "FlagsView must be consistent between list and map.",
+            severity: "error",
+            data: {
+              valueType: toValueType(incoming),
+              hasList,
+              hasMap,
+            },
+          });
+          throw new Error("set.flags.invalid");
+        }
+      }
+
+      const normalizedList = incoming.list as string[];
+      if (new Set(normalizedList).size !== normalizedList.length) {
+        diagnostics.emit({
+          code: "set.flags.invalid",
+          message: "FlagsView must be consistent between list and map.",
+          severity: "error",
+          data: {
+            valueType: toValueType(incoming),
+            hasList,
+            hasMap,
+          },
+        });
+        throw new Error("set.flags.invalid");
+      }
+
       const canonical = createFlagsView(normalizedList);
       const incomingMap = incoming.map as Record<string, unknown>;
 

@@ -577,6 +577,7 @@ export function runAdd(
       expressionRegistry.register({
         id,
         ...(sig !== undefined ? { signal: sig } : {}),
+        ...(hasOwn(source, "payload") ? { payload: source.payload } : {}),
         ...(expressionFlags ? { flags: expressionFlags } : {}),
         ...(normalizedRequired !== undefined
           ? { required: normalizedRequired }

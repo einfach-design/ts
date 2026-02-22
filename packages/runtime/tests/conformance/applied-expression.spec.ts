@@ -53,4 +53,37 @@ describe("conformance/applied-expression", () => {
 
     expect(matchResults).toEqual([true, false, true, false]);
   });
+
+  it("applExpression.payload kommt aus AddOpts.payload", () => {
+    const run = createRuntime();
+
+    run.add({
+      payload: { k: 1 },
+      targets: [
+        (i: unknown, a: unknown) => {
+          expect(a).toHaveProperty("payload");
+          expect((a as { payload?: unknown }).payload).toEqual({ k: 1 });
+          expect("payload" in (i as Record<string, unknown>)).toBe(false);
+        },
+      ],
+    } as unknown as Record<string, unknown>);
+
+    run.impulse({ addFlags: ["x"] });
+  });
+
+  it("beide payloads koexistieren", () => {
+    const run = createRuntime();
+
+    run.add({
+      payload: "exprPayload",
+      targets: [
+        (i: unknown, a: unknown) => {
+          expect((a as { payload?: unknown }).payload).toBe("exprPayload");
+          expect((i as { payload?: unknown }).payload).toBe("impulsePayload");
+        },
+      ],
+    } as unknown as Record<string, unknown>);
+
+    run.impulse({ livePayload: "impulsePayload" });
+  });
 });
