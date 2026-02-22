@@ -91,6 +91,32 @@ describe("processing/trim", () => {
     ]);
   });
 
+  it("keeps all applied entries when retain is positive infinity", () => {
+    const onTrim = vi.fn();
+
+    const result = trim({
+      entries: [
+        { id: "a", bytes: 4 },
+        { id: "b", bytes: 4 },
+      ],
+      cursor: 2,
+      retain: Number.POSITIVE_INFINITY,
+      maxBytes: Number.POSITIVE_INFINITY,
+      runtimeStackActive: false,
+      trimPendingMaxBytes: false,
+      measureBytes: (entry) => entry.bytes,
+      onTrim,
+    });
+
+    expect(result.entries).toEqual([
+      { id: "a", bytes: 4 },
+      { id: "b", bytes: 4 },
+    ]);
+    expect(result.cursor).toBe(2);
+    expect(result.events).toEqual([]);
+    expect(onTrim).not.toHaveBeenCalled();
+  });
+
   it("does not measure bytes when maxBytes is Infinity and retain trim does not run", () => {
     const measureBytes = vi.fn((entry: { bytes: number }) => entry.bytes);
 

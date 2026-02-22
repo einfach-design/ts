@@ -83,15 +83,17 @@ function snapshot<T>(value: T): T {
       return out;
     }
 
-    if (Object.getPrototypeOf(input) !== Object.prototype) {
+    const prototype = Object.getPrototypeOf(input);
+    if (prototype !== Object.prototype && prototype !== null) {
       return input;
     }
 
-    const out: Record<string, unknown> = {};
+    const out: Record<string, unknown> =
+      prototype === null ? Object.create(null) : {};
     seen.set(input, out);
-    for (const [key, nested] of Object.entries(input)) {
+    for (const key of Object.keys(input)) {
       Object.defineProperty(out, key, {
-        value: cloneValue(nested),
+        value: cloneValue((input as Record<string, unknown>)[key]),
         enumerable: true,
         writable: true,
         configurable: true,

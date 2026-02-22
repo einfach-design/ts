@@ -124,15 +124,13 @@ export function matchExpression(input: MatchExpressionInput): boolean {
   const changedFlagsMap =
     resolvedChangedFlags?.map ?? createNullProtoRecord<true>();
 
-  const referenceCount = Object.keys(flagsMap).length;
+  const referenceCount =
+    resolvedFlags?.list?.length ?? Object.keys(flagsMap).length;
+  const changedReferenceCount =
+    resolvedChangedFlags?.list?.length ?? Object.keys(changedFlagsMap).length;
 
   let matchCount = 0;
   let changedCount = 0;
-
-  if (specCount === 0) {
-    matchCount = referenceCount;
-    changedCount = Object.keys(changedFlagsMap).length;
-  }
 
   for (const spec of specs) {
     const isFlagSet = hasOwn(flagsMap, spec.flag);
@@ -152,7 +150,7 @@ export function matchExpression(input: MatchExpressionInput): boolean {
   }
 
   const requiredFlags = input.expression.required?.flags;
-  const thresholdCount = specCount === 0 ? referenceCount : specCount;
+  const thresholdCount = specCount;
   const minRaw = requiredFlags?.min;
   const min =
     minRaw === undefined
@@ -167,20 +165,32 @@ export function matchExpression(input: MatchExpressionInput): boolean {
     requiredFlags?.max === undefined
       ? Number.POSITIVE_INFINITY
       : Number.isFinite(requiredFlags.max)
-        ? clampThreshold(requiredFlags.max, thresholdCount)
+        ? specCount === 0
+          ? Math.max(0, requiredFlags.max)
+          : clampThreshold(requiredFlags.max, thresholdCount)
         : Number.POSITIVE_INFINITY;
 
   const changedFallback = specCount === 0 ? 0 : 1;
-  const changed = resolveThreshold(
-    requiredFlags?.changed,
-    changedFallback,
-    thresholdCount,
-  );
+  const changed =
+    requiredFlags?.changed === undefined || Number.isNaN(requiredFlags.changed)
+      ? resolveThreshold(undefined, changedFallback, thresholdCount)
+      : specCount === 0
+        ? Math.max(0, requiredFlags.changed)
+        : resolveThreshold(
+            requiredFlags.changed,
+            changedFallback,
+            thresholdCount,
+          );
 
-  const changedGateSatisfied = changed === 0 || changedCount >= changed;
+  const effectiveMatchCount = specCount === 0 ? referenceCount : matchCount;
+  const effectiveChangedCount =
+    specCount === 0 ? changedReferenceCount : changedCount;
+
+  const changedGateSatisfied =
+    changed === 0 || effectiveChangedCount >= changed;
   const minMaxGateSatisfied =
-    matchCount >= min &&
-    (max === Number.POSITIVE_INFINITY || matchCount <= max);
+    effectiveMatchCount >= min &&
+    (max === Number.POSITIVE_INFINITY || effectiveMatchCount <= max);
 
   return signalGateSatisfied && changedGateSatisfied && minMaxGateSatisfied;
 }

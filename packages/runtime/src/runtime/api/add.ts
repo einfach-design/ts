@@ -231,7 +231,33 @@ export function runAdd(
       hasOwn(source, "signals") && Array.isArray(source.signals)
         ? source.signals.length === 0
           ? [undefined]
-          : source.signals
+          : (() => {
+              const deduped: string[] = [];
+              const seen = new Set<unknown>();
+
+              for (const signal of source.signals) {
+                if (seen.has(signal)) {
+                  continue;
+                }
+                seen.add(signal);
+                deduped.push(signal as string);
+              }
+
+              if (deduped.length < source.signals.length) {
+                diagnostics.emit({
+                  code: "add.signals.dedup",
+                  message:
+                    "run.add signals were deduplicated by first occurrence.",
+                  severity: "warn",
+                  data: {
+                    signals: source.signals,
+                    deduped,
+                  },
+                });
+              }
+
+              return deduped;
+            })()
         : hasOwn(source, "signal") && source.signal !== undefined
           ? [source.signal as string]
           : [undefined];

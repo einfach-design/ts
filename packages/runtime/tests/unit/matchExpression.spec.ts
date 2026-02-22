@@ -68,6 +68,25 @@ describe("matchExpression", () => {
     expect(matchExpression(input)).toBe(true);
   });
 
+  it("keeps specCount=0 matching spec-based instead of deriving from reference flags", () => {
+    const input: MatchExpressionInput = {
+      expression: {},
+      defaults: {
+        gate: {
+          signal: { value: true },
+          flags: { value: true },
+        },
+      },
+      fallbackReference: {
+        signal: "go",
+        flags: flags("a", "b"),
+        changedFlags: flags("a"),
+      },
+    };
+
+    expect(matchExpression(input)).toBe(true);
+  });
+
   it("supports changed=0 by disabling changed threshold", () => {
     const input = baseInput();
     input.expression.required = { flags: { changed: 0 } };

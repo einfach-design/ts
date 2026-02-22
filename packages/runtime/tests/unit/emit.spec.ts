@@ -72,6 +72,43 @@ describe("diagnostics/emit", () => {
     collector.clear();
     expect(collector.list()).toEqual([]);
   });
+
+  it("passes one frozen diagnostic snapshot instance to all listeners", () => {
+    const listenerB = vi.fn();
+    const listenerA = vi.fn(
+      (diagnostic: { message: string; data?: { value?: number } }) => {
+        expect(() => {
+          (diagnostic as { message: string }).message = "mutated";
+        }).toThrow();
+        expect(() => {
+          if (diagnostic.data !== undefined) {
+            diagnostic.data.value = 2;
+          }
+        }).toThrow();
+      },
+    );
+
+    const listeners = new Set([listenerA, listenerB]);
+    emitDiagnostic({
+      diagnostic: {
+        code: "runtime.target.error",
+        message: "original",
+        data: { value: 1 },
+      },
+      listeners,
+    });
+
+    const firstArgA = listenerA.mock.calls[0]?.[0];
+    const firstArgB = listenerB.mock.calls[0]?.[0];
+    expect(firstArgA).toBe(firstArgB);
+    expect(firstArgB).toMatchObject({
+      message: "original",
+      data: { value: 1 },
+    });
+    expect(Object.isFrozen(firstArgB)).toBe(true);
+    expect(Object.isFrozen(firstArgB?.data)).toBe(true);
+  });
+
   it("prevents recursive listenerError emission loops", () => {
     const collector = createDiagnosticCollector();
     const seen: string[] = [];

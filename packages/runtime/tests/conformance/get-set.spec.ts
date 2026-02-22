@@ -21,6 +21,26 @@ describe("conformance/get-set", () => {
     expect(() => run.get("unknown-key" as string | undefined)).toThrow();
   });
 
+  it("A1x — snapshot get does not leak null-proto flag maps by reference", () => {
+    const run = createRuntime();
+
+    run.impulse({ addFlags: ["a"] });
+
+    const snap1 = run.get("flags", { as: "snapshot" }) as {
+      map: Record<string, true>;
+      list: string[];
+    };
+    (snap1.map as Record<string, true | undefined>).evil = true;
+
+    const snap2 = run.get("flags", { as: "snapshot" }) as {
+      map: Record<string, true>;
+      list: string[];
+    };
+
+    expect(snap2.map).not.toHaveProperty("evil");
+    expect(snap2.list).toEqual(["a"]);
+  });
+
   it("A1b — set(addFlags) accepts FlagsView delta payloads (Spec §2.5, §4.2)", () => {
     const run = createRuntime();
 
