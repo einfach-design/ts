@@ -569,9 +569,7 @@ describe("failure-modes/runtime-errors", () => {
   it("does not treat user-thrown objects with __runtimeInnerAbort as inner abort", () => {
     const run = createRuntime();
     const diags: Array<{ code: string; data?: unknown }> = [];
-    run.onDiagnostic((d) =>
-      diags.push(d as { code: string; data?: unknown }),
-    );
+    run.onDiagnostic((d) => diags.push(d as { code: string; data?: unknown }));
 
     run.when({
       id: "uc:ABRT01",
