@@ -221,7 +221,9 @@ describe("conformance/get-set", () => {
       string,
       unknown
     >);
-    const payload = new Date(0);
+    const payload = new (class Payload {
+      readonly value = 0;
+    })();
     run.impulse({ signals: ["a"], livePayload: payload } as Record<
       string,
       unknown
@@ -1824,6 +1826,110 @@ describe("conformance/get-set", () => {
     expect(v0).toBe("v");
 
     expect(s.size).toBe(1);
+  });
+
+  it("SNAP-DATE-01 — snapshot clones Date (mutations do not affect subsequent snapshots)", () => {
+    const run = createRuntime();
+
+    run.set({ impulseQ: { config: { retain: true } } } as never);
+    run.impulse({
+      signals: ["s"],
+      livePayload: { when: new Date("2020-01-01T00:00:00.000Z") },
+    } as never);
+
+    const s1 = run.get("impulseQ", { as: "snapshot" }) as {
+      q: { entries: Array<{ livePayload?: { when?: Date } }> };
+    };
+    const d1: Date = s1.q.entries[0]!.livePayload!.when!;
+    d1.setUTCFullYear(1999);
+
+    const s2 = run.get("impulseQ", { as: "snapshot" }) as {
+      q: { entries: Array<{ livePayload?: { when?: Date } }> };
+    };
+    const d2: Date = s2.q.entries[0]!.livePayload!.when!;
+    expect(d2.toISOString()).toBe("2020-01-01T00:00:00.000Z");
+  });
+
+  it("SNAP-REGEXP-01 — snapshot clones RegExp (lastIndex does not leak)", () => {
+    const run = createRuntime();
+
+    const re = /a/g;
+    re.lastIndex = 2;
+
+    run.set({ impulseQ: { config: { retain: true } } } as never);
+    run.impulse({
+      signals: ["s"],
+      livePayload: { re },
+    } as never);
+
+    const s1 = run.get("impulseQ", { as: "snapshot" }) as {
+      q: { entries: Array<{ livePayload?: { re?: RegExp } }> };
+    };
+    const r1: RegExp = s1.q.entries[0]!.livePayload!.re!;
+    expect(r1.lastIndex).toBe(2);
+    r1.lastIndex = 9;
+
+    const s2 = run.get("impulseQ", { as: "snapshot" }) as {
+      q: { entries: Array<{ livePayload?: { re?: RegExp } }> };
+    };
+    const r2: RegExp = s2.q.entries[0]!.livePayload!.re!;
+    expect(r2.lastIndex).toBe(2);
+  });
+
+  it("SNAP-URL-01 — snapshot clones URL (searchParams mutations do not leak)", () => {
+    const run = createRuntime();
+
+    run.set({ impulseQ: { config: { retain: true } } } as never);
+    run.impulse({
+      signals: ["s"],
+      livePayload: { url: new URL("https://example.com/?a=1") },
+    } as never);
+
+    const s1 = run.get("impulseQ", { as: "snapshot" }) as {
+      q: { entries: Array<{ livePayload?: { url?: URL } }> };
+    };
+    const u1: URL = s1.q.entries[0]!.livePayload!.url!;
+    u1.searchParams.set("a", "999");
+
+    const s2 = run.get("impulseQ", { as: "snapshot" }) as {
+      q: { entries: Array<{ livePayload?: { url?: URL } }> };
+    };
+    const u2: URL = s2.q.entries[0]!.livePayload!.url!;
+    expect(u2.toString()).toBe("https://example.com/?a=1");
+  });
+
+  it("AS-REF-NONPLAIN-01 — reference Date/RegExp/URL methods do not crash and remain readonly", () => {
+    const run = createRuntime();
+
+    run.set({ impulseQ: { config: { retain: true } } } as never);
+    run.impulse({
+      signals: ["s"],
+      livePayload: {
+        when: new Date("2020-01-01T00:00:00.000Z"),
+        re: /a/g,
+        url: new URL("https://example.com/?a=1"),
+      },
+    } as never);
+
+    const ref = run.get("impulseQ", { as: "reference" }) as {
+      q: {
+        entries: Array<{
+          livePayload?: { when?: Date; re?: RegExp; url?: URL };
+        }>;
+      };
+    };
+    const lp = ref.q.entries[0]!.livePayload!;
+
+    expect(lp.when!.toISOString()).toBe("2020-01-01T00:00:00.000Z");
+    expect(lp.re!.test("a")).toBe(true);
+    expect(lp.url!.toString()).toBe("https://example.com/?a=1");
+
+    expect(() => Object.defineProperty(lp.when, "x", { value: 1 })).toThrow(
+      "readonly",
+    );
+    expect(
+      () => delete (lp.url as unknown as Record<string, unknown>).href,
+    ).toThrow("readonly");
   });
 
   it("A11 — hydration reports unresolved backfill ids and drops them", () => {

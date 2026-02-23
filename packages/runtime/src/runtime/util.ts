@@ -56,6 +56,25 @@ function snapshot<T>(value: T): T {
       return seen.get(input);
     }
 
+    if (input instanceof Date) {
+      const out = new Date(input.getTime());
+      seen.set(input, out);
+      return out;
+    }
+
+    if (input instanceof RegExp) {
+      const out = new RegExp(input.source, input.flags);
+      out.lastIndex = input.lastIndex;
+      seen.set(input, out);
+      return out;
+    }
+
+    if (input instanceof URL) {
+      const out = new URL(input.toString());
+      seen.set(input, out);
+      return out;
+    }
+
     if (Array.isArray(input)) {
       const out: unknown[] = [];
       seen.set(input, out);
@@ -318,14 +337,8 @@ function readonlyView<T>(value: T): T {
       return setProxy;
     }
 
-    const prototype = Object.getPrototypeOf(input);
-    if (
-      prototype !== Object.prototype &&
-      prototype !== null &&
-      !Array.isArray(input)
-    ) {
-      return input;
-    }
+    const proto = Object.getPrototypeOf(input);
+    const isPlain = proto === Object.prototype || proto === null;
 
     const proxy = new Proxy(input, {
       get(target, prop, receiver) {
@@ -335,7 +348,7 @@ function readonlyView<T>(value: T): T {
 
         const current = Reflect.get(target, prop, receiver);
         if (typeof current === "function") {
-          return current.bind(receiver);
+          return current.bind(isPlain ? receiver : target);
         }
 
         return toReadonly(current);
