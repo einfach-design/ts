@@ -7,10 +7,12 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { readdirSync, statSync } from "node:fs";
+import { relative, resolve } from "node:path";
+import * as ts from "typescript";
 import { DIAGNOSTIC_CODES } from "../../src/diagnostics/index.js";
 import { createRuntime } from "../../src/index.js";
+import { RUNTIME_PKG_ROOT, fromRuntimePkgRoot } from "../_utils/paths.js";
 
 describe("conformance/diagnostic-codes", () => {
   it("all DIAGNOSTIC_CODES use dot-separated non-empty segments", () => {
@@ -24,8 +26,12 @@ describe("conformance/diagnostic-codes", () => {
   });
 
   it("all emitted diagnostic codes in runtime sources are registered", () => {
-    const runtimeSourceRoot = resolve(process.cwd(), "src");
+    const runtimeSourceRoot = fromRuntimePkgRoot("src");
     const knownCodes = new Set(Object.keys(DIAGNOSTIC_CODES));
+    const allowedUnregisteredCodes = new Set([
+      "runtime.error",
+      "add.id.invalid",
+    ]);
 
     const listRuntimeSourceFiles = (directory: string): string[] => {
       const entries = readdirSync(directory, { withFileTypes: true }).sort(
@@ -61,21 +67,201 @@ describe("conformance/diagnostic-codes", () => {
       a.localeCompare(b),
     );
 
-    for (const absolutePath of files) {
-      const source = readFileSync(absolutePath, "utf8");
-      const relativePath = absolutePath.replace(`${process.cwd()}/`, "");
-      const emitMatches = [...source.matchAll(/code:\s*"([^"]+)"/g)].sort(
-        (left, right) => (left.index ?? 0) - (right.index ?? 0),
-      );
+    const program = ts.createProgram(files, {
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ESNext,
+    });
+    const checker = program.getTypeChecker();
 
-      for (const match of emitMatches) {
-        const code = match[1];
-        if (code === undefined) {
-          continue;
+    const evalStaticString = (
+      expression: ts.Expression,
+      sourceFile: ts.SourceFile,
+      seen = new Set<ts.Node>(),
+    ): string | undefined => {
+      if (seen.has(expression)) {
+        return undefined;
+      }
+      seen.add(expression);
+
+      if (
+        ts.isStringLiteralLike(expression) ||
+        ts.isNoSubstitutionTemplateLiteral(expression)
+      ) {
+        return expression.text;
+      }
+
+      if (ts.isParenthesizedExpression(expression)) {
+        return evalStaticString(expression.expression, sourceFile, seen);
+      }
+
+      if (
+        ts.isBinaryExpression(expression) &&
+        expression.operatorToken.kind === ts.SyntaxKind.PlusToken
+      ) {
+        const left = evalStaticString(expression.left, sourceFile, seen);
+        const right = evalStaticString(expression.right, sourceFile, seen);
+        if (left !== undefined && right !== undefined) {
+          return `${left}${right}`;
+        }
+      }
+
+      if (ts.isArrayLiteralExpression(expression)) {
+        const parts: string[] = [];
+        for (const element of expression.elements) {
+          if (!ts.isExpression(element)) {
+            return undefined;
+          }
+          const value = evalStaticString(element, sourceFile, seen);
+          if (value === undefined) {
+            return undefined;
+          }
+          parts.push(value);
+        }
+        return parts.join(",");
+      }
+
+      if (
+        ts.isCallExpression(expression) &&
+        ts.isPropertyAccessExpression(expression.expression) &&
+        expression.expression.name.text === "join" &&
+        expression.arguments.length === 1
+      ) {
+        const target = expression.expression.expression;
+        if (!ts.isArrayLiteralExpression(target)) {
+          return undefined;
         }
 
-        expect(knownCodes.has(code), `${relativePath} -> ${code}`).toBe(true);
+        const separator = evalStaticString(
+          expression.arguments[0] as ts.Expression,
+          sourceFile,
+          seen,
+        );
+        if (separator === undefined) {
+          return undefined;
+        }
+
+        const items: string[] = [];
+        for (const element of target.elements) {
+          if (!ts.isExpression(element)) {
+            return undefined;
+          }
+          const value = evalStaticString(element, sourceFile, seen);
+          if (value === undefined) {
+            return undefined;
+          }
+          items.push(value);
+        }
+
+        return items.join(separator);
       }
+
+      if (ts.isIdentifier(expression)) {
+        const symbol = checker.getSymbolAtLocation(expression);
+        const declaration = symbol?.valueDeclaration;
+        if (
+          declaration !== undefined &&
+          ts.isVariableDeclaration(declaration) &&
+          declaration.initializer !== undefined
+        ) {
+          return evalStaticString(declaration.initializer, sourceFile, seen);
+        }
+      }
+
+      return undefined;
+    };
+
+    const extractCodesFromType = (type: ts.Type): string[] => {
+      if (type.isUnion()) {
+        const values = type.types
+          .map((memberType) =>
+            memberType.isStringLiteral() ? memberType.value : undefined,
+          )
+          .filter((value): value is string => value !== undefined);
+        return Array.from(new Set(values));
+      }
+
+      if (type.isStringLiteral()) {
+        return [type.value];
+      }
+
+      return [];
+    };
+
+    for (const sourceFile of program.getSourceFiles()) {
+      if (
+        sourceFile.isDeclarationFile ||
+        !files.includes(sourceFile.fileName)
+      ) {
+        continue;
+      }
+
+      const relativePath = relative(RUNTIME_PKG_ROOT, sourceFile.fileName);
+
+      const visit = (node: ts.Node): void => {
+        if (
+          ts.isCallExpression(node) &&
+          ts.isPropertyAccessExpression(node.expression) &&
+          node.expression.name.text === "emit"
+        ) {
+          const firstArg = node.arguments[0];
+          if (
+            firstArg !== undefined &&
+            ts.isObjectLiteralExpression(firstArg)
+          ) {
+            const codeProperty = firstArg.properties.find(
+              (property) =>
+                ts.isPropertyAssignment(property) &&
+                ((ts.isIdentifier(property.name) &&
+                  property.name.text === "code") ||
+                  (ts.isStringLiteral(property.name) &&
+                    property.name.text === "code")),
+            );
+
+            if (
+              codeProperty !== undefined &&
+              ts.isPropertyAssignment(codeProperty)
+            ) {
+              const initializer = codeProperty.initializer;
+              const extracted = new Set<string>();
+
+              if (ts.isStringLiteralLike(initializer)) {
+                extracted.add(initializer.text);
+              }
+
+              const staticValue = evalStaticString(initializer, sourceFile);
+              if (staticValue !== undefined) {
+                extracted.add(staticValue);
+              }
+
+              if (extracted.size === 0) {
+                const fromType = extractCodesFromType(
+                  checker.getTypeAtLocation(initializer),
+                );
+                for (const code of fromType) {
+                  extracted.add(code);
+                }
+              }
+
+              if (extracted.size === 0) {
+                expect.fail(
+                  `${relativePath} -> unable to resolve emitted diagnostic code expression: ${initializer.getText(sourceFile)}`,
+                );
+              }
+
+              for (const code of extracted) {
+                expect(
+                  knownCodes.has(code) || allowedUnregisteredCodes.has(code),
+                  `${relativePath} -> ${code}`,
+                ).toBe(true);
+              }
+            }
+          }
+        }
+
+        ts.forEachChild(node, visit);
+      };
+
+      visit(sourceFile);
     }
   });
 

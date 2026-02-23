@@ -2268,6 +2268,47 @@ describe("conformance/get-set/scope-projection-signal-seenSignals", () => {
 
     expect(applied.list).toEqual(["seed", "a"]);
     expect(pending.list).toEqual(["seed", "a", "b"]);
-    expect(pendingOnly.list).toEqual(["seed", "a", "b"]);
+    // pendingOnly projiziert NUR pending-segment (cursor..end) und seeded leer
+    expect(pendingOnly.list).toEqual(["a", "b"]);
+  });
+
+  it("SCOPE-06 — pendingOnly seeds empty/undefined when there is NO pending segment", () => {
+    const run = createRuntime();
+    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    s.signal = "base";
+    s.seenSignals = { list: ["seed"], map: { seed: true } };
+    s.seenFlags = { list: [], map: {} };
+    s.flagsTruth = { list: [], map: {} };
+    s.flags = { list: [], map: {} };
+
+    // cursor === entries.length -> no pending segment
+    s.impulseQ = {
+      config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
+      q: {
+        cursor: 1,
+        entries: [
+          {
+            signals: ["a1"],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+        ],
+      },
+    };
+
+    run.set(s);
+
+    expect(run.get("signal", { scope: "pendingOnly", as: "snapshot" })).toBe(
+      undefined,
+    );
+
+    const pendingOnly = run.get("seenSignals", {
+      scope: "pendingOnly",
+      as: "snapshot",
+    }) as { list: string[] };
+
+    expect(pendingOnly.list).toEqual([]);
   });
 });

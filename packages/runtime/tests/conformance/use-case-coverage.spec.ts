@@ -1270,6 +1270,29 @@ describe("conformance/use-case-coverage/auto-id-basics", () => {
     } as never);
     expect(Array.from(registeredById(run).keys())).toEqual(["1"]);
   });
+
+  it("MIN-AUTO-05 — auto-id skips ids that were ever used by explicit id (no random throw)", () => {
+    const run = createRuntime();
+
+    // reserve "2" via explicit id, then remove -> remains in usedIds
+    const remove = run.add({
+      id: "2",
+      signal: "s",
+      targets: [() => undefined],
+    } as never);
+    remove();
+
+    // allocate 0 and 1 normally
+    run.when({ signal: "s", targets: [() => undefined] } as never);
+    run.when({ signal: "s", targets: [() => undefined] } as never);
+
+    // next auto would be "2" but MUST skip (because usedIds already has "2")
+    expect(() =>
+      run.when({ signal: "s", targets: [() => undefined] } as never),
+    ).not.toThrow();
+
+    expect(Array.from(registeredById(run).keys())).toEqual(["0", "1", "3"]);
+  });
 });
 
 describe("conformance/use-case-coverage/public-api-optional-args", () => {
