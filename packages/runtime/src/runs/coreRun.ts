@@ -13,6 +13,11 @@ import {
   type FlagSpecInput,
 } from "../canon/flagSpecInput.js";
 import { hasOwn } from "../util/hasOwn.js";
+import {
+  INNER_ABORT,
+  isInnerExpressionAbort,
+  type InnerExpressionAbort,
+} from "../util/innerAbort.js";
 import { createNullProtoRecord } from "../util/nullProto.js";
 import type { DispatchError } from "../targets/dispatch.js";
 
@@ -59,18 +64,7 @@ export type RegisteredExpression = {
   tombstone?: true;
 };
 
-export type InnerExpressionAbort = Readonly<{
-  __runtimeInnerAbort: true;
-  error: unknown;
-}>;
-
-export const isInnerExpressionAbort = (
-  value: unknown,
-): value is InnerExpressionAbort =>
-  typeof value === "object" &&
-  value !== null &&
-  "__runtimeInnerAbort" in value &&
-  (value as { __runtimeInnerAbort?: unknown }).__runtimeInnerAbort === true;
+export { isInnerExpressionAbort };
 
 export type RuntimeTarget =
   | ((i: RuntimeOccurrence, a: AppliedExpression, r: RuntimeCore) => void)
@@ -379,7 +373,7 @@ export const coreRun = (args: {
     if (expression.onError === "throw") {
       return (issue: DispatchError) => {
         throw {
-          __runtimeInnerAbort: true,
+          [INNER_ABORT]: true,
           error: issue.error,
         } as InnerExpressionAbort;
       };
@@ -408,7 +402,7 @@ export const coreRun = (args: {
               : {}),
           });
         } catch (error) {
-          throw { __runtimeInnerAbort: true, error } as InnerExpressionAbort;
+          throw { [INNER_ABORT]: true, error } as InnerExpressionAbort;
         }
       };
     }

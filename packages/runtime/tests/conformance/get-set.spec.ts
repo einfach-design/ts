@@ -125,6 +125,16 @@ describe("conformance/get-set", () => {
     expect(defaults.scope.flags.value).toBe("pendingOnly");
   });
 
+  it("A1f — hydration flags.list must reject duplicates", () => {
+    const run = createRuntime();
+    run.set({ flags: { list: ["x"], map: { x: true } } } as never);
+
+    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    s.flags = { list: ["x", "x"], map: { x: true } };
+
+    expect(() => run.set(s)).toThrow("set.hydration.flagsViewInvalid");
+  });
+
   it("A1g — defaults.gate.value must be boolean (Patch)", () => {
     const run = createRuntime();
 

@@ -104,9 +104,10 @@ export function runImpulse(
     store.draining = true;
 
     try {
-      while (store.impulseQ.q.cursor < store.impulseQ.q.entries.length) {
-        const cursor = store.impulseQ.q.cursor;
-        const entryAtCursor = store.impulseQ.q.entries[cursor] as
+      let cursor = store.impulseQ.q.cursor;
+      while (cursor < store.impulseQ.q.entries.length) {
+        const entries = store.impulseQ.q.entries;
+        const entryAtCursor = entries[cursor] as
           | ImpulseQEntryCanonical
           | undefined;
         const entryMode =
@@ -116,7 +117,7 @@ export function runImpulse(
         store.activeOuterOnError = entryAtCursor?.onError;
 
         const result = drain({
-          entries: store.impulseQ.q.entries.slice(0, cursor + 1),
+          entries,
           cursor,
           draining: false,
           process: (entry) => {
@@ -134,7 +135,8 @@ export function runImpulse(
           },
         });
 
-        store.impulseQ.q.cursor = result.cursor;
+        cursor = result.cursor;
+        store.impulseQ.q.cursor = cursor;
 
         if (result.aborted) {
           if (isInnerExpressionAbort(abortError)) {

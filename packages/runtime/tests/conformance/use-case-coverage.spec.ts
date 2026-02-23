@@ -177,6 +177,28 @@ describe("conformance/use-case-coverage/defaults-overlay", () => {
   });
 });
 
+describe("conformance/use-case-coverage/registry-id-uniqueness", () => {
+  it("REG04 — re-registering a removed id must throw (no id reuse across tombstones)", () => {
+    const run = createRuntime();
+
+    const remove = run.when({
+      id: "uc:REG04",
+      signal: "s",
+      targets: [() => undefined],
+    });
+
+    remove();
+
+    expect(() =>
+      run.when({
+        id: "uc:REG04",
+        signal: "s",
+        targets: [() => undefined],
+      }),
+    ).toThrow();
+  });
+});
+
 describe("conformance/use-case-coverage/flags", () => {
   it("F01 — fire when flag turns ON", () => {
     const run = createRuntime();
