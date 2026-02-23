@@ -301,6 +301,7 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     shape: {
       field: "string",
+      valueType: "string",
     },
   },
   "add.runs.invalid": {
