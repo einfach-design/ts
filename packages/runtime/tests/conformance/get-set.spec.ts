@@ -1605,6 +1605,75 @@ describe("conformance/get-set", () => {
     expect(snap.map).toEqual({ a: true });
   });
 
+  it("AS-REF-03 — extracting Array mutators from reference must still throw", () => {
+    const run = createRuntime();
+    run.set({ flags: { list: ["a"], map: { a: true } } } as never);
+
+    const refFlags = run.get("flags", { as: "reference" }) as {
+      list: string[];
+    };
+
+    const push = refFlags.list.push;
+    expect(() => push("x")).toThrow("readonly");
+
+    const splice = refFlags.list.splice;
+    expect(() => splice(0, 1)).toThrow("readonly");
+
+    const snap = run.get("flags", { as: "snapshot" }) as {
+      list: string[];
+    };
+    expect(snap.list).toEqual(["a"]);
+  });
+
+  it("AS-REF-04 — extracting Map/Set mutators from reference must still throw", () => {
+    const run = createRuntime();
+    const key = { k: 1 };
+
+    run.set({ impulseQ: { config: { retain: true } } } as never);
+    run.impulse({
+      signals: ["s"],
+      livePayload: { map: new Map([[key, "v"]]), set: new Set([key]) },
+    } as never);
+
+    const ref = run.get("impulseQ", { as: "reference" }) as {
+      q: {
+        entries: Array<{
+          livePayload?: { map?: Map<object, string>; set?: Set<object> };
+        }>;
+      };
+    };
+    const refMap = ref.q.entries[0]!.livePayload!.map!;
+    const refSet = ref.q.entries[0]!.livePayload!.set!;
+
+    const mapSet = refMap.set;
+    expect(() => mapSet(key, "x")).toThrow("readonly");
+
+    const mapClear = refMap.clear;
+    expect(() => mapClear()).toThrow("readonly");
+
+    const setAdd = refSet.add;
+    expect(() => setAdd({ k: 2 })).toThrow("readonly");
+  });
+
+  it("AS-REF-05 — defineProperty/delete on reference must throw", () => {
+    const run = createRuntime();
+    run.set({ flags: { list: ["a"], map: { a: true } } } as never);
+
+    const refFlags = run.get("flags", { as: "reference" }) as {
+      map: Record<string, true>;
+    };
+
+    expect(() =>
+      Object.defineProperty(refFlags.map, "x", { value: true }),
+    ).toThrow("readonly");
+    expect(() => delete refFlags.map.a).toThrow("readonly");
+
+    const snap = run.get("flags", { as: "snapshot" }) as {
+      map: Record<string, true>;
+    };
+    expect(snap.map).toEqual({ a: true });
+  });
+
   it("AS-REF-02 — Map key identity works inside reference view (get/has accept iterated keys)", () => {
     const run = createRuntime();
     const key = { k: 1 };
@@ -1624,6 +1693,30 @@ describe("conformance/get-set", () => {
     expect(iterVal).toBe("v");
     expect(refMap.has(iterKey)).toBe(true);
     expect(refMap.get(iterKey)).toBe("v");
+  });
+
+  it("AS-REF-06 — Map forEach provides keys that work with has/get in the same reference map", () => {
+    const run = createRuntime();
+    const key = { k: 1 };
+    run.set({ impulseQ: { config: { retain: true } } } as never);
+    run.impulse({
+      signals: ["s"],
+      livePayload: { map: new Map([[key, "v"]]) },
+    } as never);
+
+    const ref = run.get("impulseQ", { as: "reference" }) as {
+      q: { entries: Array<{ livePayload?: { map?: Map<object, string> } }> };
+    };
+    const m = ref.q.entries[0]!.livePayload!.map!;
+
+    let checked = false;
+    m.forEach((_v, k) => {
+      checked = true;
+      expect(m.has(k)).toBe(true);
+      expect(m.get(k)).toBe("v");
+    });
+
+    expect(checked).toBe(true);
   });
 
   it("A11 — hydration reports unresolved backfill ids and drops them", () => {
