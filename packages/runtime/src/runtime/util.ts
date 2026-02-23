@@ -289,7 +289,16 @@ function readonlyView<T>(value: T): T {
   return toReadonly(value) as T;
 }
 
+const entryBytesCache = new WeakMap<object, number>();
+
 function measureEntryBytes(entry: ImpulseQEntryCanonical): number {
+  if (typeof entry === "object" && entry !== null) {
+    const cached = entryBytesCache.get(entry as object);
+    if (cached !== undefined) {
+      return cached;
+    }
+  }
+
   const budget: {
     signals: string[];
     addFlags: string[];
@@ -314,7 +323,9 @@ function measureEntryBytes(entry: ImpulseQEntryCanonical): number {
       typeof entry.livePayload === "string" ? entry.livePayload : "[opaque]";
   }
 
-  return JSON.stringify(budget).length;
+  const bytes = JSON.stringify(budget).length;
+  entryBytesCache.set(entry as object, bytes);
+  return bytes;
 }
 
 export {
