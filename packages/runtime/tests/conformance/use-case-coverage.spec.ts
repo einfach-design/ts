@@ -892,3 +892,132 @@ describe("conformance/use-case-coverage/required-flags-infinity", () => {
     expect(expression.required.flags.max).toBe(Number.POSITIVE_INFINITY);
   });
 });
+
+describe("conformance/use-case-coverage/remove-lifecycle", () => {
+  it("REG01 — remove() is idempotent", () => {
+    const run = createRuntime();
+    const remove = run.when({
+      id: "uc:REG01",
+      signal: "s",
+      targets: [() => undefined],
+    });
+
+    expect(() => remove()).not.toThrow();
+    expect(() => remove()).not.toThrow();
+
+    expect(registeredById(run).has("uc:REG01")).toBe(false);
+  });
+
+  it("REG02 — remove() during drain (self-remove) is safe and applies next occurrence", () => {
+    const run = createRuntime();
+    let calls = 0;
+    const remove = run.when({
+      id: "uc:REG02",
+      signal: "s",
+      targets: [
+        () => {
+          calls += 1;
+          remove();
+        },
+      ],
+    });
+
+    run.impulse({ signals: ["s"] });
+    run.impulse({ signals: ["s"] });
+
+    expect(calls).toBe(1);
+    expect(registeredById(run).has("uc:REG02")).toBe(false);
+  });
+
+  it("REG03 — remove() before first impulse prevents any deploy", () => {
+    const run = createRuntime();
+    let calls = 0;
+    const remove = run.when({
+      id: "uc:REG03",
+      signal: "s",
+      targets: [() => calls++],
+    });
+
+    remove();
+    run.impulse({ signals: ["s"] });
+
+    expect(calls).toBe(0);
+  });
+});
+
+describe("conformance/use-case-coverage/payload-immutability", () => {
+  it("PAY01 — appliedExpression.payload is not mutable by targets (no ref leak)", () => {
+    const run = createRuntime();
+    const payload = { n: 1 };
+    const seen: number[] = [];
+
+    run.when({
+      id: "uc:PAY01",
+      signal: "s",
+      payload,
+      targets: [
+        (_i: unknown, a: unknown) => {
+          seen.push((a as { payload: { n: number } }).payload.n);
+          (a as { payload: { n: number } }).payload.n = 999;
+        },
+      ],
+    } as never);
+
+    run.impulse({ signals: ["s"] });
+    run.impulse({ signals: ["s"] });
+
+    expect(seen).toEqual([1, 1]);
+    expect(payload.n).toBe(1);
+  });
+
+  it("PAY02 — actExpression.payload (livePayload) is not mutable by targets (no ref leak)", () => {
+    const run = createRuntime();
+    const seen: number[] = [];
+
+    run.when({
+      id: "uc:PAY02",
+      signal: "s",
+      targets: [
+        (i) => {
+          seen.push((i as { payload: { n: number } }).payload.n);
+          (i as { payload: { n: number } }).payload.n = 999;
+        },
+      ],
+    });
+
+    run.impulse({ signals: ["s"], livePayload: { n: 1 } });
+    run.impulse({ signals: ["s"], livePayload: { n: 1 } });
+
+    expect(seen).toEqual([1, 1]);
+  });
+});
+
+describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
+  it("TRM01 — impulse enqueued in impulseQ.config.onTrim is preserved and processed later", () => {
+    const run = createRuntime();
+    let afterTrimCalls = 0;
+
+    run.when({
+      id: "uc:TRM01:after",
+      signal: "afterTrim",
+      targets: [() => afterTrimCalls++],
+    });
+
+    run.set({
+      impulseQ: {
+        config: {
+          maxBytes: 0,
+          onTrim: () => {
+            run.impulse({ signals: ["afterTrim"] });
+          },
+        },
+      },
+    } as never);
+
+    run.impulse({ signals: ["trigger"] });
+    expect(afterTrimCalls).toBe(0);
+    run.impulse({ signals: ["tick"] });
+
+    expect(afterTrimCalls).toBe(1);
+  });
+});

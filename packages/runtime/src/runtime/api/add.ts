@@ -403,6 +403,21 @@ export function runAdd(
       : undefined;
     const normalizedRequired = canonicalRequiredForAdd(diagnostics, source);
 
+    const snapshotPayload = (payload: unknown): unknown => {
+      if (
+        isObject(payload) &&
+        Object.getPrototypeOf(payload) === Object.prototype
+      ) {
+        return Object.freeze({ ...(payload as Record<string, unknown>) });
+      }
+
+      if (Array.isArray(payload)) {
+        return Object.freeze([...(payload as unknown[])]);
+      }
+
+      return payload;
+    };
+
     const ids: string[] = [];
     const retroactive =
       hasOwn(source, "retroactive") && source.retroactive === true;
@@ -597,7 +612,9 @@ export function runAdd(
       expressionRegistry.register({
         id,
         ...(sig !== undefined ? { signal: sig } : {}),
-        ...(hasOwn(source, "payload") ? { payload: source.payload } : {}),
+        ...(hasOwn(source, "payload")
+          ? { payload: snapshotPayload(source.payload) }
+          : {}),
         ...(expressionFlags ? { flags: expressionFlags } : {}),
         ...(normalizedRequired !== undefined
           ? { required: normalizedRequired }
