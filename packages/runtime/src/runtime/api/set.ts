@@ -1069,6 +1069,13 @@ export function runSet(
     let nextImpulseOnTrim = store.impulseQ.config.onTrim;
     let nextImpulseOnError = store.impulseQ.config.onError;
     let nextTrimPendingMaxBytes = store.trimPendingMaxBytes;
+    let nextScopeProjectionBaseline: ScopeProjectionBaseline = {
+      flags: nextFlagsTruth,
+      changedFlags: nextChangedFlags,
+      seenFlags: nextSeenFlags,
+      signal: nextSignal,
+      seenSignals: nextSeenSignals,
+    };
 
     let trimOnTrimError: Error | undefined;
     let trimRemovedAppliedEntries: ImpulseQEntryCanonical[] | undefined;
@@ -1327,6 +1334,14 @@ export function runSet(
       }
     }
 
+    nextScopeProjectionBaseline = {
+      flags: nextFlagsTruth,
+      changedFlags: nextChangedFlags,
+      seenFlags: nextSeenFlags,
+      signal: nextSignal,
+      seenSignals: nextSeenSignals,
+    };
+
     store.defaults = nextDefaults;
     store.flagsTruth = nextFlagsTruth;
     store.changedFlags = nextChangedFlags;
@@ -1340,13 +1355,7 @@ export function runSet(
     store.impulseQ.config.onTrim = nextImpulseOnTrim;
     store.impulseQ.config.onError = nextImpulseOnError;
     store.trimPendingMaxBytes = nextTrimPendingMaxBytes;
-    store.scopeProjectionBaseline = {
-      flags: store.flagsTruth,
-      changedFlags: store.changedFlags,
-      seenFlags: store.seenFlags,
-      signal: store.signal,
-      seenSignals: store.seenSignals,
-    };
+    store.scopeProjectionBaseline = nextScopeProjectionBaseline;
 
     if (trimOnTrimError !== undefined) {
       store.reportRuntimeError(trimOnTrimError, "trim/onTrim");

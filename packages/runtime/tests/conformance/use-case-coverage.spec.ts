@@ -1198,6 +1198,59 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
     expect(afterTrimCalls).toBe(1);
   });
+
+  it("SET-BASELINE-01 — trimming applied entries must not double-apply into scopeProjectionBaseline", () => {
+    const run = createRuntime();
+
+    const hydration = run.get("*", { as: "snapshot" }) as Record<
+      string,
+      unknown
+    >;
+    hydration.impulseQ = {
+      config: { retain: 0, maxBytes: 1 },
+      q: {
+        cursor: 2,
+        entries: [
+          {
+            signals: ["a"],
+            addFlags: ["fa"],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+          {
+            signals: ["b"],
+            addFlags: ["fb"],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+          {
+            signals: [],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+        ],
+      },
+    };
+    (
+      hydration as { scopeProjectionBaseline: unknown }
+    ).scopeProjectionBaseline = {
+      flags: { list: [], map: {} },
+      changedFlags: { list: [], map: {} },
+      seenFlags: { list: [], map: {} },
+      signal: undefined,
+      seenSignals: { list: [], map: {} },
+    };
+
+    run.set(hydration as never);
+
+    const baseline = (
+      run.get("scopeProjectionBaseline", { as: "snapshot" }) as {
+        flags: { list: string[] };
+      }
+    ).flags;
+    expect(baseline.list.sort()).toEqual(["fa", "fb"]);
+  });
 });
 
 describe("conformance/use-case-coverage/auto-id-basics", () => {
@@ -1381,6 +1434,18 @@ describe("conformance/use-case-coverage/add-validation", () => {
     expect(() =>
       run.when({ id: "uc:MIN-VAL-01", signal: "s", targets: [] } as never),
     ).toThrow("add.target.required");
+  });
+
+  it("ADD-ID-01 — explicit non-string id must emit add.id.invalid and throw", () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.add({
+        id: 123 as unknown as string,
+        signal: "s",
+        targets: [() => undefined],
+      } as never),
+    ).toThrow("add.id.invalid");
   });
 });
 

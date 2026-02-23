@@ -259,6 +259,16 @@ export function runAdd(
 ): { remove: () => void; ids: readonly string[]; retroactive: boolean } {
   return store.withRuntimeStack(() => {
     const source = isObject(opts) ? opts : {};
+    if (hasOwn(source, "id") && typeof source.id !== "string") {
+      diagnostics.emit({
+        code: ADD_ID_INVALID_CODE,
+        severity: "error",
+        message: "run.add id must be a non-empty string.",
+        data: { field: "id", valueType: toValueType(source.id) },
+      });
+      throw new Error("add.id.invalid");
+    }
+
     if (
       hasOwn(source, "id") &&
       typeof source.id === "string" &&
@@ -268,7 +278,7 @@ export function runAdd(
         code: ADD_ID_INVALID_CODE,
         severity: "error",
         message: "run.add id must be a non-empty string.",
-        data: { field: "id" },
+        data: { field: "id", valueType: toValueType(source.id) },
       });
       throw new Error("add.id.invalid");
     }
