@@ -13,9 +13,7 @@
  * - §6.2 changedFlags/delta
  */
 import { describe, it, expect } from "vitest";
-import { performance } from "node:perf_hooks";
 import { createRuntime } from "../../src/index.js";
-import { readonlyView } from "../../src/runtime/util.js";
 
 describe("conformance/get-set", () => {
   it("A1 — get(unknown) must throw (Spec §4.1)", () => {
@@ -2540,47 +2538,3 @@ describe("conformance/get-set/scope-projection-signal-seenSignals", () => {
     expect(pendingOnly.list).toEqual([]);
   });
 });
-
-const shouldBench = process.env.RUNTIME_BENCH === "1";
-
-(shouldBench ? it : it.skip)(
-  "BENCH-REF-01 — reference vs readonlyView(reference) vs snapshot (manual)",
-  () => {
-    const run = createRuntime();
-    run.set({ impulseQ: { config: { retain: true } } } as never);
-    run.impulse({
-      signals: ["bench"],
-      livePayload: {
-        list: Array.from({ length: 5000 }, (_, i) => String(i)),
-        map: Object.fromEntries(
-          Array.from({ length: 5000 }, (_, i) => [String(i), true]),
-        ),
-      },
-    } as never);
-
-    const t0 = performance.now();
-    for (let i = 0; i < 2000; i++) run.get("impulseQ", { as: "reference" });
-    const t1 = performance.now();
-
-    const ref = run.get("impulseQ", { as: "reference" }) as {
-      q: {
-        entries: Array<{
-          livePayload?: { list?: string[]; map?: Record<string, boolean> };
-        }>;
-      };
-    };
-    const t2 = performance.now();
-    for (let i = 0; i < 2000; i++) readonlyView(ref);
-    const t3 = performance.now();
-
-    const t4 = performance.now();
-    for (let i = 0; i < 2000; i++) run.get("impulseQ", { as: "snapshot" });
-    const t5 = performance.now();
-
-    console.log({
-      reference_ms: t1 - t0,
-      readonlyView_ms: t3 - t2,
-      snapshot_ms: t5 - t4,
-    });
-  },
-);
