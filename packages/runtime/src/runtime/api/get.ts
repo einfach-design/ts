@@ -8,7 +8,7 @@ import {
 } from "../../state/flagsView.js";
 import { extendSeenSignals, projectSignal } from "../../state/signals.js";
 import type { ImpulseQEntryCanonical } from "../../canon/impulseEntry.js";
-import { readonlyView, snapshot } from "../util.js";
+import { snapshot } from "../util.js";
 import type { RuntimeStore } from "../store.js";
 import type { DiagnosticCollector } from "../../diagnostics/index.js";
 import type { RegistryStore } from "../../state/registry.js";
@@ -180,6 +180,26 @@ const wantsFlagsProjectionForKey = (resolvedKey: string): boolean =>
 const wantsImpulseProjectionForKey = (resolvedKey: string): boolean =>
   resolvedKey === "impulseQ";
 
+const diagnosticsReferenceCache = new WeakMap<DiagnosticCollector, unknown[]>();
+
+const getDiagnosticsReference = (
+  diagnostics: DiagnosticCollector,
+): unknown[] => {
+  const latest = diagnostics.list() as unknown[];
+  const cached = diagnosticsReferenceCache.get(diagnostics);
+
+  if (cached === undefined) {
+    diagnosticsReferenceCache.set(diagnostics, latest);
+    return latest;
+  }
+
+  if (latest.length > cached.length) {
+    cached.push(...latest.slice(cached.length));
+  }
+
+  return cached;
+};
+
 export function runGet(
   store: RuntimeStore,
   {
@@ -256,7 +276,7 @@ export function runGet(
       selectedSeenSignals = projectedFlagsState.seenSignals;
     }
 
-    const selectedDiagnostics = diagnostics.list();
+    const selectedDiagnostics = getDiagnosticsReference(diagnostics);
 
     const valueByKey: Record<AllowedGetKey, unknown> = {
       defaults: store.defaults,
@@ -288,11 +308,7 @@ export function runGet(
         ? valueByKey[resolvedKey as AllowedGetKey]
         : valueByKey["*"];
     if (as === "reference") {
-      if ((debugGetKeys as readonly string[]).includes(resolvedKey)) {
-        return readonlyView(snapshot(selected));
-      }
-
-      return selected;
+      return selected; // UNSAFE FAST PATH: alias for ALL keys
     }
 
     return snapshot(selected);
