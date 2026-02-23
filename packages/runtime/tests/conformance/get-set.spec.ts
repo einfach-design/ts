@@ -2065,3 +2065,83 @@ describe("conformance/get-set/impulseQ-trim-maxBytes", () => {
     expect(typeof maxCall?.stats?.bytesFreed).toBe("number");
   });
 });
+
+describe("conformance/get-set/scope-projection-baseline-after-set", () => {
+  type FlagsListSnapshot = { list: string[] };
+
+  it("BASE-01 — set(flagsTruth + impulseQ pending) must make scope projections consistent", () => {
+    const run = createRuntime();
+    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    s.flagsTruth = { list: ["a"], map: { a: true } };
+    s.flags = { list: ["a"], map: { a: true } };
+    s.seenFlags = { list: [], map: {} };
+    s.seenSignals = { list: [], map: {} };
+    s.signal = undefined;
+    s.changedFlags = undefined;
+    s.impulseQ = {
+      config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
+      q: {
+        cursor: 0,
+        entries: [
+          {
+            signals: ["sig:p"],
+            addFlags: ["b"],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+        ],
+      },
+    };
+
+    run.set(s);
+
+    const applied = run.get("flags", {
+      scope: "applied",
+      as: "snapshot",
+    }) as FlagsListSnapshot;
+    const pending = run.get("flags", {
+      scope: "pending",
+      as: "snapshot",
+    }) as FlagsListSnapshot;
+    const pendingOnly = run.get("flags", {
+      scope: "pendingOnly",
+      as: "snapshot",
+    }) as FlagsListSnapshot;
+
+    expect(applied.list).toEqual(["a"]);
+    expect(pending.list).toEqual(["a", "b"]);
+    expect(pendingOnly.list).toEqual(["b"]);
+  });
+
+  it("BASE-02 — set(flagsTruth only) must not break scope projections (empty impulseQ)", () => {
+    const run = createRuntime();
+    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    s.flagsTruth = { list: ["a"], map: { a: true } };
+    s.flags = { list: ["a"], map: { a: true } };
+    s.impulseQ = {
+      config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
+      q: { cursor: 0, entries: [] },
+    };
+
+    run.set(s);
+
+    const applied = run.get("flags", {
+      scope: "applied",
+      as: "snapshot",
+    }) as FlagsListSnapshot;
+    const pending = run.get("flags", {
+      scope: "pending",
+      as: "snapshot",
+    }) as FlagsListSnapshot;
+    const pendingOnly = run.get("flags", {
+      scope: "pendingOnly",
+      as: "snapshot",
+    }) as FlagsListSnapshot;
+
+    expect(applied.list).toEqual(["a"]);
+    expect(pending.list).toEqual(["a"]);
+    expect(pendingOnly.list).toEqual([]);
+  });
+});

@@ -1004,6 +1004,15 @@ export function runSet(
       store.trimPendingMaxBytes = false;
       store.backfillQ = nextBackfillStore;
       store.scopeProjectionBaseline = nextScopeProjectionBaseline;
+      if (!hasOwn(hydration, "scopeProjectionBaseline")) {
+        store.scopeProjectionBaseline = {
+          flags: store.flagsTruth,
+          changedFlags: store.changedFlags,
+          seenFlags: store.seenFlags,
+          signal: store.signal,
+          seenSignals: store.seenSignals,
+        };
+      }
 
       return;
     }
@@ -1331,6 +1340,13 @@ export function runSet(
     store.impulseQ.config.onTrim = nextImpulseOnTrim;
     store.impulseQ.config.onError = nextImpulseOnError;
     store.trimPendingMaxBytes = nextTrimPendingMaxBytes;
+    store.scopeProjectionBaseline = {
+      flags: store.flagsTruth,
+      changedFlags: store.changedFlags,
+      seenFlags: store.seenFlags,
+      signal: store.signal,
+      seenSignals: store.seenSignals,
+    };
 
     if (trimOnTrimError !== undefined) {
       store.reportRuntimeError(trimOnTrimError, "trim/onTrim");
