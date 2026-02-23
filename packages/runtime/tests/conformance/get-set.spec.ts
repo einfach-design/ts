@@ -1716,6 +1716,97 @@ describe("conformance/get-set", () => {
     expect(s1.list).toEqual(["a"]);
   });
 
+  it("REF-ALIAS-07 — reference diagnostics is alias + stable (===)", () => {
+    const run = createRuntime();
+
+    // create at least one diagnostic
+    try {
+      run.add({
+        id: 123 as never,
+        signal: "s",
+        targets: [() => undefined],
+      } as never);
+    } catch {
+      // expected
+    }
+
+    const r1 = run.get("diagnostics", { as: "reference" }) as Array<{
+      code: string;
+    }>;
+    const r2 = run.get("diagnostics", { as: "reference" }) as Array<{
+      code: string;
+    }>;
+    expect(r1).toBe(r2);
+
+    const before = run.get("diagnostics", { as: "snapshot" }) as Array<{
+      code: string;
+    }>;
+    r1.push({ code: "test.injected" } as never);
+
+    const after = run.get("diagnostics", { as: "snapshot" }) as Array<{
+      code: string;
+    }>;
+    expect(after.length).toBe(before.length + 1);
+    expect(after.some((d) => d.code === "test.injected")).toBe(true);
+  });
+
+  it("REF-ALIAS-08 — reference scopeProjectionBaseline is alias (mutation visible in snapshot)", () => {
+    const run = createRuntime();
+
+    // ensure baseline exists (it is store-internal but should be gettable)
+    const base = run.get("scopeProjectionBaseline", { as: "reference" }) as {
+      flags: { list: string[]; map: Record<string, boolean> };
+    };
+    base.flags.list.push("BASE_MUT");
+    base.flags.map.BASE_MUT = true;
+
+    const snap = run.get("scopeProjectionBaseline", { as: "snapshot" }) as {
+      flags: { list: string[]; map: Record<string, boolean> };
+    };
+    expect(snap.flags.list).toContain("BASE_MUT");
+    expect(snap.flags.map.BASE_MUT).toBe(true);
+  });
+
+  it("REF-ALIAS-09 — reference registeredById/registeredQ are alias + stable", () => {
+    const run = createRuntime();
+
+    // create one registration so registry is non-empty
+    run.when({ signal: "s", targets: [() => undefined] } as never);
+
+    const byId1 = run.get("registeredById", { as: "reference" }) as Map<
+      string,
+      unknown
+    >;
+    const byId2 = run.get("registeredById", { as: "reference" }) as Map<
+      string,
+      unknown
+    >;
+    expect(byId1).toBe(byId2);
+
+    const q1 = run.get("registeredQ", { as: "reference" }) as Array<unknown>;
+    const q2 = run.get("registeredQ", { as: "reference" }) as Array<unknown>;
+    expect(q1).toBe(q2);
+
+    // mutate in a type-safe way: duplicate existing value under a new id
+    const first = Array.from(byId1.entries())[0];
+    expect(first).toBeTruthy();
+    const [_id0, run0] = first!;
+
+    byId1.set("__test__", run0);
+
+    const snap = run.get("registeredById", { as: "snapshot" }) as Map<
+      string,
+      unknown
+    >;
+    expect(snap.has("__test__")).toBe(true);
+
+    // and for registeredQ: push an existing entry (or the same run object)
+    q1.push(run0);
+
+    const snapQ = run.get("registeredQ", { as: "snapshot" }) as Array<unknown>;
+    expect(snapQ.length).toBeGreaterThan(0);
+  });
+
   it("A11 — hydration reports unresolved backfill ids and drops them", () => {
     const run = createRuntime();
     run.set({
