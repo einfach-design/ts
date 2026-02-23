@@ -77,13 +77,6 @@ export function registry<
     tombstoneCount += 1;
     registeredById.delete(id);
 
-    if (
-      (expression as { signal?: unknown }).signal === undefined ||
-      (expression as { backfill?: unknown }).backfill !== undefined
-    ) {
-      usedIds.delete(id);
-    }
-
     const reachesAbsoluteMin = tombstoneCount >= COMPACT_TOMBSTONE_ABSOLUTE_MIN;
     const tombstoneShare =
       registeredQ.length === 0 ? 0 : tombstoneCount / registeredQ.length;
