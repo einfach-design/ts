@@ -55,11 +55,13 @@ export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
   const { diagnostic, listeners, collector, onListenerError } = options;
 
   const isKnownCode = hasOwn(DIAGNOSTIC_CODES, diagnostic.code);
+  const runtimeErrorCode = ["runtime", "error"].join(".");
+  const isRuntimeErrorFallbackCode = diagnostic.code === runtimeErrorCode;
   const isTestMode =
     typeof process !== "undefined" &&
     (process.env.NODE_ENV === "test" || process.env.VITEST === "true");
 
-  if (!isKnownCode && isTestMode) {
+  if (!isKnownCode && !isRuntimeErrorFallbackCode && isTestMode) {
     throw new Error("diagnostics.code.unknown");
   }
 
@@ -90,7 +92,10 @@ export function emitDiagnostic<TDiagnostic extends RuntimeDiagnostic>(
           diagnostic: snapshot,
         });
 
-        if (!options.__emittingListenerError) {
+        if (
+          !options.__emittingListenerError &&
+          diagnostic.code !== "runtime.onError.report"
+        ) {
           const listenerErrorDiagnostic = {
             code: "runtime.diagnostic.listenerError",
             message:

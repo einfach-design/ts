@@ -78,7 +78,7 @@ describe("failure-modes/runtime-errors", () => {
           onError: (error: unknown) => {
             fnSeen.push(error);
           },
-        } as Record<string, unknown>),
+        } as unknown as Record<string, unknown>),
       ).not.toThrow();
       expect(fnSeen).toHaveLength(1);
       expect(fnSeen[0]).toBeInstanceOf(Error);
@@ -90,7 +90,7 @@ describe("failure-modes/runtime-errors", () => {
           onError: () => {
             throw new Error("from-onError-fn");
           },
-        } as Record<string, unknown>),
+        } as unknown as Record<string, unknown>),
       ).toThrow("from-onError-fn");
     });
   });
@@ -112,7 +112,9 @@ describe("failure-modes/runtime-errors", () => {
       },
     };
 
-    expect(() => run.impulse(opts as Record<string, unknown>)).not.toThrow();
+    expect(() =>
+      run.impulse(opts as unknown as Record<string, unknown>),
+    ).not.toThrow();
     expect(diagnostics).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -455,7 +457,7 @@ describe("failure-modes/runtime-errors", () => {
         onError: () => {
           throw new Error("from-onError-fn");
         },
-      } as Record<string, unknown>),
+      } as unknown as Record<string, unknown>),
     ).toThrow("from-onError-fn");
   });
 
@@ -743,5 +745,104 @@ describe("failure-modes/runtime-errors", () => {
         }),
       ]),
     );
+  });
+
+  describe("diagnostics listener robustness", () => {
+    it("DIAG01 — a throwing diagnostic listener must not crash runtime; other listeners still receive the diagnostic", () => {
+      const run = createRuntime();
+
+      const seenA: unknown[] = [];
+      const seenB: Array<Record<string, unknown>> = [];
+
+      // listener A throws on purpose
+      run.onDiagnostic(() => {
+        seenA.push("called");
+        throw new Error("listener-boom");
+      });
+
+      // listener B must still receive diagnostics
+      run.onDiagnostic((d) => {
+        seenB.push(d as unknown as Record<string, unknown>);
+      });
+
+      // cause any deterministic diagnostic emission (invalid add is easiest)
+      expect(() =>
+        run.when({
+          id: "uc:DIAG01",
+          signal: "s",
+          targets: [] as unknown as never[],
+        } as never),
+      ).toThrow();
+
+      // runtime must not throw due to listener crash beyond the expected add-throw
+      // and listener B must have received both:
+      // - the original add.* diagnostic
+      // - the runtime.diagnostic.listenerError diagnostic
+      expect(
+        seenB.some(
+          (d) => typeof d?.code === "string" && d.code.startsWith("add."),
+        ),
+      ).toBe(true);
+      expect(
+        seenB.some((d) => d?.code === "runtime.diagnostic.listenerError"),
+      ).toBe(true);
+      expect(seenA.length).toBeGreaterThan(0);
+    });
+
+    it("DIAG02 — listenerError diagnostic emission must not recurse infinitely when listener keeps throwing", () => {
+      const run = createRuntime();
+      const seen: Array<Record<string, unknown>> = [];
+
+      // single listener that always throws
+      run.onDiagnostic(() => {
+        throw new Error("always");
+      });
+
+      // second listener to count emissions
+      run.onDiagnostic((d) => {
+        seen.push(d as unknown as Record<string, unknown>);
+      });
+
+      expect(() =>
+        run.when({
+          id: "uc:DIAG02",
+          signal: "s",
+          targets: [] as unknown as never[],
+        } as never),
+      ).toThrow();
+
+      // must emit at least one listenerError, but not an unbounded cascade
+      const listenerErrors = seen.filter(
+        (d) => d?.code === "runtime.diagnostic.listenerError",
+      );
+      expect(listenerErrors.length).toBe(1);
+    });
+  });
+
+  describe("runtime error reporting fallback", () => {
+    it("ERR01 — onError:report must emit runtime.error even if error shape is unknown", () => {
+      const run = createRuntime();
+      const diags: Array<Record<string, unknown>> = [];
+      run.onDiagnostic((d) =>
+        diags.push(d as unknown as Record<string, unknown>),
+      );
+
+      run.when({
+        id: "uc:ERR01",
+        signal: "s",
+        onError: "report",
+        targets: [
+          () => {
+            // unknown / non-Error throwable shape
+            throw { weird: true, n: 1 };
+          },
+        ],
+      } as never);
+
+      // should not throw, errors are reported via diagnostics
+      expect(() => run.impulse({ signals: ["s"] })).not.toThrow();
+
+      expect(diags.some((d) => d?.code === "runtime.error")).toBe(true);
+    });
   });
 });
