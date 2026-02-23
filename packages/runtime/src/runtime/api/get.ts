@@ -287,11 +287,14 @@ export function runGet(
       key !== undefined
         ? valueByKey[resolvedKey as AllowedGetKey]
         : valueByKey["*"];
-    const snap = snapshot(selected);
     if (as === "reference") {
-      return readonlyView(snap);
+      if ((debugGetKeys as readonly string[]).includes(resolvedKey)) {
+        return readonlyView(snapshot(selected));
+      }
+
+      return selected;
     }
 
-    return snap;
+    return snapshot(selected);
   });
 }
