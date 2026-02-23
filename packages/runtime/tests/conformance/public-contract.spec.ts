@@ -101,12 +101,15 @@ describe("conformance: public contract (values)", () => {
     expect(matchResults).toEqual([true, true, false]);
   });
 
-  it("remove + re-add with same id is not blocked by stale backfillQ markers", async () => {
+  it("remove must clear backfillQ entry; re-registering same id must throw; new id should enqueue backfillQ once", async () => {
     const { createRuntime } = await import("../../src/index.js");
     const run = createRuntime();
 
+    const oldId = "expr:reuse";
+    const newId = "expr:reuse:new";
+
     const remove = run.add({
-      id: "expr:reuse",
+      id: oldId,
       signal: "sig:reuse",
       flags: { "flag:required": true },
       backfill: { signal: { debt: 1 }, flags: { debt: 1 } },
@@ -117,12 +120,28 @@ describe("conformance: public contract (values)", () => {
       list: string[];
       map: Record<string, true>;
     };
-    expect(beforeRemove.map["expr:reuse"]).toBe(true);
+    expect(beforeRemove.map[oldId]).toBe(true);
 
     remove();
 
+    const afterRemove = run.get("backfillQ", { as: "snapshot" }) as {
+      list: string[];
+      map: Record<string, true>;
+    };
+    expect(afterRemove.map[oldId]).toBeUndefined();
+
+    expect(() =>
+      run.add({
+        id: oldId,
+        signal: "sig:reuse",
+        flags: { "flag:required": true },
+        backfill: { signal: { debt: 1 }, flags: { debt: 1 } },
+        targets: [() => undefined],
+      }),
+    ).toThrow();
+
     run.add({
-      id: "expr:reuse",
+      id: newId,
       signal: "sig:reuse",
       flags: { "flag:required": true },
       backfill: { signal: { debt: 1 }, flags: { debt: 1 } },
@@ -136,7 +155,7 @@ describe("conformance: public contract (values)", () => {
       map: Record<string, true>;
     };
 
-    expect(backfillQ.map["expr:reuse"]).toBe(true);
-    expect(backfillQ.list.filter((id) => id === "expr:reuse")).toHaveLength(1);
+    expect(backfillQ.map[newId]).toBe(true);
+    expect(backfillQ.list.filter((id) => id === newId)).toHaveLength(1);
   });
 });
