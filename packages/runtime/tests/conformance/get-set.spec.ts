@@ -2145,3 +2145,129 @@ describe("conformance/get-set/scope-projection-baseline-after-set", () => {
     expect(pendingOnly.list).toEqual([]);
   });
 });
+
+describe("conformance/get-set/scope-projection-signal-seenSignals", () => {
+  it("SCOPE-03 — signal scope projection (applied vs pending vs pendingOnly)", () => {
+    const run = createRuntime();
+    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    s.signal = "base";
+    s.seenSignals = { list: [], map: {} };
+    s.seenFlags = { list: [], map: {} };
+    s.flagsTruth = { list: [], map: {} };
+    s.flags = { list: [], map: {} };
+    s.impulseQ = {
+      config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
+      q: {
+        cursor: 1,
+        entries: [
+          {
+            signals: ["a1", "a2"],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+          {
+            signals: ["b1"],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+        ],
+      },
+    };
+
+    run.set(s);
+
+    expect(run.get("signal", { scope: "applied", as: "snapshot" })).toBe("a2");
+    expect(run.get("signal", { scope: "pending", as: "snapshot" })).toBe("b1");
+    expect(run.get("signal", { scope: "pendingOnly", as: "snapshot" })).toBe(
+      "b1",
+    );
+  });
+
+  it("SCOPE-04 — signal projection when there is NO applied (cursor=0) preserves baseline for applied", () => {
+    const run = createRuntime();
+    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    s.signal = "base";
+    s.seenSignals = { list: [], map: {} };
+    s.seenFlags = { list: [], map: {} };
+    s.flagsTruth = { list: [], map: {} };
+    s.flags = { list: [], map: {} };
+    s.impulseQ = {
+      config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
+      q: {
+        cursor: 0,
+        entries: [
+          {
+            signals: ["p1", "p2"],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+        ],
+      },
+    };
+
+    run.set(s);
+
+    expect(run.get("signal", { scope: "applied", as: "snapshot" })).toBe(
+      "base",
+    );
+    expect(run.get("signal", { scope: "pending", as: "snapshot" })).toBe("p2");
+    expect(run.get("signal", { scope: "pendingOnly", as: "snapshot" })).toBe(
+      "p2",
+    );
+  });
+
+  it("SCOPE-05 — seenSignals scope projection (stable-unique; applied vs pending vs pendingOnly)", () => {
+    const run = createRuntime();
+    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    s.seenSignals = { list: ["seed"], map: { seed: true } };
+    s.signal = "seed";
+    s.flagsTruth = { list: [], map: {} };
+    s.flags = { list: [], map: {} };
+    s.seenFlags = { list: [], map: {} };
+    s.impulseQ = {
+      config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
+      q: {
+        cursor: 1,
+        entries: [
+          {
+            signals: ["seed", "a"],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+          {
+            signals: ["a", "b"],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+        ],
+      },
+    };
+
+    run.set(s);
+
+    const applied = run.get("seenSignals", {
+      scope: "applied",
+      as: "snapshot",
+    }) as { list: string[] };
+    const pending = run.get("seenSignals", {
+      scope: "pending",
+      as: "snapshot",
+    }) as { list: string[] };
+    const pendingOnly = run.get("seenSignals", {
+      scope: "pendingOnly",
+      as: "snapshot",
+    }) as { list: string[] };
+
+    expect(applied.list).toEqual(["seed", "a"]);
+    expect(pending.list).toEqual(["seed", "a", "b"]);
+    expect(pendingOnly.list).toEqual(["seed", "a", "b"]);
+  });
+});

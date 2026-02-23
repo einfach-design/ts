@@ -228,9 +228,14 @@ export function runGet(
       selectedImpulseQ = projectedImpulseQ;
 
       if (wantsFlagsProjection) {
+        const projectionSeed =
+          scope === "pendingOnly" &&
+          (resolvedKey === "signal" || resolvedKey === "seenSignals")
+            ? store.scopeProjectionBaseline
+            : getProjectionSeed(store, scope);
         const projectedFlagsState = projectFlagsState(
           projectedImpulseQ.q.entries,
-          getProjectionSeed(store, scope),
+          projectionSeed,
         );
 
         selectedFlags = projectedFlagsState.flags;
@@ -242,9 +247,14 @@ export function runGet(
     } else if (wantsScopeProjection && wantsFlagsProjection) {
       const scope = resolveScope(opts?.scope);
       const projectedImpulseQ = projectImpulseQ(store.impulseQ, scope);
+      const projectionSeed =
+        scope === "pendingOnly" &&
+        (resolvedKey === "signal" || resolvedKey === "seenSignals")
+          ? store.scopeProjectionBaseline
+          : getProjectionSeed(store, scope);
       const projectedFlagsState = projectFlagsState(
         projectedImpulseQ.q.entries,
-        getProjectionSeed(store, scope),
+        projectionSeed,
       );
 
       selectedFlags = projectedFlagsState.flags;
