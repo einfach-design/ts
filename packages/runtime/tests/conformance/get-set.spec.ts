@@ -1101,10 +1101,19 @@ describe("conformance/get-set", () => {
     };
 
     expect(impulseQ.q.entries).toHaveLength(1);
+    expect(impulseQ.q.entries[0]?.livePayload).not.toBe(livePayload);
     expect(impulseQ.q.entries[0]?.livePayload?.fn).toBe(livePayload.fn);
-    expect(impulseQ.q.entries[0]?.livePayload?.node).toBe(
+    expect(impulseQ.q.entries[0]?.livePayload?.node).not.toBe(livePayload);
+    expect(impulseQ.q.entries[0]?.livePayload?.node).not.toBe(
       impulseQ.q.entries[0]?.livePayload,
     );
+    expect(
+      (
+        impulseQ.q.entries[0]?.livePayload?.node as {
+          node?: unknown;
+        }
+      )?.node,
+    ).toBe(impulseQ.q.entries[0]?.livePayload?.node);
   });
   it("B1 — set(flagsTruth) must not compute changedFlags implicitly (Spec §4.2)", () => {
     const run = createRuntime();
