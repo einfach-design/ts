@@ -44,14 +44,20 @@ export function registry<
 
   const registeredQ: TExpression[] = [];
   const registeredById = new Map<string, TExpression>();
+  const usedIds = new Set<string>();
   let nextAutoId = 0;
   let tombstoneCount = 0;
 
   const register = (expression: TExpression): TExpression => {
+    if (usedIds.has(expression.id)) {
+      throw new Error(`Duplicate registered expression id: ${expression.id}`);
+    }
+
     if (registeredById.has(expression.id)) {
       throw new Error(`Duplicate registered expression id: ${expression.id}`);
     }
 
+    usedIds.add(expression.id);
     registeredQ.push(expression);
     registeredById.set(expression.id, expression);
     return expression;
@@ -70,6 +76,13 @@ export function registry<
     expression.tombstone = true;
     tombstoneCount += 1;
     registeredById.delete(id);
+
+    if (
+      (expression as { signal?: unknown }).signal === undefined ||
+      (expression as { backfill?: unknown }).backfill !== undefined
+    ) {
+      usedIds.delete(id);
+    }
 
     const reachesAbsoluteMin = tombstoneCount >= COMPACT_TOMBSTONE_ABSOLUTE_MIN;
     const tombstoneShare =

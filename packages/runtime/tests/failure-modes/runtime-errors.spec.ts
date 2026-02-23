@@ -566,6 +566,27 @@ describe("failure-modes/runtime-errors", () => {
     expect(hits).toEqual(["inner"]);
   });
 
+  it("does not treat user-thrown objects with __runtimeInnerAbort as inner abort", () => {
+    const run = createRuntime();
+    const diags: Array<{ code: string; data?: unknown }> = [];
+    run.onDiagnostic((d) => diags.push(d as { code: string; data?: unknown }));
+
+    run.when({
+      id: "uc:ABRT01",
+      signal: "s",
+      onError: "report",
+      targets: [
+        () => {
+          // user collision attempt
+          throw { __runtimeInnerAbort: true, error: new Error("boom") };
+        },
+      ],
+    } as never);
+
+    expect(() => run.impulse({ signals: ["s"] })).not.toThrow();
+    expect(diags.some((d) => d.code === "runtime.target.error")).toBe(true);
+  });
+
   it("object target missing handler follows report/swallow/throw modes", () => {
     const reportRun = createRuntime();
     const reportCodes: string[] = [];
