@@ -1579,6 +1579,53 @@ describe("conformance/get-set", () => {
     expect((run.get("flags") as { list: string[] }).list).toContain("x");
   });
 
+  it("AS-REF-01 — reference mutations must NOT affect subsequent snapshot", () => {
+    const run = createRuntime();
+
+    run.set({
+      flags: { list: ["a"], map: { a: true } },
+    } as never);
+
+    const refFlags = run.get("flags", { as: "reference" }) as {
+      list: string[];
+      map: Record<string, boolean>;
+    };
+    expect(() => {
+      refFlags.list.push("MUTATION");
+    }).toThrow("runtime.readonly");
+    expect(() => {
+      refFlags.map.MUTATION = true;
+    }).toThrow("runtime.readonly");
+
+    const snap = run.get("flags", { as: "snapshot" }) as {
+      list: string[];
+      map: Record<string, boolean>;
+    };
+    expect(snap.list).toEqual(["a"]);
+    expect(snap.map).toEqual({ a: true });
+  });
+
+  it("AS-REF-02 — Map key identity works inside reference view (get/has accept iterated keys)", () => {
+    const run = createRuntime();
+    const key = { k: 1 };
+
+    run.set({ impulseQ: { config: { retain: true } } } as never);
+    run.impulse({
+      signals: ["s"],
+      livePayload: { map: new Map([[key, "v"]]) },
+    } as never);
+
+    const refImpulseQ = run.get("impulseQ", { as: "reference" }) as {
+      q: { entries: Array<{ livePayload?: { map?: Map<object, string> } }> };
+    };
+    const refMap = refImpulseQ.q.entries[0]!.livePayload!.map!;
+
+    const [iterKey, iterVal] = Array.from(refMap.entries())[0]!;
+    expect(iterVal).toBe("v");
+    expect(refMap.has(iterKey)).toBe(true);
+    expect(refMap.get(iterKey)).toBe("v");
+  });
+
   it("A11 — hydration reports unresolved backfill ids and drops them", () => {
     const run = createRuntime();
     run.set({

@@ -108,6 +108,16 @@ function snapshot<T>(value: T): T {
 
 function readonlyView<T>(value: T): T {
   const seen = new WeakMap<object, unknown>();
+  const originalByProxy = new WeakMap<object, object>();
+
+  const unwrap = <U>(rawValue: U): U => {
+    if (typeof rawValue !== "object" || rawValue === null) {
+      return rawValue;
+    }
+
+    return (originalByProxy.get(rawValue as unknown as object) ??
+      rawValue) as U;
+  };
 
   const toReadonly = (input: unknown): unknown => {
     if (typeof input !== "object" || input === null) {
@@ -121,12 +131,30 @@ function readonlyView<T>(value: T): T {
     if (input instanceof Map) {
       const mapProxy = new Proxy(input, {
         get(target, prop) {
-          if (prop === "set" || prop === "delete" || prop === "clear") {
+          if (prop === "set" || prop === "clear") {
             return throwReadonlyError;
           }
 
+          if (prop === "delete") {
+            return (key: unknown) => {
+              const rawKey = unwrap(key);
+              void rawKey;
+              return throwReadonlyError();
+            };
+          }
+
           if (prop === "get") {
-            return (key: unknown) => toReadonly(target.get(key));
+            return (key: unknown) => {
+              const rawKey = unwrap(key);
+              return toReadonly(target.get(rawKey));
+            };
+          }
+
+          if (prop === "has") {
+            return (key: unknown) => {
+              const rawKey = unwrap(key);
+              return target.has(rawKey);
+            };
           }
 
           if (prop === "values") {
@@ -173,12 +201,11 @@ function readonlyView<T>(value: T): T {
             };
           }
 
-          const current = Reflect.get(target, prop, target);
-          if (typeof current === "function") {
-            return current.bind(target);
+          if (prop === "size") {
+            return target.size;
           }
 
-          return toReadonly(current);
+          return toReadonly(Reflect.get(target, prop, target));
         },
         set: throwReadonlyError,
         deleteProperty: throwReadonlyError,
@@ -188,14 +215,30 @@ function readonlyView<T>(value: T): T {
       });
 
       seen.set(input, mapProxy);
+      originalByProxy.set(mapProxy, input);
       return mapProxy;
     }
 
     if (input instanceof Set) {
       const setProxy = new Proxy(input, {
         get(target, prop) {
-          if (prop === "add" || prop === "delete" || prop === "clear") {
+          if (prop === "add" || prop === "clear") {
             return throwReadonlyError;
+          }
+
+          if (prop === "delete") {
+            return (valueToDelete: unknown) => {
+              const rawValue = unwrap(valueToDelete);
+              void rawValue;
+              return throwReadonlyError();
+            };
+          }
+
+          if (prop === "has") {
+            return (valueToCheck: unknown) => {
+              const rawValue = unwrap(valueToCheck);
+              return target.has(rawValue);
+            };
           }
 
           if (
@@ -235,12 +278,11 @@ function readonlyView<T>(value: T): T {
             };
           }
 
-          const current = Reflect.get(target, prop, target);
-          if (typeof current === "function") {
-            return current.bind(target);
+          if (prop === "size") {
+            return target.size;
           }
 
-          return toReadonly(current);
+          return toReadonly(Reflect.get(target, prop, target));
         },
         set: throwReadonlyError,
         deleteProperty: throwReadonlyError,
@@ -250,6 +292,7 @@ function readonlyView<T>(value: T): T {
       });
 
       seen.set(input, setProxy);
+      originalByProxy.set(setProxy, input);
       return setProxy;
     }
 
@@ -270,7 +313,7 @@ function readonlyView<T>(value: T): T {
 
         const current = Reflect.get(target, prop, receiver);
         if (typeof current === "function") {
-          return current.bind(target);
+          return current.bind(receiver);
         }
 
         return toReadonly(current);
@@ -283,6 +326,7 @@ function readonlyView<T>(value: T): T {
     });
 
     seen.set(input, proxy);
+    originalByProxy.set(proxy, input);
     return proxy;
   };
 
