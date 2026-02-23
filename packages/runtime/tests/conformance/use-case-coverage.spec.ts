@@ -1360,3 +1360,88 @@ describe("conformance/use-case-coverage/add-validation", () => {
     ).toThrow("add.target.required");
   });
 });
+
+describe("conformance/use-case-coverage/add-input-object-detach", () => {
+  it("MIN-REF-03 — mutating backfill/required/runs input objects after add must not affect the registered expression", () => {
+    const run = createRuntime();
+
+    const backfill = {
+      signal: { debt: 1, runs: { max: 3 } },
+      flags: { debt: 2, runs: { max: 4 } },
+    };
+
+    const required = { flags: { max: 5, changed: 1 } };
+
+    const runs = { max: 7 };
+
+    run.when({
+      id: "uc:MIN-REF-03",
+      signal: "s",
+      backfill,
+      required,
+      runs,
+      targets: [() => undefined],
+    } as never);
+
+    // mutate inputs AFTER add
+    backfill.signal.debt = 99;
+    backfill.signal.runs.max = 99;
+    backfill.flags.debt = 99;
+    backfill.flags.runs.max = 99;
+
+    required.flags.max = 99;
+    required.flags.changed = 99;
+
+    runs.max = 99;
+
+    const reg = registeredById(run).get("uc:MIN-REF-03") as {
+      backfill: {
+        signal: { debt: number; runs: { max: number } };
+        flags: { debt: number; runs: { max: number } };
+      };
+      required: { flags: { max: number; changed: number } };
+      runs: { max: number };
+    };
+
+    expect(reg.backfill.signal.debt).toBe(1);
+    expect(reg.backfill.signal.runs.max).toBe(3);
+    expect(reg.backfill.flags.debt).toBe(2);
+    expect(reg.backfill.flags.runs.max).toBe(4);
+
+    expect(reg.required.flags.max).toBe(5);
+    expect(reg.required.flags.changed).toBe(1);
+
+    expect(reg.runs.max).toBe(7);
+  });
+});
+
+describe("conformance/use-case-coverage/add-validation-more", () => {
+  it("MIN-VAL-02 — targets: [undefined] is rejected deterministically", () => {
+    const run = createRuntime();
+    const diags: unknown[] = [];
+    run.onDiagnostic((d) => diags.push(d));
+
+    expect(() =>
+      run.when({
+        id: "uc:MIN-VAL-02",
+        signal: "s",
+        targets: [undefined as never],
+      } as never),
+    ).toThrow();
+
+    // should not register anything
+    expect(registeredById(run).has("uc:MIN-VAL-02")).toBe(false);
+
+    // and must emit a deterministic add.* diagnostic
+    expect(
+      diags.some((d) => {
+        if (typeof d !== "object" || d === null || !("code" in d)) {
+          return false;
+        }
+
+        const { code } = d as { code: unknown };
+        return typeof code === "string" && code.startsWith("add.");
+      }),
+    ).toBe(true);
+  });
+});
