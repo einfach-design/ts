@@ -1834,3 +1834,115 @@ describe("conformance/get-set/scope-projection", () => {
     expect(pending.map.b).toBe(true);
   });
 });
+
+describe("conformance/get-set/impulseQ-trim-maxBytes", () => {
+  type ImpulseQTrimEntry = {
+    signals?: string[];
+  };
+
+  type ImpulseQTrimSnapshot = {
+    impulseQ: {
+      config: {
+        retain: number;
+        maxBytes: number;
+      };
+      q: {
+        cursor: number;
+        entries: Array<{
+          signals: string[];
+          addFlags: string[];
+          removeFlags: string[];
+          useFixedFlags: boolean;
+        }>;
+      };
+    };
+  };
+
+  it("TRM02 — maxBytes trims applied entries even when retain is high", () => {
+    const run = createRuntime();
+    const s = run.get("*", { as: "snapshot" }) as ImpulseQTrimSnapshot;
+    const big = "x".repeat(200);
+
+    s.impulseQ = {
+      config: {
+        retain: 999,
+        maxBytes: 120,
+      },
+      q: {
+        cursor: 2,
+        entries: [
+          {
+            signals: [big],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+          {
+            signals: [big],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+        ],
+      },
+    };
+
+    run.set(s);
+
+    run.impulse();
+
+    const q = (
+      run.get("impulseQ", {
+        as: "snapshot",
+      }) as ImpulseQTrimSnapshot["impulseQ"]
+    ).q;
+
+    expect(q.cursor).toBeLessThan(2);
+    expect(q.entries.length).toBeLessThan(2);
+  });
+
+  it("TRM03 — maxBytes trim must not drop pending entries", () => {
+    const run = createRuntime();
+    const s = run.get("*", { as: "snapshot" }) as ImpulseQTrimSnapshot;
+    const big = "x".repeat(200);
+
+    s.impulseQ = {
+      config: {
+        retain: 999,
+        maxBytes: 120,
+      },
+      q: {
+        cursor: 1,
+        entries: [
+          {
+            signals: [big],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+          {
+            signals: ["p"],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+        ],
+      },
+    };
+
+    run.set(s);
+
+    run.impulse();
+
+    const q = (
+      run.get("impulseQ", {
+        as: "snapshot",
+      }) as ImpulseQTrimSnapshot["impulseQ"]
+    ).q;
+
+    expect(
+      q.entries.some((e: ImpulseQTrimEntry) => e.signals?.[0] === "p"),
+    ).toBe(true);
+    expect(q.cursor).toBeLessThanOrEqual(q.entries.length);
+  });
+});

@@ -204,7 +204,12 @@ export function initRuntimeStore<
       return fn();
     } finally {
       try {
-        if (runtimeStackDepth === 1 && trimPendingMaxBytes && !draining) {
+        if (
+          runtimeStackDepth === 1 &&
+          !draining &&
+          (trimPendingMaxBytes ||
+            impulseQ.config.maxBytes !== Number.POSITIVE_INFINITY)
+        ) {
           const prevEntries = impulseQ.q.entries;
           const prevCursor = impulseQ.q.cursor;
           const prevPendingCount = Math.max(0, prevEntries.length - prevCursor);
