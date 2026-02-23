@@ -1945,4 +1945,123 @@ describe("conformance/get-set/impulseQ-trim-maxBytes", () => {
     ).toBe(true);
     expect(q.cursor).toBeLessThanOrEqual(q.entries.length);
   });
+
+  it("TRM04 — maxBytes removes oldest applied first (stable), keeps newest applied + pending", () => {
+    const run = createRuntime();
+    const s = run.get("*", { as: "snapshot" }) as ImpulseQTrimSnapshot;
+    const big = "x".repeat(200);
+    const small = "y";
+
+    s.impulseQ = {
+      config: {
+        retain: 999,
+        maxBytes: 120,
+      },
+      q: {
+        cursor: 2,
+        entries: [
+          {
+            signals: [big],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+          {
+            signals: [small],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+          {
+            signals: ["p"],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+        ],
+      },
+    };
+
+    run.set(s);
+
+    run.impulse();
+
+    const q = (
+      run.get("impulseQ", {
+        as: "snapshot",
+      }) as ImpulseQTrimSnapshot["impulseQ"]
+    ).q;
+
+    expect(
+      q.entries.some((e: ImpulseQTrimEntry) => e.signals?.[0] === "y"),
+    ).toBe(true);
+    expect(
+      q.entries.some((e: ImpulseQTrimEntry) => e.signals?.[0] === "p"),
+    ).toBe(true);
+    expect(
+      q.entries.some((e: ImpulseQTrimEntry) => e.signals?.[0] === big),
+    ).toBe(false);
+    expect(q.cursor).toBeLessThanOrEqual(1);
+  });
+
+  it("TRM05 — onTrim is called with reason=maxBytes and removed entries match what was removed", () => {
+    const run = createRuntime();
+    const s = run.get("*", { as: "snapshot" }) as ImpulseQTrimSnapshot & {
+      impulseQ: {
+        config: ImpulseQTrimSnapshot["impulseQ"]["config"] & {
+          onTrim?: (info: {
+            entries: ImpulseQTrimEntry[];
+            stats?: { reason?: string; bytesFreed?: number };
+          }) => void;
+        };
+      };
+    };
+    const big = "x".repeat(200);
+    const small = "y";
+    const calls: Array<{
+      entries: ImpulseQTrimEntry[];
+      stats?: { reason?: string; bytesFreed?: number };
+    }> = [];
+
+    s.impulseQ = {
+      config: {
+        retain: 999,
+        maxBytes: 120,
+        onTrim: (info) => calls.push(info),
+      },
+      q: {
+        cursor: 2,
+        entries: [
+          {
+            signals: [big],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+          {
+            signals: [small],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+        ],
+      },
+    };
+
+    run.set(s as unknown as Record<string, unknown>);
+
+    run.impulse();
+
+    const maxCalls = calls.filter((c) => c?.stats?.reason === "maxBytes");
+    const maxCall = maxCalls[0];
+
+    expect(maxCalls.length).toBe(1);
+    expect(
+      maxCall?.entries.some((e: ImpulseQTrimEntry) => e.signals?.[0] === big),
+    ).toBe(true);
+    expect(
+      maxCall?.entries.some((e: ImpulseQTrimEntry) => e.signals?.[0] === small),
+    ).toBe(false);
+    expect(typeof maxCall?.stats?.bytesFreed).toBe("number");
+  });
 });
