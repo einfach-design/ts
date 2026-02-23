@@ -1720,3 +1720,117 @@ describe("conformance/get-set", () => {
     expect(diagnostics).not.toContain("set.hydration.seenSignalsInvalid");
   });
 });
+
+describe("conformance/get-set/scope-projection", () => {
+  type ScopeProjectionSnapshot = Record<string, unknown> & {
+    impulseQ: {
+      config: { retain: number; maxBytes: number };
+      q: {
+        cursor: number;
+        entries: Array<{
+          signals: string[];
+          addFlags: string[];
+          removeFlags: string[];
+          useFixedFlags: boolean;
+        }>;
+      };
+    };
+  };
+
+  type FlagsSnapshot = {
+    list: string[];
+    map: Record<string, true>;
+  };
+
+  it("SCOPE-01 — impulseQ scope semantics (pending ist applied+pending)", () => {
+    const run = createRuntime();
+    const s = run.get("*", { as: "snapshot" }) as ScopeProjectionSnapshot;
+    s.impulseQ = {
+      config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
+      q: {
+        cursor: 1,
+        entries: [
+          {
+            signals: ["sig:a"],
+            addFlags: ["a"],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+          {
+            signals: ["sig:b"],
+            addFlags: ["b"],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+        ],
+      },
+    };
+    run.set(s);
+
+    const pending = run.get("impulseQ", {
+      scope: "pending",
+      as: "snapshot",
+    }) as ScopeProjectionSnapshot["impulseQ"];
+    const q0 = pending.q;
+
+    expect(run.get("impulseQ", { scope: "applied", as: "snapshot" })).toEqual({
+      config: pending.config,
+      q: { cursor: q0.cursor, entries: q0.entries.slice(0, q0.cursor) },
+    });
+
+    expect(
+      run.get("impulseQ", { scope: "pendingOnly", as: "snapshot" }),
+    ).toEqual({
+      config: pending.config,
+      q: { cursor: 0, entries: q0.entries.slice(q0.cursor) },
+    });
+  });
+
+  it("SCOPE-02 — flags scope semantics (applied vs pending vs pendingOnly)", () => {
+    const run = createRuntime();
+    const s = run.get("*", { as: "snapshot" }) as ScopeProjectionSnapshot;
+    s.impulseQ = {
+      config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
+      q: {
+        cursor: 1,
+        entries: [
+          {
+            signals: ["sig:a"],
+            addFlags: ["a"],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+          {
+            signals: ["sig:b"],
+            addFlags: ["b"],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+        ],
+      },
+    };
+    run.set(s);
+
+    const applied = run.get("flags", {
+      scope: "applied",
+      as: "snapshot",
+    }) as FlagsSnapshot;
+    const pending = run.get("flags", {
+      scope: "pending",
+      as: "snapshot",
+    }) as FlagsSnapshot;
+    const pendingOnly = run.get("flags", {
+      scope: "pendingOnly",
+      as: "snapshot",
+    }) as FlagsSnapshot;
+
+    expect(applied.list).toEqual(["a"]);
+    expect(pending.list).toEqual(["a", "b"]);
+    expect(pendingOnly.list).toEqual(["b"]);
+
+    expect(applied.map.a).toBe(true);
+    expect(applied.map.b).toBeUndefined();
+    expect(pending.map.a).toBe(true);
+    expect(pending.map.b).toBe(true);
+  });
+});
