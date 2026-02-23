@@ -1251,6 +1251,61 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     ).flags;
     expect(baseline.list.sort()).toEqual(["fa", "fb"]);
   });
+
+  it("SET-BASELINE-02 — hydration without scopeProjectionBaseline preserves existing baseline on non-pristine runtime", () => {
+    const run = createRuntime();
+
+    const h0 = run.get("*", { as: "snapshot" }) as {
+      scopeProjectionBaseline?: unknown;
+    };
+    h0.scopeProjectionBaseline = {
+      flags: { list: ["BASE"], map: { BASE: true } },
+      changedFlags: { list: [], map: {} },
+      seenFlags: { list: [], map: {} },
+      signal: undefined,
+      seenSignals: { list: [], map: {} },
+    };
+    run.set(h0 as never);
+
+    run.impulse({ signals: ["non-pristine"] } as never);
+
+    const h1 = run.get("*", { as: "snapshot" }) as {
+      scopeProjectionBaseline?: unknown;
+      impulseQ?: unknown;
+    };
+    delete h1.scopeProjectionBaseline;
+
+    h1.impulseQ = {
+      config: { retain: 0, maxBytes: 1 },
+      q: {
+        cursor: 1,
+        entries: [
+          {
+            signals: ["x"],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+          {
+            signals: [],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+        ],
+      },
+    };
+
+    run.set(h1 as never);
+
+    const baseline = run.get("scopeProjectionBaseline", {
+      as: "snapshot",
+    }) as {
+      flags: { list: string[]; map: Record<string, true> };
+    };
+    expect(baseline.flags.list).toEqual(["BASE"]);
+    expect(baseline.flags.map).toEqual({ BASE: true });
+  });
 });
 
 describe("conformance/use-case-coverage/auto-id-basics", () => {

@@ -205,7 +205,18 @@ function readonlyView<T>(value: T): T {
             return target.size;
           }
 
-          return toReadonly(Reflect.get(target, prop, target));
+          if (typeof prop === "symbol") {
+            if (prop === Symbol.toStringTag) {
+              return Reflect.get(target, prop, target);
+            }
+          }
+
+          const current = Reflect.get(target, prop, mapProxy);
+          if (typeof current === "function") {
+            return current.bind(mapProxy);
+          }
+
+          return toReadonly(current);
         },
         set: throwReadonlyError,
         deleteProperty: throwReadonlyError,
@@ -282,7 +293,18 @@ function readonlyView<T>(value: T): T {
             return target.size;
           }
 
-          return toReadonly(Reflect.get(target, prop, target));
+          if (typeof prop === "symbol") {
+            if (prop === Symbol.toStringTag) {
+              return Reflect.get(target, prop, target);
+            }
+          }
+
+          const current = Reflect.get(target, prop, setProxy);
+          if (typeof current === "function") {
+            return current.bind(setProxy);
+          }
+
+          return toReadonly(current);
         },
         set: throwReadonlyError,
         deleteProperty: throwReadonlyError,
