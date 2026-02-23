@@ -3,13 +3,20 @@ import { createRuntime } from "../../src/index.js";
 import { readonlyView } from "../../src/runtime/util.js";
 import {
   benchCase,
+  diffMem,
+  mem,
   printJson,
   type BenchMeta,
   type BenchResult,
 } from "./_bench.js";
 
 type ScenarioName = "small" | "medium" | "large";
-type BenchKey = "flags" | "impulseQ" | "registeredById" | "*";
+type BenchKey =
+  | "flags"
+  | "impulseQ"
+  | "impulseQ_nonplain"
+  | "registeredById"
+  | "*";
 
 type FlagsBenchView = {
   list: string[];
@@ -30,37 +37,57 @@ const SCENARIOS: Record<ScenarioName, ScenarioConfig> = {
     flagsSize: 16,
     impulseEntries: 1,
     registeredCount: 3,
-    iters: 10_000,
+    iters: parseEnvIters("RUNTIME_BENCH_ITERS_SMALL", 10_000),
   },
   medium: {
     flagsSize: 1000,
     impulseEntries: 50,
     registeredCount: 200,
-    iters: 2000,
+    iters: parseEnvIters("RUNTIME_BENCH_ITERS_MEDIUM", 2000),
   },
   large: {
     flagsSize: 5000,
     impulseEntries: 500,
     registeredCount: 2000,
-    iters: 200,
+    iters: parseEnvIters("RUNTIME_BENCH_ITERS_LARGE", 200),
   },
 };
 
-const KEYS: BenchKey[] = ["flags", "impulseQ", "registeredById", "*"];
+const ALL_SCENARIOS = ["small", "medium", "large"] as const;
+const DEFAULT_KEYS: BenchKey[] = [
+  "flags",
+  "impulseQ",
+  "impulseQ_nonplain",
+  "registeredById",
+  "*",
+];
+const selectedScenarios = filterByEnv<ScenarioName>(
+  process.env.RUNTIME_BENCH_SCENARIOS,
+  ALL_SCENARIOS,
+);
+const selectedKeys = filterByEnv<BenchKey>(
+  process.env.RUNTIME_BENCH_KEYS,
+  DEFAULT_KEYS,
+);
 
 (shouldBench ? describe : describe.skip)("bench/get(as)", () => {
-  for (const scenario of ["small", "medium", "large"] as const) {
+  for (const scenario of selectedScenarios) {
     it(`BENCH-GET-AS-01 (${scenario})`, () => {
-      const run = buildScenario(scenario);
+      const plainRun = buildScenario(scenario, "plain");
+      const nonPlainRun = buildScenario(scenario, "nonplain");
       const config = SCENARIOS[scenario];
       const results: BenchResult[] = [];
 
-      for (const key of KEYS) {
+      for (const key of selectedKeys) {
+        const run = key === "impulseQ_nonplain" ? nonPlainRun : plainRun;
+        const runtimeKey = key === "impulseQ_nonplain" ? "impulseQ" : key;
+        const keyLabel = key;
+
         results.push(
-          benchCase(
-            `${scenario}:${key}:referenceRaw`,
+          runBenchWithMemDelta(
+            `${scenario}:${keyLabel}:referenceRaw`,
             () => {
-              const value = run.get(key, { as: "reference" });
+              const value = run.get(runtimeKey, { as: "reference" });
               void value;
             },
             { iters: config.iters },
@@ -68,10 +95,12 @@ const KEYS: BenchKey[] = ["flags", "impulseQ", "registeredById", "*"];
         );
 
         results.push(
-          benchCase(
-            `${scenario}:${key}:referenceReadonlyView`,
+          runBenchWithMemDelta(
+            `${scenario}:${keyLabel}:referenceReadonlyView`,
             () => {
-              const value = readonlyView(run.get(key, { as: "reference" }));
+              const value = readonlyView(
+                run.get(runtimeKey, { as: "reference" }),
+              );
               void value;
             },
             { iters: config.iters },
@@ -79,10 +108,10 @@ const KEYS: BenchKey[] = ["flags", "impulseQ", "registeredById", "*"];
         );
 
         results.push(
-          benchCase(
-            `${scenario}:${key}:snapshot`,
+          runBenchWithMemDelta(
+            `${scenario}:${keyLabel}:snapshot`,
             () => {
-              const value = run.get(key, { as: "snapshot" });
+              const value = run.get(runtimeKey, { as: "snapshot" });
               void value;
             },
             { iters: config.iters },
@@ -93,45 +122,51 @@ const KEYS: BenchKey[] = ["flags", "impulseQ", "registeredById", "*"];
       let sink = 0;
       const accessIters = Math.max(10, Math.floor(config.iters / 4));
 
-      results.push(
-        benchCase(
-          `${scenario}:flags:referenceRaw_access`,
-          () => {
-            const r = run.get("flags", { as: "reference" }) as FlagsBenchView;
-            sink += r.list.length;
-            sink += r.map.k10 ? 1 : 0;
-          },
-          { iters: accessIters },
-        ),
-      );
+      if (selectedKeys.includes("flags")) {
+        results.push(
+          runBenchWithMemDelta(
+            `${scenario}:flags:referenceRaw_access`,
+            () => {
+              const r = plainRun.get("flags", {
+                as: "reference",
+              }) as FlagsBenchView;
+              sink += r.list.length;
+              sink += r.map.k10 ? 1 : 0;
+            },
+            { iters: accessIters },
+          ),
+        );
 
-      results.push(
-        benchCase(
-          `${scenario}:flags:referenceReadonlyView_access`,
-          () => {
-            const rv = readonlyView(
-              run.get("flags", { as: "reference" }),
-            ) as FlagsBenchView;
-            sink += rv.list.length;
-            sink += rv.map.k10 ? 1 : 0;
-          },
-          { iters: accessIters },
-        ),
-      );
+        results.push(
+          runBenchWithMemDelta(
+            `${scenario}:flags:referenceReadonlyView_access`,
+            () => {
+              const rv = readonlyView(
+                plainRun.get("flags", { as: "reference" }),
+              ) as FlagsBenchView;
+              sink += rv.list.length;
+              sink += rv.map.k10 ? 1 : 0;
+            },
+            { iters: accessIters },
+          ),
+        );
 
-      results.push(
-        benchCase(
-          `${scenario}:flags:snapshot_access`,
-          () => {
-            const s = run.get("flags", { as: "snapshot" }) as FlagsBenchView;
-            sink += s.list.length;
-            sink += s.map.k10 ? 1 : 0;
-          },
-          { iters: accessIters },
-        ),
-      );
+        results.push(
+          runBenchWithMemDelta(
+            `${scenario}:flags:snapshot_access`,
+            () => {
+              const s = plainRun.get("flags", {
+                as: "snapshot",
+              }) as FlagsBenchView;
+              sink += s.list.length;
+              sink += s.map.k10 ? 1 : 0;
+            },
+            { iters: accessIters },
+          ),
+        );
+      }
 
-      expect(sink).toBeGreaterThan(0);
+      expect(sink).toBeGreaterThanOrEqual(0);
 
       const meta: BenchMeta = {
         nodeVersion: process.version,
@@ -139,20 +174,93 @@ const KEYS: BenchKey[] = ["flags", "impulseQ", "registeredById", "*"];
         arch: process.arch,
         date: new Date().toISOString(),
         scenario,
+        benchVersion: "0.112.0",
+        exposeGc: typeof globalThis.gc === "function",
       };
 
       printJson(results, meta);
 
-      for (const result of results) {
+      const sortedResults = [...results].sort((a, b) => {
+        const [scenarioA, nameA] = splitBenchName(a.name);
+        const [scenarioB, nameB] = splitBenchName(b.name);
+
+        if (scenarioA === scenarioB) {
+          return nameA.localeCompare(nameB);
+        }
+
+        return scenarioA.localeCompare(scenarioB);
+      });
+
+      for (const result of sortedResults) {
+        const [, compactName] = splitBenchName(result.name);
         console.log(
-          `${result.name}: ${result.nsPerOp.toFixed(1)} ns/op (${result.ms.toFixed(1)} ms)`,
+          `${scenario} | ${compactName} | ${result.medianNsPerOp.toFixed(1)} | ${result.medianMs.toFixed(1)} | ${result.minMs.toFixed(1)}..${result.maxMs.toFixed(1)}`,
         );
       }
     });
   }
 });
 
-function buildScenario(name: ScenarioName) {
+function runBenchWithMemDelta(
+  name: string,
+  fn: () => void,
+  options?: { warmup?: number; iters?: number; repeats?: number },
+): BenchResult {
+  const m0 = mem();
+  const result = benchCase(name, fn, options);
+  const m1 = mem();
+
+  return {
+    ...result,
+    memDelta: diffMem(m0, m1),
+  };
+}
+
+function splitBenchName(name: string): [string, string] {
+  const firstColon = name.indexOf(":");
+
+  if (firstColon < 0) {
+    return [name, name];
+  }
+
+  return [name.slice(0, firstColon), name.slice(firstColon + 1)];
+}
+
+function parseEnvIters(name: string, fallback: number): number {
+  const raw = process.env[name];
+
+  if (raw === undefined || raw.trim() === "") {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+function filterByEnv<T extends string>(
+  value: string | undefined,
+  all: readonly T[],
+): T[] {
+  if (value === undefined || value.trim() === "") {
+    return [...all];
+  }
+
+  const selected = value
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part): part is T => all.includes(part as T));
+
+  return selected.length > 0 ? selected : [...all];
+}
+
+type PayloadMode = "plain" | "nonplain";
+
+function buildScenario(name: ScenarioName, payloadMode: PayloadMode) {
   const run = createRuntime();
   const config = SCENARIOS[name];
 
@@ -176,7 +284,7 @@ function buildScenario(name: ScenarioName) {
   for (let i = 0; i < config.impulseEntries; i += 1) {
     run.impulse({
       signals: name === "small" ? [`sig-${i}`] : [`sig-${i}`, `sig-${i + 1}`],
-      livePayload: buildPayload(name, i),
+      livePayload: buildPayload(name, i, payloadMode),
     } as never);
   }
 
@@ -199,7 +307,21 @@ function buildScenario(name: ScenarioName) {
   return run;
 }
 
-function buildPayload(name: ScenarioName, i: number): Record<string, unknown> {
+function buildPayload(
+  name: ScenarioName,
+  i: number,
+  payloadMode: PayloadMode,
+): Record<string, unknown> {
+  if (payloadMode === "nonplain") {
+    return {
+      when: new Date("2020-01-01T00:00:00.000Z"),
+      re: /a/g,
+      url: new URL("https://example.com/?a=1"),
+      idx: i,
+      scenario: name,
+    };
+  }
+
   if (name === "small") {
     return {
       a: i,
