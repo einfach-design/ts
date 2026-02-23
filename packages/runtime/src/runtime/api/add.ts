@@ -18,6 +18,8 @@ const toValueType = (value: unknown): string =>
 const isRecordObject = (value: unknown): value is Record<string, unknown> =>
   isObject(value) && Array.isArray(value) === false;
 
+const ADD_ID_INVALID_CODE = "add.id.invalid";
+
 const canonicalOnErrorForAdd = (
   diagnostics: DiagnosticCollector,
   source: Record<string, unknown>,
@@ -257,6 +259,20 @@ export function runAdd(
 ): { remove: () => void; ids: readonly string[]; retroactive: boolean } {
   return store.withRuntimeStack(() => {
     const source = isObject(opts) ? opts : {};
+    if (
+      hasOwn(source, "id") &&
+      typeof source.id === "string" &&
+      source.id.trim().length === 0
+    ) {
+      diagnostics.emit({
+        code: ADD_ID_INVALID_CODE,
+        severity: "error",
+        message: "run.add id must be a non-empty string.",
+        data: { field: "id" },
+      });
+      throw new Error("add.id.invalid");
+    }
+
     const baseId =
       hasOwn(source, "id") && typeof source.id === "string"
         ? source.id
@@ -298,7 +314,32 @@ export function runAdd(
           });
           throw new Error("add.signals.invalid");
         }
+
+        if (value.trim().length === 0) {
+          diagnostics.emit({
+            code: "add.signals.invalid",
+            message: "run.add signals must be an array of strings.",
+            severity: "error",
+            data: { field: "signals", index, reason: "blank" },
+          });
+          throw new Error("add.signals.invalid");
+        }
       }
+    }
+
+    if (
+      hasOwn(source, "signal") &&
+      source.signal !== undefined &&
+      typeof source.signal === "string" &&
+      source.signal.trim().length === 0
+    ) {
+      diagnostics.emit({
+        code: "add.signals.invalid",
+        severity: "error",
+        message: "run.add signal must be a non-empty string when present.",
+        data: { field: "signal" },
+      });
+      throw new Error("add.signals.invalid");
     }
 
     if (

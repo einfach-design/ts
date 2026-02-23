@@ -1445,3 +1445,112 @@ describe("conformance/use-case-coverage/add-validation-more", () => {
     ).toBe(true);
   });
 });
+
+describe("conformance/use-case-coverage/string-input-policy", () => {
+  it("MIN-STR-01 — empty/whitespace-only id/signal/signals/flags must be rejected", () => {
+    const run = createRuntime();
+    const diags: unknown[] = [];
+    run.onDiagnostic((d) => diags.push(d));
+
+    // id
+    expect(() =>
+      run.when({
+        id: "",
+        signal: "s",
+        targets: [() => undefined],
+      } as never),
+    ).toThrow();
+    expect(registeredById(run).has("")).toBe(false);
+
+    expect(() =>
+      run.when({
+        id: "   ",
+        signal: "s",
+        targets: [() => undefined],
+      } as never),
+    ).toThrow();
+    expect(registeredById(run).has("   ")).toBe(false);
+
+    // signal (single)
+    expect(() =>
+      run.when({
+        id: "uc:MIN-STR-01:s1",
+        signal: "",
+        targets: [() => undefined],
+      } as never),
+    ).toThrow();
+
+    expect(() =>
+      run.when({
+        id: "uc:MIN-STR-01:s2",
+        signal: "   ",
+        targets: [() => undefined],
+      } as never),
+    ).toThrow();
+
+    // signals (array entries)
+    expect(() =>
+      run.when({
+        id: "uc:MIN-STR-01:sa1",
+        signals: [""],
+        targets: [() => undefined],
+      } as never),
+    ).toThrow();
+
+    expect(() =>
+      run.when({
+        id: "uc:MIN-STR-01:sa2",
+        signals: ["a", "   "],
+        targets: [() => undefined],
+      } as never),
+    ).toThrow();
+
+    // flags token
+    expect(() =>
+      run.when({
+        id: "uc:MIN-STR-01:f1",
+        signal: "s",
+        flags: [""],
+        targets: [() => undefined],
+      } as never),
+    ).toThrow();
+
+    expect(() =>
+      run.when({
+        id: "uc:MIN-STR-01:f2",
+        signal: "s",
+        flags: ["   "],
+        targets: [() => undefined],
+      } as never),
+    ).toThrow();
+
+    // deterministic add.* diagnostics should exist (we don't pin exact codes/messages)
+    expect(
+      diags.some((d) => {
+        if (typeof d !== "object" || d === null || !("code" in d)) {
+          return false;
+        }
+
+        const { code } = d as { code: unknown };
+        return typeof code === "string" && code.startsWith("add.");
+      }),
+    ).toBe(true);
+  });
+
+  it("MIN-STR-02 — whitespace is NOT trimmed (exact match semantics)", () => {
+    const run = createRuntime();
+    let calls = 0;
+
+    run.when({
+      id: "uc:MIN-STR-02",
+      signal: "  a ",
+      targets: [() => calls++],
+    } as never);
+
+    run.impulse({ signals: ["a"] });
+    expect(calls).toBe(0);
+
+    run.impulse({ signals: ["  a "] });
+    expect(calls).toBe(1);
+  });
+});

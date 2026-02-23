@@ -28,6 +28,9 @@ const assertFlagToken = (value: unknown): string => {
   if (typeof value !== "string") {
     throw new Error("add.flags.invalidToken");
   }
+  if (value.trim().length === 0) {
+    throw new Error("add.flags.invalidToken");
+  }
   return value;
 };
 
