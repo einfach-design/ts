@@ -1199,3 +1199,160 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     expect(afterTrimCalls).toBe(1);
   });
 });
+
+describe("conformance/use-case-coverage/auto-id-basics", () => {
+  it('MIN-AUTO-01 — add without id allocates "0"', () => {
+    const run = createRuntime();
+
+    const { ids } = run.when({
+      signal: "s",
+      targets: [() => undefined],
+    } as never) as unknown as { ids: string[] };
+
+    expect(ids).toEqual(["0"]);
+    expect(registeredById(run).has("0")).toBe(true);
+  });
+
+  it('MIN-AUTO-02 — multiple adds allocate monotonically "0","1","2"', () => {
+    const run = createRuntime();
+
+    const first = run.when({
+      signal: "s",
+      targets: [() => undefined],
+    } as never) as unknown as { ids: string[] };
+    const second = run.when({
+      signal: "s",
+      targets: [() => undefined],
+    } as never) as unknown as { ids: string[] };
+    const third = run.when({
+      signal: "s",
+      targets: [() => undefined],
+    } as never) as unknown as { ids: string[] };
+
+    expect(first.ids).toEqual(["0"]);
+    expect(second.ids).toEqual(["1"]);
+    expect(third.ids).toEqual(["2"]);
+  });
+
+  it('MIN-AUTO-03 — multi-signal allocates "0:0","0:1", next base is "1"', () => {
+    const run = createRuntime();
+
+    const multi = run.when({
+      signals: ["a", "b"],
+      targets: [() => undefined],
+    } as never) as unknown as { ids: string[] };
+    const next = run.when({
+      signal: "x",
+      targets: [() => undefined],
+    } as never) as unknown as { ids: string[] };
+
+    expect(multi.ids).toEqual(["0:0", "0:1"]);
+    expect(next.ids).toEqual(["1"]);
+  });
+
+  it("MIN-AUTO-04 — auto-id does NOT rewind after remove", () => {
+    const run = createRuntime();
+
+    const first = run.when({
+      signal: "s",
+      targets: [() => undefined],
+    } as never) as unknown as (() => void) & { ids: string[] };
+    first();
+    const second = run.when({
+      signal: "s",
+      targets: [() => undefined],
+    } as never) as unknown as { ids: string[] };
+
+    expect(first.ids).toEqual(["0"]);
+    expect(second.ids).toEqual(["1"]);
+  });
+});
+
+describe("conformance/use-case-coverage/public-api-optional-args", () => {
+  it('MIN-API-01 — run.get() equals run.get("*",{as:"snapshot"})', () => {
+    const run = createRuntime();
+
+    expect(run.get()).toEqual(run.get("*", { as: "snapshot" }));
+  });
+
+  it('MIN-API-02 — run.get(undefined,{as:"snapshot"}) equals run.get("*",{as:"snapshot"})', () => {
+    const run = createRuntime();
+
+    expect(run.get(undefined, { as: "snapshot" } as never)).toEqual(
+      run.get("*", { as: "snapshot" }),
+    );
+  });
+
+  it("MIN-API-03 — run.impulse() without args does not throw", () => {
+    const run = createRuntime();
+
+    expect(() => run.impulse()).not.toThrow();
+  });
+});
+
+describe("conformance/use-case-coverage/target-targets-merge-order", () => {
+  it("MIN-TGT-01/02 — all targets run exactly once and order is stable (targets[] then target)", () => {
+    const run = createRuntime();
+    const calls: string[] = [];
+    const t1 = () => calls.push("t1");
+    const t2 = () => calls.push("t2");
+    const t3 = () => calls.push("t3");
+
+    run.when({
+      id: "uc:MIN-TGT",
+      signal: "s",
+      targets: [t1, t2],
+      target: t3,
+    } as never);
+
+    run.impulse({ signals: ["s"] });
+
+    expect(calls).toEqual(["t1", "t2", "t3"]);
+  });
+});
+
+describe("conformance/use-case-coverage/add-input-reference-detach", () => {
+  it("MIN-REF-01 — mutating original targets array after add must not affect runtime", () => {
+    const run = createRuntime();
+    const calls: string[] = [];
+    const t1 = () => calls.push("t1");
+    const t2 = () => calls.push("t2");
+    const arr = [t1];
+
+    run.when({ id: "uc:MIN-REF-01", signal: "s", targets: arr } as never);
+    arr.push(t2);
+
+    run.impulse({ signals: ["s"] });
+
+    expect(calls).toEqual(["t1"]);
+  });
+
+  it("MIN-REF-02 — mutating original signals array after add must not create new registration", () => {
+    const run = createRuntime();
+    let calls = 0;
+    const sigs = ["a", "b"];
+
+    run.when({
+      id: "uc:MIN-REF-02",
+      signals: sigs,
+      targets: [() => calls++],
+    } as never);
+    sigs.push("c");
+
+    run.impulse({ signals: ["c"] });
+    expect(calls).toBe(0);
+
+    run.impulse({ signals: ["a"] });
+    expect(calls).toBe(1);
+  });
+});
+
+describe("conformance/use-case-coverage/add-validation", () => {
+  it("MIN-VAL-01 — targets:[] throws add.target.required", () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.when({ id: "uc:MIN-VAL-01", signal: "s", targets: [] } as never),
+    ).toThrow("add.target.required");
+  });
+});

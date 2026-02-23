@@ -237,7 +237,12 @@ describe("conformance/public-method-matrix", () => {
     });
 
     expect(seen.map((x) => x.signal)).toEqual(["one", "two"]);
-    expect(seen.every((x) => x.payload === payload)).toBe(true);
+    expect(
+      seen.every(
+        (x) => (x.payload as { ok?: boolean } | undefined)?.ok === true,
+      ),
+    ).toBe(true);
+    expect(seen.some((x) => x.payload === payload)).toBe(false);
 
     const removeThrowing = run.add({
       id: "expr:policy-throw",
