@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { fromRuntimePkgRoot } from "../_utils/paths.js";
 
 describe("conformance: public contract (types entrypoint)", () => {
   it("can be imported at runtime (resolver-compat shim)", async () => {
@@ -27,20 +27,20 @@ describe("conformance: public contract (types entrypoint)", () => {
     ];
 
     for (const file of apiFiles) {
-      const source = readFileSync(resolve(process.cwd(), file), "utf8");
+      const source = readFileSync(fromRuntimePkgRoot(file), "utf8");
       expect(source.includes("type RegisteredExpression =")).toBe(false);
     }
   });
 
   it("tsup entrypoints and dts stay aligned with dist release contract", () => {
     const tsupConfig = readFileSync(
-      resolve(process.cwd(), "tsup.config.ts"),
+      fromRuntimePkgRoot("tsup.config.ts"),
       "utf8",
     );
 
-    expect(tsupConfig).toContain(
-      'entry: ["src/index.ts", "src/index.types.ts"]',
+    expect(tsupConfig).toMatch(
+      /entry:\s*\[\s*["']src\/index\.ts["']\s*,\s*["']src\/index\.types\.ts["']\s*\]/,
     );
-    expect(tsupConfig).toContain("dts: true");
+    expect(tsupConfig).toMatch(/dts:\s*true/);
   });
 });

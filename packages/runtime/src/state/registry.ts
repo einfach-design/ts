@@ -116,7 +116,7 @@ export function registry<
     let id = String(nextAutoId);
     nextAutoId += 1;
 
-    while (registeredById.has(id)) {
+    while (registeredById.has(id) || usedIds.has(id)) {
       id = String(nextAutoId);
       nextAutoId += 1;
     }

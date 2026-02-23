@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { fromRuntimePkgRoot } from "../_utils/paths.js";
 
 describe("conformance/public-surface", () => {
   it("value entrypoint exports a stable surface", async () => {
@@ -27,7 +27,7 @@ describe("conformance/public-surface", () => {
 
   it("package.json dist export mapping is release-ready", () => {
     const packageJson = JSON.parse(
-      readFileSync(resolve(process.cwd(), "package.json"), "utf8"),
+      readFileSync(fromRuntimePkgRoot("package.json"), "utf8"),
     ) as {
       exports?: Record<string, Record<string, string>>;
       files?: string[];
