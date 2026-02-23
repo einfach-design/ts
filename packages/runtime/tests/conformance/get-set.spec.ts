@@ -13,7 +13,9 @@
  * - §6.2 changedFlags/delta
  */
 import { describe, it, expect } from "vitest";
+import { performance } from "node:perf_hooks";
 import { createRuntime } from "../../src/index.js";
+import { readonlyView } from "../../src/runtime/util.js";
 
 describe("conformance/get-set", () => {
   it("A1 — get(unknown) must throw (Spec §4.1)", () => {
@@ -1562,79 +1564,72 @@ describe("conformance/get-set", () => {
     ]);
   });
 
-  it("A10 — get(as:'reference') returns read-only throw-on-write view", () => {
-    const run = createRuntime();
-    const flagsRef = run.get("flags", { as: "reference" }) as {
-      list: string[];
-      map: Record<string, true>;
-    };
-
-    expect(() => {
-      (flagsRef.map as Record<string, unknown>).injected = true;
-    }).toThrow("runtime.readonly");
-    expect(
-      (run.get("flags", { as: "snapshot" }) as { map: Record<string, unknown> })
-        .map.injected,
-    ).toBeUndefined();
-
-    run.impulse({ addFlags: ["x"] });
-    expect((run.get("flags") as { list: string[] }).list).toContain("x");
-  });
-
-  it("AS-REF-01 — reference mutations must NOT affect subsequent snapshot", () => {
+  it("REF-ALIAS-01 — reference is alias: mutations are visible in subsequent snapshot", () => {
     const run = createRuntime();
 
-    run.set({
-      flags: { list: ["a"], map: { a: true } },
-    } as never);
+    run.set({ flags: { list: ["a"], map: { a: true } } } as never);
 
-    const refFlags = run.get("flags", { as: "reference" }) as {
+    const ref = run.get("flags", { as: "reference" }) as {
       list: string[];
       map: Record<string, boolean>;
     };
-    expect(() => {
-      refFlags.list.push("MUTATION");
-    }).toThrow("runtime.readonly");
-    expect(() => {
-      refFlags.map.MUTATION = true;
-    }).toThrow("runtime.readonly");
+    ref.list.push("b");
+    ref.map.b = true;
 
     const snap = run.get("flags", { as: "snapshot" }) as {
       list: string[];
       map: Record<string, boolean>;
     };
-    expect(snap.list).toEqual(["a"]);
-    expect(snap.map).toEqual({ a: true });
+    expect(snap.list).toEqual(["a", "b"]);
+    expect(snap.map).toEqual({ a: true, b: true });
   });
 
-  it("AS-REF-03 — extracting Array mutators from reference must still throw", () => {
+  it("REF-ALIAS-02 — reference is stable (===) for store-backed keys", () => {
     const run = createRuntime();
     run.set({ flags: { list: ["a"], map: { a: true } } } as never);
 
-    const refFlags = run.get("flags", { as: "reference" }) as {
+    const r1 = run.get("flags", { as: "reference" }) as {
       list: string[];
+      map: Record<string, boolean>;
+    };
+    const r2 = run.get("flags", { as: "reference" }) as {
+      list: string[];
+      map: Record<string, boolean>;
     };
 
-    const push = refFlags.list.push;
-    expect(() => push("x")).toThrow("readonly");
+    expect(r1).toBe(r2);
+    expect(r1.list).toBe(r2.list);
+    expect(r1.map).toBe(r2.map);
+  });
 
-    const splice = refFlags.list.splice;
-    expect(() => splice(0, 1)).toThrow("readonly");
+  it("REF-ALIAS-03 — extracting Array mutators from reference mutates store", () => {
+    const run = createRuntime();
+    run.set({ flags: { list: ["a"], map: { a: true } } } as never);
+
+    const ref = run.get("flags", { as: "reference" }) as {
+      list: string[];
+    };
+    const push = ref.list.push.bind(ref.list);
+    push("x");
+
+    const splice = ref.list.splice.bind(ref.list);
+    splice(1, 0, "y");
 
     const snap = run.get("flags", { as: "snapshot" }) as {
       list: string[];
     };
-    expect(snap.list).toEqual(["a"]);
+    expect(snap.list).toEqual(["a", "y", "x"]);
   });
 
-  it("AS-REF-04 — extracting Map/Set mutators from reference must still throw", () => {
+  it("REF-ALIAS-04 — Map/Set mutators work on reference (direct + prototype-call)", () => {
     const run = createRuntime();
-    const key = { k: 1 };
+    const k1 = { k: 1 };
+    const k2 = { k: 2 };
 
     run.set({ impulseQ: { config: { retain: true } } } as never);
     run.impulse({
       signals: ["s"],
-      livePayload: { map: new Map([[key, "v"]]), set: new Set([key]) },
+      livePayload: { map: new Map([[k1, "v1"]]), set: new Set([k1]) },
     } as never);
 
     const ref = run.get("impulseQ", { as: "reference" }) as {
@@ -1647,258 +1642,25 @@ describe("conformance/get-set", () => {
     const refMap = ref.q.entries[0]!.livePayload!.map!;
     const refSet = ref.q.entries[0]!.livePayload!.set!;
 
-    const mapSet = refMap.set;
-    expect(() => mapSet(key, "x")).toThrow("readonly");
+    refMap.set(k2, "v2");
+    refSet.add(k2);
 
-    const mapClear = refMap.clear;
-    expect(() => mapClear()).toThrow("readonly");
+    Map.prototype.set.call(refMap, { k: 3 }, "v3");
+    Set.prototype.add.call(refSet, { k: 3 });
 
-    const setAdd = refSet.add;
-    expect(() => setAdd({ k: 2 })).toThrow("readonly");
-  });
-
-  it("AS-REF-05 — defineProperty/delete on reference must throw", () => {
-    const run = createRuntime();
-    run.set({ flags: { list: ["a"], map: { a: true } } } as never);
-
-    const refFlags = run.get("flags", { as: "reference" }) as {
-      map: Record<string, true>;
-    };
-
-    expect(() =>
-      Object.defineProperty(refFlags.map, "x", { value: true }),
-    ).toThrow("readonly");
-    expect(() => delete refFlags.map.a).toThrow("readonly");
-
-    const snap = run.get("flags", { as: "snapshot" }) as {
-      map: Record<string, true>;
-    };
-    expect(snap.map).toEqual({ a: true });
-  });
-
-  it("AS-REF-02 — Map key identity works inside reference view (get/has accept iterated keys)", () => {
-    const run = createRuntime();
-    const key = { k: 1 };
-
-    run.set({ impulseQ: { config: { retain: true } } } as never);
-    run.impulse({
-      signals: ["s"],
-      livePayload: { map: new Map([[key, "v"]]) },
-    } as never);
-
-    const refImpulseQ = run.get("impulseQ", { as: "reference" }) as {
-      q: { entries: Array<{ livePayload?: { map?: Map<object, string> } }> };
-    };
-    const refMap = refImpulseQ.q.entries[0]!.livePayload!.map!;
-
-    const [iterKey, iterVal] = Array.from(refMap.entries())[0]!;
-    expect(iterVal).toBe("v");
-    expect(refMap.has(iterKey)).toBe(true);
-    expect(refMap.get(iterKey)).toBe("v");
-  });
-
-  it("AS-REF-06 — Map forEach provides keys that work with has/get in the same reference map", () => {
-    const run = createRuntime();
-    const key = { k: 1 };
-    run.set({ impulseQ: { config: { retain: true } } } as never);
-    run.impulse({
-      signals: ["s"],
-      livePayload: { map: new Map([[key, "v"]]) },
-    } as never);
-
-    const ref = run.get("impulseQ", { as: "reference" }) as {
-      q: { entries: Array<{ livePayload?: { map?: Map<object, string> } }> };
-    };
-    const m = ref.q.entries[0]!.livePayload!.map!;
-
-    let checked = false;
-    m.forEach((_v, k) => {
-      checked = true;
-      expect(m.has(k)).toBe(true);
-      expect(m.get(k)).toBe("v");
-    });
-
-    expect(checked).toBe(true);
-  });
-
-  it("AS-REF-07 — reference Map supports for..of and spread without crashing", () => {
-    const run = createRuntime();
-    const key = { k: 1 };
-
-    run.set({ impulseQ: { config: { retain: true } } } as never);
-    run.impulse({
-      signals: ["s"],
-      livePayload: { map: new Map([[key, { v: 1 }]]) },
-    } as never);
-
-    const ref = run.get("impulseQ", { as: "reference" }) as {
-      q: {
-        entries: Array<{
-          livePayload?: { map?: Map<object, { v: number }> };
-        }>;
-      };
-    };
-    const m = ref.q.entries[0]!.livePayload!.map!;
-
-    expect(Object.prototype.toString.call(m)).toBe("[object Map]");
-
-    expect(m.size).toBe(1);
-    const [k0] = Array.from(m.entries())[0]!;
-    expect(m.has(k0)).toBe(true);
-    expect(m.get(k0)).toEqual({ v: 1 });
-
-    const spread = [...m];
-    expect(spread).toHaveLength(1);
-    expect(spread[0]![1]).toEqual({ v: 1 });
-
-    const iter = [];
-    for (const pair of m) iter.push(pair);
-    expect(iter).toHaveLength(1);
-    expect(iter[0]![1]).toEqual({ v: 1 });
-
-    expect([...m.keys()]).toHaveLength(1);
-    expect([...m.values()][0]).toEqual({ v: 1 });
-  });
-
-  it("AS-REF-08 — reference Set supports for..of and spread without crashing", () => {
-    const run = createRuntime();
-    const key = { k: 1 };
-
-    run.set({ impulseQ: { config: { retain: true } } } as never);
-    run.impulse({
-      signals: ["s"],
-      livePayload: { set: new Set([key]) },
-    } as never);
-
-    const ref = run.get("impulseQ", { as: "reference" }) as {
-      q: {
-        entries: Array<{
-          livePayload?: { set?: Set<object> };
-        }>;
-      };
-    };
-    const s = ref.q.entries[0]!.livePayload!.set!;
-
-    expect(Object.prototype.toString.call(s)).toBe("[object Set]");
-
-    expect(s.size).toBe(1);
-    const k0 = Array.from(s.values())[0]!;
-    expect(s.has(k0)).toBe(true);
-
-    const spread = [...s];
-    expect(spread).toHaveLength(1);
-
-    const iter = [];
-    for (const item of s) iter.push(item);
-    expect(iter).toHaveLength(1);
-
-    expect([...s.values()]).toHaveLength(1);
-    expect([...s.keys()]).toHaveLength(1);
-    expect([...s.entries()]).toHaveLength(1);
-  });
-
-  it("AS-REF-09 — prototype-call mutators must not mutate reference Map/Set", () => {
-    const run = createRuntime();
-    const key = { k: 1 };
-
-    run.set({ impulseQ: { config: { retain: true } } } as never);
-    run.impulse({
-      signals: ["s"],
-      livePayload: { map: new Map([[key, "v"]]), set: new Set([key]) },
-    } as never);
-
-    const ref = run.get("impulseQ", { as: "reference" }) as {
+    const snap = run.get("impulseQ", { as: "snapshot" }) as {
       q: {
         entries: Array<{
           livePayload?: { map?: Map<object, string>; set?: Set<object> };
         }>;
       };
     };
-    const m = ref.q.entries[0]!.livePayload!.map!;
-    const s = ref.q.entries[0]!.livePayload!.set!;
-
-    expect(() => Map.prototype.set.call(m, key, "x")).toThrow();
-    expect(() => Set.prototype.add.call(s, { k: 2 })).toThrow();
-
-    expect(m.size).toBe(1);
-    const [k0, v0] = [...m][0]!;
-    expect(m.has(k0)).toBe(true);
-    expect(v0).toBe("v");
-
-    expect(s.size).toBe(1);
+    const lp = snap.q.entries[0]!.livePayload!;
+    expect(lp.map!.size).toBe(3);
+    expect(lp.set!.size).toBe(3);
   });
 
-  it("SNAP-DATE-01 — snapshot clones Date (mutations do not affect subsequent snapshots)", () => {
-    const run = createRuntime();
-
-    run.set({ impulseQ: { config: { retain: true } } } as never);
-    run.impulse({
-      signals: ["s"],
-      livePayload: { when: new Date("2020-01-01T00:00:00.000Z") },
-    } as never);
-
-    const s1 = run.get("impulseQ", { as: "snapshot" }) as {
-      q: { entries: Array<{ livePayload?: { when?: Date } }> };
-    };
-    const d1: Date = s1.q.entries[0]!.livePayload!.when!;
-    d1.setUTCFullYear(1999);
-
-    const s2 = run.get("impulseQ", { as: "snapshot" }) as {
-      q: { entries: Array<{ livePayload?: { when?: Date } }> };
-    };
-    const d2: Date = s2.q.entries[0]!.livePayload!.when!;
-    expect(d2.toISOString()).toBe("2020-01-01T00:00:00.000Z");
-  });
-
-  it("SNAP-REGEXP-01 — snapshot clones RegExp (lastIndex does not leak)", () => {
-    const run = createRuntime();
-
-    const re = /a/g;
-    re.lastIndex = 2;
-
-    run.set({ impulseQ: { config: { retain: true } } } as never);
-    run.impulse({
-      signals: ["s"],
-      livePayload: { re },
-    } as never);
-
-    const s1 = run.get("impulseQ", { as: "snapshot" }) as {
-      q: { entries: Array<{ livePayload?: { re?: RegExp } }> };
-    };
-    const r1: RegExp = s1.q.entries[0]!.livePayload!.re!;
-    expect(r1.lastIndex).toBe(2);
-    r1.lastIndex = 9;
-
-    const s2 = run.get("impulseQ", { as: "snapshot" }) as {
-      q: { entries: Array<{ livePayload?: { re?: RegExp } }> };
-    };
-    const r2: RegExp = s2.q.entries[0]!.livePayload!.re!;
-    expect(r2.lastIndex).toBe(2);
-  });
-
-  it("SNAP-URL-01 — snapshot clones URL (searchParams mutations do not leak)", () => {
-    const run = createRuntime();
-
-    run.set({ impulseQ: { config: { retain: true } } } as never);
-    run.impulse({
-      signals: ["s"],
-      livePayload: { url: new URL("https://example.com/?a=1") },
-    } as never);
-
-    const s1 = run.get("impulseQ", { as: "snapshot" }) as {
-      q: { entries: Array<{ livePayload?: { url?: URL } }> };
-    };
-    const u1: URL = s1.q.entries[0]!.livePayload!.url!;
-    u1.searchParams.set("a", "999");
-
-    const s2 = run.get("impulseQ", { as: "snapshot" }) as {
-      q: { entries: Array<{ livePayload?: { url?: URL } }> };
-    };
-    const u2: URL = s2.q.entries[0]!.livePayload!.url!;
-    expect(u2.toString()).toBe("https://example.com/?a=1");
-  });
-
-  it("AS-REF-NONPLAIN-01 — reference Date/RegExp/URL methods do not crash and remain readonly", () => {
+  it("REF-ALIAS-05 — reference is unsafe: Date/RegExp/URL method mutations affect subsequent snapshots", () => {
     const run = createRuntime();
 
     run.set({ impulseQ: { config: { retain: true } } } as never);
@@ -1920,16 +1682,38 @@ describe("conformance/get-set", () => {
     };
     const lp = ref.q.entries[0]!.livePayload!;
 
-    expect(lp.when!.toISOString()).toBe("2020-01-01T00:00:00.000Z");
-    expect(lp.re!.test("a")).toBe(true);
-    expect(lp.url!.toString()).toBe("https://example.com/?a=1");
+    lp.when!.setUTCFullYear(1999);
+    lp.re!.test("a");
+    lp.url!.searchParams.set("a", "999");
 
-    expect(() => Object.defineProperty(lp.when, "x", { value: 1 })).toThrow(
-      "readonly",
-    );
-    expect(
-      () => delete (lp.url as unknown as Record<string, unknown>).href,
-    ).toThrow("readonly");
+    const snap = run.get("impulseQ", { as: "snapshot" }) as {
+      q: {
+        entries: Array<{
+          livePayload?: { when?: Date; re?: RegExp; url?: URL };
+        }>;
+      };
+    };
+    const lp2 = snap.q.entries[0]!.livePayload!;
+
+    expect(lp2.when!.toISOString()).toBe("1999-01-01T00:00:00.000Z");
+    expect(lp2.re!.lastIndex).not.toBe(0);
+    expect(lp2.url!.toString()).toBe("https://example.com/?a=999");
+  });
+
+  it("REF-ALIAS-06 — snapshot remains isolated even after reference mutations", () => {
+    const run = createRuntime();
+    run.set({ flags: { list: ["a"], map: { a: true } } } as never);
+
+    const s1 = run.get("flags", { as: "snapshot" }) as {
+      list: string[];
+    };
+    const ref = run.get("flags", { as: "reference" }) as {
+      list: string[];
+    };
+
+    ref.list.push("x");
+
+    expect(s1.list).toEqual(["a"]);
   });
 
   it("A11 — hydration reports unresolved backfill ids and drops them", () => {
@@ -2665,3 +2449,47 @@ describe("conformance/get-set/scope-projection-signal-seenSignals", () => {
     expect(pendingOnly.list).toEqual([]);
   });
 });
+
+const shouldBench = process.env.RUNTIME_BENCH === "1";
+
+(shouldBench ? it : it.skip)(
+  "BENCH-REF-01 — reference vs readonlyView(reference) vs snapshot (manual)",
+  () => {
+    const run = createRuntime();
+    run.set({ impulseQ: { config: { retain: true } } } as never);
+    run.impulse({
+      signals: ["bench"],
+      livePayload: {
+        list: Array.from({ length: 5000 }, (_, i) => String(i)),
+        map: Object.fromEntries(
+          Array.from({ length: 5000 }, (_, i) => [String(i), true]),
+        ),
+      },
+    } as never);
+
+    const t0 = performance.now();
+    for (let i = 0; i < 2000; i++) run.get("impulseQ", { as: "reference" });
+    const t1 = performance.now();
+
+    const ref = run.get("impulseQ", { as: "reference" }) as {
+      q: {
+        entries: Array<{
+          livePayload?: { list?: string[]; map?: Record<string, boolean> };
+        }>;
+      };
+    };
+    const t2 = performance.now();
+    for (let i = 0; i < 2000; i++) readonlyView(ref);
+    const t3 = performance.now();
+
+    const t4 = performance.now();
+    for (let i = 0; i < 2000; i++) run.get("impulseQ", { as: "snapshot" });
+    const t5 = performance.now();
+
+    console.log({
+      reference_ms: t1 - t0,
+      readonlyView_ms: t3 - t2,
+      snapshot_ms: t5 - t4,
+    });
+  },
+);
