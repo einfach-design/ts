@@ -211,9 +211,9 @@ function readonlyView<T>(value: T): T {
             }
           }
 
-          const current = Reflect.get(target, prop, mapProxy);
+          const current = Reflect.get(target, prop, target);
           if (typeof current === "function") {
-            return current.bind(mapProxy);
+            return current.bind(target);
           }
 
           return toReadonly(current);
@@ -299,9 +299,9 @@ function readonlyView<T>(value: T): T {
             }
           }
 
-          const current = Reflect.get(target, prop, setProxy);
+          const current = Reflect.get(target, prop, target);
           if (typeof current === "function") {
-            return current.bind(setProxy);
+            return current.bind(target);
           }
 
           return toReadonly(current);

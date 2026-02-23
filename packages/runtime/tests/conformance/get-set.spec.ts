@@ -1719,6 +1719,113 @@ describe("conformance/get-set", () => {
     expect(checked).toBe(true);
   });
 
+  it("AS-REF-07 — reference Map supports for..of and spread without crashing", () => {
+    const run = createRuntime();
+    const key = { k: 1 };
+
+    run.set({ impulseQ: { config: { retain: true } } } as never);
+    run.impulse({
+      signals: ["s"],
+      livePayload: { map: new Map([[key, { v: 1 }]]) },
+    } as never);
+
+    const ref = run.get("impulseQ", { as: "reference" }) as {
+      q: {
+        entries: Array<{
+          livePayload?: { map?: Map<object, { v: number }> };
+        }>;
+      };
+    };
+    const m = ref.q.entries[0]!.livePayload!.map!;
+
+    expect(Object.prototype.toString.call(m)).toBe("[object Map]");
+
+    expect(m.size).toBe(1);
+    const [k0] = Array.from(m.entries())[0]!;
+    expect(m.has(k0)).toBe(true);
+    expect(m.get(k0)).toEqual({ v: 1 });
+
+    const spread = [...m];
+    expect(spread).toHaveLength(1);
+    expect(spread[0]![1]).toEqual({ v: 1 });
+
+    const iter = [];
+    for (const pair of m) iter.push(pair);
+    expect(iter).toHaveLength(1);
+    expect(iter[0]![1]).toEqual({ v: 1 });
+
+    expect([...m.keys()]).toHaveLength(1);
+    expect([...m.values()][0]).toEqual({ v: 1 });
+  });
+
+  it("AS-REF-08 — reference Set supports for..of and spread without crashing", () => {
+    const run = createRuntime();
+    const key = { k: 1 };
+
+    run.set({ impulseQ: { config: { retain: true } } } as never);
+    run.impulse({
+      signals: ["s"],
+      livePayload: { set: new Set([key]) },
+    } as never);
+
+    const ref = run.get("impulseQ", { as: "reference" }) as {
+      q: {
+        entries: Array<{
+          livePayload?: { set?: Set<object> };
+        }>;
+      };
+    };
+    const s = ref.q.entries[0]!.livePayload!.set!;
+
+    expect(Object.prototype.toString.call(s)).toBe("[object Set]");
+
+    expect(s.size).toBe(1);
+    const k0 = Array.from(s.values())[0]!;
+    expect(s.has(k0)).toBe(true);
+
+    const spread = [...s];
+    expect(spread).toHaveLength(1);
+
+    const iter = [];
+    for (const item of s) iter.push(item);
+    expect(iter).toHaveLength(1);
+
+    expect([...s.values()]).toHaveLength(1);
+    expect([...s.keys()]).toHaveLength(1);
+    expect([...s.entries()]).toHaveLength(1);
+  });
+
+  it("AS-REF-09 — prototype-call mutators must not mutate reference Map/Set", () => {
+    const run = createRuntime();
+    const key = { k: 1 };
+
+    run.set({ impulseQ: { config: { retain: true } } } as never);
+    run.impulse({
+      signals: ["s"],
+      livePayload: { map: new Map([[key, "v"]]), set: new Set([key]) },
+    } as never);
+
+    const ref = run.get("impulseQ", { as: "reference" }) as {
+      q: {
+        entries: Array<{
+          livePayload?: { map?: Map<object, string>; set?: Set<object> };
+        }>;
+      };
+    };
+    const m = ref.q.entries[0]!.livePayload!.map!;
+    const s = ref.q.entries[0]!.livePayload!.set!;
+
+    expect(() => Map.prototype.set.call(m, key, "x")).toThrow();
+    expect(() => Set.prototype.add.call(s, { k: 2 })).toThrow();
+
+    expect(m.size).toBe(1);
+    const [k0, v0] = [...m][0]!;
+    expect(m.has(k0)).toBe(true);
+    expect(v0).toBe("v");
+
+    expect(s.size).toBe(1);
+  });
+
   it("A11 — hydration reports unresolved backfill ids and drops them", () => {
     const run = createRuntime();
     run.set({
