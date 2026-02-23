@@ -1204,67 +1204,71 @@ describe("conformance/use-case-coverage/auto-id-basics", () => {
   it('MIN-AUTO-01 — add without id allocates "0"', () => {
     const run = createRuntime();
 
-    const { ids } = run.when({
+    run.when({
       signal: "s",
       targets: [() => undefined],
-    } as never) as unknown as { ids: string[] };
+    } as never);
 
-    expect(ids).toEqual(["0"]);
+    const keys = Array.from(registeredById(run).keys());
+    expect(keys).toEqual(["0"]);
     expect(registeredById(run).has("0")).toBe(true);
   });
 
   it('MIN-AUTO-02 — multiple adds allocate monotonically "0","1","2"', () => {
     const run = createRuntime();
 
-    const first = run.when({
+    run.when({
       signal: "s",
       targets: [() => undefined],
-    } as never) as unknown as { ids: string[] };
-    const second = run.when({
-      signal: "s",
-      targets: [() => undefined],
-    } as never) as unknown as { ids: string[] };
-    const third = run.when({
-      signal: "s",
-      targets: [() => undefined],
-    } as never) as unknown as { ids: string[] };
+    } as never);
+    expect(Array.from(registeredById(run).keys())).toEqual(["0"]);
 
-    expect(first.ids).toEqual(["0"]);
-    expect(second.ids).toEqual(["1"]);
-    expect(third.ids).toEqual(["2"]);
+    run.when({
+      signal: "s",
+      targets: [() => undefined],
+    } as never);
+    expect(Array.from(registeredById(run).keys())).toEqual(["0", "1"]);
+
+    run.when({
+      signal: "s",
+      targets: [() => undefined],
+    } as never);
+    expect(Array.from(registeredById(run).keys())).toEqual(["0", "1", "2"]);
   });
 
   it('MIN-AUTO-03 — multi-signal allocates "0:0","0:1", next base is "1"', () => {
     const run = createRuntime();
 
-    const multi = run.when({
+    run.when({
       signals: ["a", "b"],
       targets: [() => undefined],
-    } as never) as unknown as { ids: string[] };
-    const next = run.when({
+    } as never);
+    expect(Array.from(registeredById(run).keys())).toEqual(["0:0", "0:1"]);
+
+    run.when({
       signal: "x",
       targets: [() => undefined],
-    } as never) as unknown as { ids: string[] };
-
-    expect(multi.ids).toEqual(["0:0", "0:1"]);
-    expect(next.ids).toEqual(["1"]);
+    } as never);
+    expect(Array.from(registeredById(run).keys())).toEqual(["0:0", "0:1", "1"]);
   });
 
   it("MIN-AUTO-04 — auto-id does NOT rewind after remove", () => {
     const run = createRuntime();
 
-    const first = run.when({
+    const remove = run.when({
       signal: "s",
       targets: [() => undefined],
-    } as never) as unknown as (() => void) & { ids: string[] };
-    first();
-    const second = run.when({
-      signal: "s",
-      targets: [() => undefined],
-    } as never) as unknown as { ids: string[] };
+    } as never);
+    expect(Array.from(registeredById(run).keys())).toEqual(["0"]);
 
-    expect(first.ids).toEqual(["0"]);
-    expect(second.ids).toEqual(["1"]);
+    remove();
+    expect(Array.from(registeredById(run).keys())).toEqual([]);
+
+    run.when({
+      signal: "s",
+      targets: [() => undefined],
+    } as never);
+    expect(Array.from(registeredById(run).keys())).toEqual(["1"]);
   });
 });
 
