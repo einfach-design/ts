@@ -403,16 +403,45 @@ export function runAdd(
       : undefined;
     const normalizedRequired = canonicalRequiredForAdd(diagnostics, source);
 
-    const snapshotPayload = (payload: unknown): unknown => {
-      if (
-        isObject(payload) &&
-        Object.getPrototypeOf(payload) === Object.prototype
-      ) {
-        return Object.freeze({ ...(payload as Record<string, unknown>) });
+    const cloneObjectNoGet = (obj: object): object => {
+      const proto = Object.getPrototypeOf(obj);
+      const out = Object.create(proto === null ? null : Object.prototype);
+
+      for (const key of Reflect.ownKeys(obj)) {
+        const descriptor = Object.getOwnPropertyDescriptor(obj, key);
+        if (descriptor === undefined) {
+          continue;
+        }
+        Object.defineProperty(out, key, descriptor);
       }
 
+      return Object.freeze(out);
+    };
+
+    const cloneArrayNoIter = (arr: readonly unknown[]): readonly unknown[] => {
+      const out = new Array(arr.length);
+
+      for (const key of Reflect.ownKeys(arr)) {
+        const descriptor = Object.getOwnPropertyDescriptor(arr, key);
+        if (descriptor === undefined) {
+          continue;
+        }
+        Object.defineProperty(out, key, descriptor);
+      }
+
+      return Object.freeze(out);
+    };
+
+    const snapshotPayload = (payload: unknown): unknown => {
       if (Array.isArray(payload)) {
-        return Object.freeze([...(payload as unknown[])]);
+        return cloneArrayNoIter(payload);
+      }
+
+      if (isObject(payload)) {
+        const proto = Object.getPrototypeOf(payload);
+        if (proto === Object.prototype || proto === null) {
+          return cloneObjectNoGet(payload as object);
+        }
       }
 
       return payload;
@@ -606,15 +635,17 @@ export function runAdd(
       };
     };
 
+    const snappedPayload = hasOwn(source, "payload")
+      ? snapshotPayload(source.payload)
+      : undefined;
+
     for (const [index, sig] of signals.entries()) {
       const id = signals.length > 1 ? `${baseId}:${index}` : baseId;
       const normalizedBackfill = createNormalizedBackfill();
       expressionRegistry.register({
         id,
         ...(sig !== undefined ? { signal: sig } : {}),
-        ...(hasOwn(source, "payload")
-          ? { payload: snapshotPayload(source.payload) }
-          : {}),
+        ...(hasOwn(source, "payload") ? { payload: snappedPayload } : {}),
         ...(expressionFlags ? { flags: expressionFlags } : {}),
         ...(normalizedRequired !== undefined
           ? { required: normalizedRequired }

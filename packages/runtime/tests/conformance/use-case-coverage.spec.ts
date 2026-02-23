@@ -281,7 +281,7 @@ describe("conformance/use-case-coverage/impulse-delta", () => {
       id: "uc:I01",
       flags: { mix: true },
       targets: [
-        (i) => {
+        (i: unknown) => {
           calls += 1;
           captured = i;
         },
@@ -332,7 +332,7 @@ describe("conformance/use-case-coverage/signals-occurrences", () => {
       id: "uc:S04",
       runs: { max: 2 },
       targets: [
-        (i) => {
+        (i: unknown) => {
           seen.push((i as { signal?: string }).signal ?? "");
         },
       ],
@@ -352,7 +352,7 @@ describe("conformance/use-case-coverage/signals-occurrences", () => {
       id: "uc:S05",
       runs: { max: 10 },
       targets: [
-        (i) => {
+        (i: unknown) => {
           hits.push((i as { signal?: string }).signal ?? "");
         },
       ],
@@ -742,7 +742,7 @@ describe("conformance/use-case-coverage/id-registration", () => {
     expect(registeredById(run).has("uc:B01")).toBe(true);
   });
 
-  it("B02 — deregister then re-register with same id is allowed", () => {
+  it("B02 — deregistered ids cannot be re-registered", () => {
     const run = createRuntime();
     let calls = 0;
 
@@ -757,15 +757,17 @@ describe("conformance/use-case-coverage/id-registration", () => {
     expect(calls).toBe(1);
     expect(registeredById(run).has("uc:B02")).toBe(false);
 
-    run.when({
-      id: "uc:B02",
-      runs: { max: 1 },
-      flags: { x: true },
-      targets: [() => calls++],
-    });
+    expect(() =>
+      run.when({
+        id: "uc:B02",
+        runs: { max: 1 },
+        flags: { x: true },
+        targets: [() => calls++],
+      }),
+    ).toThrow(/Duplicate registered expression id/i);
 
     run.impulse({ removeFlags: ["x"] });
-    expect(calls).toBe(2);
+    expect(calls).toBe(1);
     expect(registeredById(run).has("uc:B02")).toBe(false);
   });
 
@@ -1000,7 +1002,7 @@ describe("conformance/use-case-coverage/payload-immutability", () => {
       id: "uc:PAY02",
       signal: "s",
       targets: [
-        (i) => {
+        (i: unknown) => {
           seen.push((i as { payload: { n: number } }).payload.n);
           (i as { payload: { n: number } }).payload.n = 999;
         },
@@ -1011,6 +1013,160 @@ describe("conformance/use-case-coverage/payload-immutability", () => {
     run.impulse({ signals: ["s"], livePayload: { n: 1 } });
 
     expect(seen).toEqual([1, 1]);
+  });
+});
+
+describe("conformance/use-case-coverage/payload-snapshotting-safety", () => {
+  it("PAY03 — add(payload) must not invoke getters while snapshotting", () => {
+    const run = createRuntime();
+
+    const payload = {} as Record<string, unknown>;
+    Object.defineProperty(payload, "x", {
+      enumerable: true,
+      get() {
+        throw new Error("getter-called");
+      },
+    });
+
+    expect(() =>
+      run.when({
+        id: "uc:PAY03",
+        signal: "s",
+        payload,
+        targets: [() => undefined],
+      } as never),
+    ).not.toThrow();
+  });
+
+  it("PAY04 — add(payload=array) must not use iterator while snapshotting", () => {
+    const run = createRuntime();
+
+    const payload: unknown[] = [];
+    (payload as unknown as { [Symbol.iterator]: () => never })[
+      Symbol.iterator
+    ] = () => {
+      throw new Error("iterator-called");
+    };
+
+    expect(() =>
+      run.when({
+        id: "uc:PAY04",
+        signal: "s",
+        payload,
+        targets: [() => undefined],
+      } as never),
+    ).not.toThrow();
+  });
+});
+
+describe("conformance/use-case-coverage/payload-null-proto", () => {
+  it("PAY05 — null-proto object payload must be snapshotted (no ref-leak)", () => {
+    const run = createRuntime();
+
+    const payload = Object.create(null) as { n: number };
+    payload.n = 1;
+
+    const seen: number[] = [];
+
+    run.when({
+      id: "uc:PAY05",
+      signal: "s",
+      payload,
+      targets: [
+        (_i: unknown, a: unknown) => {
+          seen.push((a as { payload: { n: number } }).payload.n);
+          (a as { payload: { n: number } }).payload.n = 999;
+        },
+      ],
+    } as never);
+
+    run.impulse({ signals: ["s"] });
+    run.impulse({ signals: ["s"] });
+
+    expect(seen).toEqual([1, 1]);
+    expect(payload.n).toBe(1);
+  });
+});
+
+describe("conformance/use-case-coverage/payload-sparse-array", () => {
+  it("PAY06 — sparse array payload snapshot must preserve holes (no densification)", () => {
+    const run = createRuntime();
+
+    const payload = new Array(3) as unknown[];
+    payload[1] = "x";
+
+    let seenHas0 = true;
+
+    run.when({
+      id: "uc:PAY06",
+      signal: "s",
+      payload,
+      targets: [
+        (_i: unknown, a: unknown) => {
+          const snapshot = (a as { payload: unknown[] }).payload;
+          seenHas0 = 0 in snapshot;
+        },
+      ],
+    } as never);
+
+    run.impulse({ signals: ["s"] });
+    expect(seenHas0).toBe(false);
+  });
+});
+
+describe("conformance/use-case-coverage/livePayload-no-ref-leak", () => {
+  it("PAY07 — livePayload must be detached (no ref-leak across impulses)", () => {
+    const run = createRuntime();
+
+    const live = { n: 1 };
+    const seen: number[] = [];
+
+    run.when({
+      id: "uc:PAY07",
+      signal: "s",
+      targets: [
+        (i: unknown) => {
+          seen.push((i as { payload: { n: number } }).payload.n);
+          (i as { payload: { n: number } }).payload.n = 999;
+        },
+      ],
+    } as never);
+
+    run.impulse({ signals: ["s"], livePayload: live });
+    run.impulse({ signals: ["s"], livePayload: live });
+
+    expect(seen).toEqual([1, 1]);
+    expect(live.n).toBe(1);
+  });
+});
+
+describe("conformance/use-case-coverage/multi-signal-snapshot-once", () => {
+  it("PAY08 — payload snapshotting must run once for multi-signal registration", () => {
+    const run = createRuntime();
+
+    let ownKeysCalls = 0;
+
+    const payload = new Proxy(
+      { a: 1 },
+      {
+        ownKeys(target) {
+          ownKeysCalls += 1;
+          return Reflect.ownKeys(target);
+        },
+        getOwnPropertyDescriptor(target, property) {
+          return Reflect.getOwnPropertyDescriptor(target, property);
+        },
+      },
+    );
+
+    run.when({
+      id: "uc:PAY08",
+      signals: ["s1", "s2", "s3"],
+      payload,
+      targets: [() => undefined],
+    } as never);
+
+    expect(ownKeysCalls).toBe(1);
   });
 });
 

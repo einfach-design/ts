@@ -78,6 +78,50 @@ const isRuntimeOnError = (value: unknown): value is RuntimeOnError =>
   value === "swallow" ||
   typeof value === "function";
 
+const cloneObjectNoGet = (obj: object): object => {
+  const proto = Object.getPrototypeOf(obj);
+  const out = Object.create(proto === null ? null : Object.prototype);
+
+  for (const key of Reflect.ownKeys(obj)) {
+    const descriptor = Object.getOwnPropertyDescriptor(obj, key);
+    if (descriptor === undefined) {
+      continue;
+    }
+    Object.defineProperty(out, key, descriptor);
+  }
+
+  return Object.freeze(out);
+};
+
+const cloneArrayNoIter = (arr: readonly unknown[]): readonly unknown[] => {
+  const out = new Array(arr.length);
+
+  for (const key of Reflect.ownKeys(arr)) {
+    const descriptor = Object.getOwnPropertyDescriptor(arr, key);
+    if (descriptor === undefined) {
+      continue;
+    }
+    Object.defineProperty(out, key, descriptor);
+  }
+
+  return Object.freeze(out);
+};
+
+const snapshotLivePayload = (payload: unknown): unknown => {
+  if (Array.isArray(payload)) {
+    return cloneArrayNoIter(payload);
+  }
+
+  if (isObjectNonNull(payload)) {
+    const proto = Object.getPrototypeOf(payload);
+    if (proto === Object.prototype || proto === null) {
+      return cloneObjectNoGet(payload);
+    }
+  }
+
+  return payload;
+};
+
 /**
  * Canonicalize a `run.impulse(opts)` payload into a queue entry + outer onError mode.
  * Returns `entry: undefined` for invalid entry payloads.
@@ -144,7 +188,7 @@ export function canonImpulseEntry(
       removeFlags,
       useFixedFlags,
       ...(hasOwn(source, "livePayload")
-        ? { livePayload: source.livePayload }
+        ? { livePayload: snapshotLivePayload(source.livePayload) }
         : {}),
     },
   };
