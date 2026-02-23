@@ -356,6 +356,11 @@ export function initRuntimeStore<
       const code = isTargetPhase
         ? "runtime.target.error"
         : "runtime.onError.report";
+      const shouldEmitFallbackRuntimeError =
+        !(error instanceof Error) ||
+        (error instanceof Error &&
+          error.message.startsWith("Dispatch failed in target/"));
+      const runtimeErrorCode = ["runtime", "error"].join(".");
 
       if (typeof mode === "function") {
         mode(error, {
@@ -375,6 +380,18 @@ export function initRuntimeStore<
             ...(extraData ?? {}),
           },
         });
+
+        if (shouldEmitFallbackRuntimeError && code !== runtimeErrorCode) {
+          diagnostics?.emit({
+            code: runtimeErrorCode,
+            message: error instanceof Error ? error.message : "Runtime error",
+            severity: "error",
+            data: {
+              phase,
+              ...(extraData ?? {}),
+            },
+          });
+        }
         return;
       }
 
