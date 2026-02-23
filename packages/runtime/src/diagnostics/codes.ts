@@ -296,6 +296,13 @@ export const DIAGNOSTIC_CODES = {
       valueType: "string",
     },
   },
+  "add.id.invalid": {
+    description: "run.add id must be a non-empty string.",
+    severity: "error",
+    shape: {
+      field: "string",
+    },
+  },
   "add.runs.invalid": {
     description: "add runs value must be an object.",
     severity: "error",

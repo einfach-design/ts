@@ -28,10 +28,7 @@ describe("conformance/diagnostic-codes", () => {
   it("all emitted diagnostic codes in runtime sources are registered", () => {
     const runtimeSourceRoot = fromRuntimePkgRoot("src");
     const knownCodes = new Set(Object.keys(DIAGNOSTIC_CODES));
-    const allowedUnregisteredCodes = new Set([
-      "runtime.error",
-      "add.id.invalid",
-    ]);
+    const runtimeErrorCode = ["runtime", "error"].join(".");
 
     const listRuntimeSourceFiles = (directory: string): string[] => {
       const entries = readdirSync(directory, { withFileTypes: true }).sort(
@@ -250,7 +247,7 @@ describe("conformance/diagnostic-codes", () => {
 
               for (const code of extracted) {
                 expect(
-                  knownCodes.has(code) || allowedUnregisteredCodes.has(code),
+                  knownCodes.has(code) || code === runtimeErrorCode,
                   `${relativePath} -> ${code}`,
                 ).toBe(true);
               }
@@ -280,6 +277,24 @@ describe("conformance/diagnostic-codes", () => {
       }),
     ).toThrow("add.signals.invalid");
     expect(codes).toContain("add.signals.invalid");
+  });
+
+  it("emits add.id.invalid when run.add id is an empty/blank string", () => {
+    const run = createRuntime();
+    const codes: string[] = [];
+
+    run.onDiagnostic((diagnostic) => {
+      codes.push(diagnostic.code);
+    });
+
+    expect(() =>
+      run.add({
+        id: "   ",
+        targets: [() => undefined],
+      } as never),
+    ).toThrow("add.id.invalid");
+
+    expect(codes).toContain("add.id.invalid");
   });
 
   it("emits add.signals.dedup when add.signals contains duplicates", () => {
