@@ -115,7 +115,7 @@ describe("defaults", () => {
           },
         },
       }),
-    ).toThrow(/runs\.max/);
+    ).toThrow("defaults.methods.on.runs.max must be finite or Infinity.");
   });
   it("throws for invalid undefined/force:false", () => {
     expect(() =>
@@ -129,7 +129,7 @@ describe("defaults", () => {
           },
         },
       }),
-    ).toThrow(/force/);
+    ).toThrow("defaults.gate.signal.force must be true when set.");
 
     expect(() =>
       resolveDefaults({
@@ -137,6 +137,6 @@ describe("defaults", () => {
           scope: undefined as never,
         },
       }),
-    ).toThrow(/must not be undefined/);
+    ).toThrow("defaults.scope must not be undefined.");
   });
 });

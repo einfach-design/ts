@@ -738,7 +738,7 @@ describe("conformance/use-case-coverage/id-registration", () => {
 
     expect(() =>
       run.when({ id: "uc:B01", flags: { d: false }, targets: [noop] }),
-    ).toThrow(/Duplicate registered expression id/i);
+    ).toThrow("Duplicate registered expression id: uc:B01");
     expect(registeredById(run).has("uc:B01")).toBe(true);
   });
 
@@ -764,7 +764,7 @@ describe("conformance/use-case-coverage/id-registration", () => {
         flags: { x: true },
         targets: [() => calls++],
       }),
-    ).toThrow(/Duplicate registered expression id/i);
+    ).toThrow("Duplicate registered expression id: uc:B02");
 
     run.impulse({ removeFlags: ["x"] });
     expect(calls).toBe(1);

@@ -19,7 +19,7 @@ import {
   signals as patchSignals,
   type SeenSignals,
 } from "../../state/signals.js";
-import { hasOwn, measureEntryBytes } from "../util.js";
+import { clone, hasOwn, measureEntryBytes } from "../util.js";
 import type {
   RuntimeOnError,
   RuntimeStore,
@@ -889,10 +889,10 @@ export function runSet(
         },
         methods: {
           on: isRecordObject(hydrationDefaults.methods.on)
-            ? structuredClone(hydrationDefaults.methods.on)
+            ? clone(hydrationDefaults.methods.on)
             : {},
           when: isRecordObject(hydrationDefaults.methods.when)
-            ? structuredClone(hydrationDefaults.methods.when)
+            ? clone(hydrationDefaults.methods.when)
             : {},
         },
       };
