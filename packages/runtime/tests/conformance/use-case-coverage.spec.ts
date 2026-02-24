@@ -1307,6 +1307,16 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     expect(baseline.flags.map).toEqual({ BASE: true });
   });
 
+  it('HYDRATE-STAR-01 — set(get("*",{as:"snapshot"})) never throws hydration.incomplete', () => {
+    const run = createRuntime();
+    run.when({ signal: "s", targets: [() => undefined] } as never);
+
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    const rehydrated = createRuntime();
+    expect(() => rehydrated.set(snap as never)).not.toThrow();
+  });
+
   it("SET-TRIM-BASELINE-03 — pristine hydration + trim must not double-apply removed applied entries into scopeProjectionBaseline", () => {
     const run = createRuntime();
 

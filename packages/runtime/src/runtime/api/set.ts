@@ -26,7 +26,10 @@ import type {
   ScopeProjectionBaseline,
 } from "../store.js";
 import type { RegistryStore } from "../../state/registry.js";
-import type { DiagnosticCollector } from "../../diagnostics/index.js";
+import type {
+  DiagnosticCollector,
+  RuntimeDiagnostic,
+} from "../../diagnostics/index.js";
 import type { RegisteredExpression } from "../../runs/coreRun.js";
 
 const hydrationRequiredKeys = [
@@ -715,6 +718,83 @@ export function runSet(
     return canonical;
   };
 
+  const assertHydrationRegisteredQ = (
+    value: unknown,
+  ): RegisteredExpression[] => {
+    if (!Array.isArray(value)) {
+      diagnostics.emit({
+        code: "set.hydration.registeredQInvalid",
+        message: "Hydration registeredQ must be an array.",
+        severity: "error",
+        data: { field: "registeredQ", valueType: toValueType(value) },
+      });
+      throw new Error("set.hydration.registeredQInvalid");
+    }
+
+    const ids = new Set<string>();
+    for (const expression of value) {
+      if (!isRecordObject(expression) || typeof expression.id !== "string") {
+        diagnostics.emit({
+          code: "set.hydration.registeredQInvalid",
+          message:
+            "Hydration registeredQ entries must be objects with a string id.",
+          severity: "error",
+          data: { field: "registeredQ", valueType: toValueType(expression) },
+        });
+        throw new Error("set.hydration.registeredQInvalid");
+      }
+
+      if (expression.id.trim().length === 0 || ids.has(expression.id)) {
+        diagnostics.emit({
+          code: "set.hydration.registeredQInvalid",
+          message:
+            "Hydration registeredQ entries must have unique non-empty ids.",
+          severity: "error",
+          data: { field: "registeredQ", valueType: toValueType(expression) },
+        });
+        throw new Error("set.hydration.registeredQInvalid");
+      }
+
+      ids.add(expression.id);
+    }
+
+    return [...value] as RegisteredExpression[];
+  };
+
+  const assertHydrationDiagnostics = (value: unknown): RuntimeDiagnostic[] => {
+    if (!Array.isArray(value)) {
+      diagnostics.emit({
+        code: "set.hydration.diagnosticsInvalid",
+        message: "Hydration diagnostics must be an array.",
+        severity: "error",
+        data: { field: "diagnostics", valueType: toValueType(value) },
+      });
+      throw new Error("set.hydration.diagnosticsInvalid");
+    }
+
+    for (const diagnostic of value) {
+      if (
+        !isRecordObject(diagnostic) ||
+        typeof diagnostic.code !== "string" ||
+        diagnostic.code.trim().length === 0
+      ) {
+        diagnostics.emit({
+          code: "set.hydration.diagnosticsInvalid",
+          message:
+            "Hydration diagnostics entries must be objects with a non-empty string code.",
+          severity: "error",
+          data: { field: "diagnostics", valueType: toValueType(diagnostic) },
+        });
+        throw new Error("set.hydration.diagnosticsInvalid");
+      }
+    }
+
+    return value.map(
+      (diagnostic) =>
+        ({ ...(diagnostic as RuntimeDiagnostic) }) as RuntimeDiagnostic,
+    );
+  };
+
   store.withRuntimeStack(() => {
     if (!isRecordObject(patch)) {
       const valueType = Array.isArray(patch)
@@ -799,6 +879,12 @@ export function runSet(
         ? assertHydrationSignal(hydration.signal)
         : undefined;
       const nextBackfillQ = assertHydrationBackfillQ(hydration.backfillQ);
+      const nextRegisteredQ = hasOwn(hydration, "registeredQ")
+        ? assertHydrationRegisteredQ(hydration.registeredQ)
+        : undefined;
+      const nextDiagnostics = hasOwn(hydration, "diagnostics")
+        ? assertHydrationDiagnostics(hydration.diagnostics)
+        : undefined;
 
       if (!isRecordObject(hydration.impulseQ)) {
         diagnostics.emit({
@@ -987,6 +1073,22 @@ export function runSet(
       store.trimPendingMaxBytes = false;
       store.backfillQ = nextBackfillStore;
       store.scopeProjectionBaseline = nextScopeProjectionBaseline;
+
+      if (nextRegisteredQ !== undefined) {
+        expressionRegistry.registeredQ.length = 0;
+        expressionRegistry.registeredById.clear();
+        for (const expression of nextRegisteredQ) {
+          expressionRegistry.registeredQ.push(expression);
+          expressionRegistry.registeredById.set(expression.id, expression);
+        }
+      }
+
+      if (nextDiagnostics !== undefined) {
+        diagnostics.clear();
+        for (const diagnostic of nextDiagnostics) {
+          diagnostics.emit(diagnostic);
+        }
+      }
 
       return;
     }
