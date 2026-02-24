@@ -138,7 +138,7 @@ describe("conformance: public contract (values)", () => {
         backfill: { signal: { debt: 1 }, flags: { debt: 1 } },
         targets: [() => undefined],
       }),
-    ).toThrow();
+    ).toThrow("Duplicate registered expression id: expr:reuse");
 
     run.add({
       id: newId,

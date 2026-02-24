@@ -195,6 +195,21 @@ const getDiagnosticsReference = (
 
   if (latest.length > cached.length) {
     cached.push(...latest.slice(cached.length));
+    return cached;
+  }
+
+  if (latest.length !== cached.length) {
+    cached.length = 0;
+    cached.push(...latest);
+    return cached;
+  }
+
+  for (let i = 0; i < latest.length; i++) {
+    if (cached[i] !== latest[i]) {
+      cached.length = 0;
+      cached.push(...latest);
+      break;
+    }
   }
 
   return cached;
