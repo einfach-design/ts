@@ -778,11 +778,7 @@ describe("failure-modes/runtime-errors", () => {
       // and listener B must have received both:
       // - the original add.* diagnostic
       // - the runtime.diagnostic.listenerError diagnostic
-      expect(
-        seenB.some(
-          (d) => typeof d?.code === "string" && d.code.startsWith("add."),
-        ),
-      ).toBe(true);
+      expect(seenB.some((d) => d?.code === "add.target.required")).toBe(true);
       expect(
         seenB.some((d) => d?.code === "runtime.diagnostic.listenerError"),
       ).toBe(true);

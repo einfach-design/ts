@@ -33,7 +33,7 @@ import {
   type DispatchError,
   type DispatchInput,
 } from "../targets/dispatch.js";
-import { hasOwn, isObject, toMatchFlagsView } from "./util.js";
+import { clone, hasOwn, isObject, toMatchFlagsView } from "./util.js";
 import { createNullProtoRecord } from "../util/nullProto.js";
 import { initRuntimeStore } from "./store.js";
 import {
@@ -811,9 +811,9 @@ export function createRuntime(): RuntimeCompat {
 
     for (const key of ["retroactive", "scope", "gate"] as const) {
       if (hasOwn(optsRecord, key)) {
-        effective[key] = structuredClone(optsRecord[key]);
+        effective[key] = clone(optsRecord[key]);
       } else if (hasOwn(defaults, key)) {
-        effective[key] = structuredClone(defaults[key]);
+        effective[key] = clone(defaults[key]);
       }
     }
 

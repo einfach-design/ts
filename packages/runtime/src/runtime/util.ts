@@ -125,6 +125,12 @@ function snapshot<T>(value: T): T {
   return cloneValue(value) as T;
 }
 
+const clone = <T>(value: T): T => {
+  const sc = (globalThis as { structuredClone?: (v: unknown) => unknown })
+    .structuredClone;
+  return (typeof sc === "function" ? sc(value) : snapshot(value)) as T;
+};
+
 function readonlyView<T>(value: T): T {
   const seen = new WeakMap<object, unknown>();
   const originalByProxy = new WeakMap<object, object>();
@@ -412,6 +418,7 @@ export {
   isObject,
   toMatchFlagsView,
   snapshot,
+  clone,
   readonlyView,
   measureEntryBytes,
 };
