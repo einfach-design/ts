@@ -18,7 +18,9 @@ import { createRuntime } from "../../src/index.js";
 describe("conformance/get-set", () => {
   it("A1 — get(unknown) must throw (Spec §4.1)", () => {
     const run = createRuntime();
-    expect(() => run.get("unknown-key" as string | undefined)).toThrow();
+    expect(() => run.get("unknown-key" as string | undefined)).toThrow(
+      "get.key.invalid",
+    );
   });
 
   it("A1x — snapshot get does not leak null-proto flag maps by reference", () => {
@@ -1152,12 +1154,12 @@ describe("conformance/get-set", () => {
     // forbidden queue mutation (should throw per spec)
     expect(() =>
       run.set({ impulseQ: { q: { entries: [] } } } as Record<string, unknown>),
-    ).toThrow();
+    ).toThrow("set.impulseQ.qForbidden");
 
     // unknown keys must be rejected (should throw per spec)
     expect(() =>
       run.set({ totallyUnknownKey: 123 } as Record<string, unknown>),
-    ).toThrow();
+    ).toThrow("set.patch.forbidden");
   });
 
   it("B3 — hydration must require full snapshot shape (Spec §4.2)", () => {
@@ -1191,7 +1193,7 @@ describe("conformance/get-set", () => {
 
     expect(() =>
       run.set({ changedFlags: { list: ["x"], map: { x: true } } }),
-    ).toThrow();
+    ).toThrow("set.patch.forbidden");
 
     const snapshot = run.get("*" as string | undefined, {
       as: "snapshot",
