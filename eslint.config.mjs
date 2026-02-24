@@ -27,8 +27,13 @@ const compat = new FlatCompat({
   baseDirectory: __dirname,
 });
 
+// Import plugin recommended rules (external baseline).
+const RECOMM_RULES = Object.freeze(
+  importPlugin.configs?.recommended?.rules ?? {},
+);
+
 // Airbnb-inspired adopted subset (project policy).
-const ADOPTED_RULES = Object.freeze({
+const AIRBNB_RULES = Object.freeze({
   "no-const-assign": "error",
   "no-dupe-class-members": "error",
   "dot-notation": "error",
@@ -42,6 +47,23 @@ const ADOPTED_RULES = Object.freeze({
   "prefer-spread": "error",
   "no-useless-escape": "error",
   "default-param-last": "error",
+});
+
+// e2d custom rules (local project policy).
+const E2D_RULES = Object.freeze({
+  "import/first": "error",
+  "import/newline-after-import": "error",
+});
+
+// Final resolved rules for the import plugin block.
+const RESOLVED_RULES = Object.freeze({
+  ...RECOMM_RULES,
+  ...AIRBNB_RULES,
+  ...E2D_RULES,
+});
+
+const RESOLVED_TS_RULES = Object.freeze({
+  ...AIRBNB_RULES,
 });
 
 export default [
@@ -122,8 +144,7 @@ export default [
       },
     },
     rules: {
-      ...(importPlugin.configs?.recommended?.rules ?? {}),
-      ...ADOPTED_RULES,
+      ...RESOLVED_RULES,
     },
   },
 
@@ -153,7 +174,7 @@ export default [
           ignoreRestSiblings: true,
         },
       ],
-      ...ADOPTED_RULES,
+      ...RESOLVED_TS_RULES,
     },
   },
 
