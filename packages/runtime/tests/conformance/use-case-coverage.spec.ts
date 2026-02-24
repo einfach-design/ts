@@ -1405,6 +1405,77 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     );
   });
 
+  it("HYDRATE-NEG-BF-01 — backfillQ must be a record object", () => {
+    const run = createRuntime();
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    snap.backfillQ = "nope";
+
+    const rehydrated = createRuntime();
+    const diags: Array<{ code?: string }> = [];
+    rehydrated.onDiagnostic((d) => diags.push(d));
+
+    expect(() => rehydrated.set(snap)).toThrow(
+      "set.hydration.backfillQInvalid",
+    );
+    expect(diags.some((d) => d.code === "set.hydration.backfillQInvalid")).toBe(
+      true,
+    );
+  });
+
+  it("HYDRATE-NEG-BF-02 — backfillQ.q must be a record object", () => {
+    const run = createRuntime();
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    snap.backfillQ = { config: { retain: true }, q: "nope" };
+
+    const rehydrated = createRuntime();
+    expect(() => rehydrated.set(snap)).toThrow(
+      "set.hydration.backfillQInvalid",
+    );
+  });
+
+  it("HYDRATE-NEG-BF-03 — backfillQ.q.entries must be an array", () => {
+    const run = createRuntime();
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    snap.backfillQ = {
+      config: { retain: true },
+      q: { cursor: 0, entries: {} },
+    };
+
+    const rehydrated = createRuntime();
+    expect(() => rehydrated.set(snap)).toThrow(
+      "set.hydration.backfillQInvalid",
+    );
+  });
+
+  it("HYDRATE-NEG-BF-04 — backfillQ.q.cursor must be a number", () => {
+    const run = createRuntime();
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    snap.backfillQ = {
+      config: { retain: true },
+      q: { cursor: "0", entries: [] },
+    };
+
+    const rehydrated = createRuntime();
+    expect(() => rehydrated.set(snap)).toThrow(
+      "set.hydration.backfillQInvalid",
+    );
+  });
+
+  it("HYDRATE-NEG-RG-01 — invalid registeredById does not fail hydration (it is ignored)", () => {
+    const run = createRuntime();
+    run.when({ signal: "s", targets: [() => undefined] } as never);
+
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    snap.registeredById = 123;
+
+    const rehydrated = createRuntime();
+    expect(() => rehydrated.set(snap)).not.toThrow();
+  });
+
   it("SET-TRIM-BASELINE-03 — pristine hydration + trim must not double-apply removed applied entries into scopeProjectionBaseline", () => {
     const run = createRuntime();
 

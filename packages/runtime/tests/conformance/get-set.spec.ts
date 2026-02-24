@@ -1763,6 +1763,78 @@ describe("conformance/get-set", () => {
     expect(d2.code).toBe(d1.code);
   });
 
+  it("STAR-06 — hydration ignores provided registeredById and rebuilds from registeredQ", () => {
+    const run = createRuntime();
+    run.when({ signal: "s", targets: [() => undefined] } as never);
+    run.when({ signal: "s", targets: [() => undefined] } as never);
+
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    snap.registeredById = new Map([["__bad__", { id: "__bad__" }]]);
+
+    const rehydrated = createRuntime();
+    rehydrated.set(snap);
+
+    const q = rehydrated.get("registeredQ", { as: "snapshot" }) as Array<{
+      id: string;
+    }>;
+    const byId = rehydrated.get("registeredById", {
+      as: "snapshot",
+    }) as Map<string, unknown>;
+
+    expect(byId.has("__bad__")).toBe(false);
+    expect(byId.size).toBe(q.length);
+    for (const e of q) expect(byId.has(e.id)).toBe(true);
+  });
+
+  it("STAR-07 — hydration replaces diagnostics with snapshot diagnostics (no merge)", () => {
+    const run = createRuntime();
+
+    try {
+      run.add({
+        id: 123 as never,
+        signal: "s",
+        targets: [() => undefined],
+      } as never);
+    } catch (error) {
+      void error;
+    }
+    try {
+      run.add({
+        id: "ok",
+        signal: "" as never,
+        targets: [() => undefined],
+      } as never);
+    } catch (error) {
+      void error;
+    }
+
+    const snap = run.get("*", { as: "snapshot" }) as {
+      diagnostics: Array<{ code: string }>;
+    };
+
+    const rehydrated = createRuntime();
+    try {
+      rehydrated.add({
+        id: 123 as never,
+        signal: "s",
+        targets: [() => undefined],
+      } as never);
+    } catch (error) {
+      void error;
+    }
+
+    rehydrated.set(snap);
+
+    const d = rehydrated.get("diagnostics", { as: "snapshot" }) as Array<{
+      code?: string;
+    }>;
+    expect(d.some((x) => x.code === "add.id.invalid")).toBe(true);
+    expect(d.some((x) => x.code === "add.signals.invalid")).toBe(true);
+
+    expect(d.length).toBe(snap.diagnostics.length);
+  });
+
   it("REF-ALIAS-01 — reference is alias: mutations are visible in subsequent snapshot", () => {
     const run = createRuntime();
 
