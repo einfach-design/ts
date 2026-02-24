@@ -1716,6 +1716,53 @@ describe("conformance/get-set", () => {
     }
   });
 
+  it("STAR-04 — registeredById id set matches registeredQ after roundtrip", () => {
+    const run = createRuntime();
+    run.when({ id: "star:04", signal: "s", targets: [() => undefined] });
+
+    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+      string,
+      unknown
+    >;
+    const rehydrated = createRuntime();
+    rehydrated.set(snapshot);
+
+    const q = rehydrated.get("registeredQ", { as: "snapshot" }) as Array<{
+      id: string;
+    }>;
+    const byId = rehydrated.get("registeredById", {
+      as: "snapshot",
+    }) as Map<string, unknown>;
+
+    expect(byId.size).toBe(q.length);
+    for (const e of q) {
+      expect(byId.has(e.id)).toBe(true);
+    }
+  });
+
+  it("STAR-05 — diagnostics are cloned objects on hydration roundtrip", () => {
+    const run = createRuntime();
+    expect(() =>
+      run.add({ id: 123 as never, signal: "s", targets: [() => undefined] }),
+    ).toThrow();
+
+    const snap = run.get("*", { as: "snapshot" }) as {
+      diagnostics: Array<{ code: string }>;
+    };
+    const rehydrated = createRuntime();
+    rehydrated.set(snap as never);
+
+    const d1 = snap.diagnostics[0]!;
+    const d2 = (
+      rehydrated.get("diagnostics", { as: "snapshot" }) as Array<{
+        code: string;
+      }>
+    )[0]!;
+
+    expect(d2).not.toBe(d1);
+    expect(d2.code).toBe(d1.code);
+  });
+
   it("REF-ALIAS-01 — reference is alias: mutations are visible in subsequent snapshot", () => {
     const run = createRuntime();
 
