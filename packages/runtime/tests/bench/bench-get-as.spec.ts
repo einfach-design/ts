@@ -7,6 +7,8 @@ import {
   benchCase,
   diffMem,
   mem,
+  printJson,
+  toJson,
   type BenchMeta,
   type BenchResult,
 } from "./_bench.js";
@@ -127,6 +129,10 @@ const selectedKeys = filterByEnv<BenchKey>(
       const accessIters = Math.max(10, Math.floor(config.iters / 4));
 
       if (selectedKeys.includes("flags")) {
+        let referenceRawAccessIdx = 0;
+        let referenceReadonlyViewAccessIdx = 0;
+        let snapshotAccessIdx = 0;
+
         results.push(
           runBenchWithMemDelta(
             `${scenario}:flags:referenceRaw_access`,
@@ -135,7 +141,10 @@ const selectedKeys = filterByEnv<BenchKey>(
                 as: "reference",
               }) as FlagsBenchView;
               sink += r.list.length;
-              sink += r.map.k10 ? 1 : 0;
+              const idx =
+                referenceRawAccessIdx % (scenario === "small" ? 16 : 256);
+              referenceRawAccessIdx += 1;
+              sink += r.map[`k${idx}`] ? 1 : 0;
             },
             { iters: accessIters },
           ),
@@ -149,7 +158,11 @@ const selectedKeys = filterByEnv<BenchKey>(
                 plainRun.get("flags", { as: "reference" }),
               ) as FlagsBenchView;
               sink += rv.list.length;
-              sink += rv.map.k10 ? 1 : 0;
+              const idx =
+                referenceReadonlyViewAccessIdx %
+                (scenario === "small" ? 16 : 256);
+              referenceReadonlyViewAccessIdx += 1;
+              sink += rv.map[`k${idx}`] ? 1 : 0;
             },
             { iters: accessIters },
           ),
@@ -163,7 +176,9 @@ const selectedKeys = filterByEnv<BenchKey>(
                 as: "snapshot",
               }) as FlagsBenchView;
               sink += s.list.length;
-              sink += s.map.k10 ? 1 : 0;
+              const idx = snapshotAccessIdx % (scenario === "small" ? 16 : 256);
+              snapshotAccessIdx += 1;
+              sink += s.map[`k${idx}`] ? 1 : 0;
             },
             { iters: accessIters },
           ),
@@ -181,19 +196,35 @@ const selectedKeys = filterByEnv<BenchKey>(
         platform: process.platform,
         arch: process.arch,
         date: new Date().toISOString(),
+        runId: `${scenario}-${Date.now()}`,
         scenario,
-        benchVersion: "0.113.0",
+        benchVersion: "0.114.0",
         exposeGc: typeof globalThis.gc === "function",
         memBefore,
         memAfter,
+        env: {
+          benchScenarios: process.env.RUNTIME_BENCH_SCENARIOS,
+          benchKeys: process.env.RUNTIME_BENCH_KEYS,
+          itersSmall: process.env.RUNTIME_BENCH_ITERS_SMALL,
+          itersMedium: process.env.RUNTIME_BENCH_ITERS_MEDIUM,
+          itersLarge: process.env.RUNTIME_BENCH_ITERS_LARGE,
+          benchOut,
+          benchBaseline,
+        },
       };
 
-      const json = JSON.stringify({ meta, results }, null, 2);
-      console.log(json);
+      const json = toJson(results, meta);
+      printJson(results, meta);
 
       if (benchOut !== undefined && benchOut.trim() !== "") {
-        mkdirSync(dirname(benchOut), { recursive: true });
-        writeFileSync(benchOut, json, { encoding: "utf8" });
+        try {
+          mkdirSync(dirname(benchOut), { recursive: true });
+          writeFileSync(benchOut, json, { encoding: "utf8" });
+        } catch (error) {
+          console.log(
+            `[bench/get(as)] warning: failed writing bench output (${benchOut}): ${String(error)}`,
+          );
+        }
       }
 
       const sortedResults = [...results].sort(compareBenchResults);
@@ -272,12 +303,20 @@ function applyRatioMetrics(results: BenchResult[]): void {
     );
     const snapshot = groupResults.find((result) => result.mode === "snapshot");
 
+    if (referenceRaw !== undefined) {
+      referenceRaw.ratioToRef = 1;
+    }
+
+    if (snapshot !== undefined) {
+      snapshot.ratioToSnapshot = 1;
+    }
+
     for (const result of groupResults) {
-      if (referenceRaw !== undefined) {
+      if (referenceRaw !== undefined && result !== referenceRaw) {
         result.ratioToRef = result.medianNsPerOp / referenceRaw.medianNsPerOp;
       }
 
-      if (snapshot !== undefined) {
+      if (snapshot !== undefined && result !== snapshot) {
         result.ratioToSnapshot = result.medianNsPerOp / snapshot.medianNsPerOp;
       }
     }
@@ -292,21 +331,63 @@ function applyBaselineDelta(
     return;
   }
 
-  const baselineRaw = readFileSync(baselinePath, { encoding: "utf8" });
-  const baselineData = JSON.parse(baselineRaw) as { results?: BenchResult[] };
-  const baselineResults = baselineData.results ?? [];
+  let baselineResults: BenchResult[] = [];
+
+  try {
+    const baselineRaw = readFileSync(baselinePath, { encoding: "utf8" });
+    const baselineData = JSON.parse(baselineRaw) as { results?: BenchResult[] };
+    baselineResults = baselineData.results ?? [];
+  } catch (error) {
+    console.log(
+      `[bench/get(as)] warning: failed reading/parsing baseline (${baselinePath}): ${String(error)}`,
+    );
+    return;
+  }
+
   const baselineByName = new Map(
     baselineResults.map((result) => [result.name, result] as const),
   );
+  const tupleEntries: [string, BenchResult][] = [];
+
+  for (const result of baselineResults) {
+    const parsed = parseNameOrUndefined(result.name);
+
+    if (parsed === undefined) {
+      continue;
+    }
+
+    tupleEntries.push([
+      `${parsed.scenario}:${parsed.key}:${parsed.mode}`,
+      result,
+    ]);
+  }
+
+  const baselineByTuple = new Map<string, BenchResult>(tupleEntries);
 
   for (const result of results) {
-    const baseline = baselineByName.get(result.name);
+    const tupleKey = `${result.scenario ?? ""}:${result.key ?? ""}:${result.mode ?? ""}`;
+    const baseline =
+      baselineByName.get(result.name) ?? baselineByTuple.get(tupleKey);
 
     if (baseline === undefined) {
       continue;
     }
 
     result.deltaPct = (result.medianNsPerOp / baseline.medianNsPerOp - 1) * 100;
+  }
+}
+
+function parseNameOrUndefined(name: string):
+  | {
+      scenario: string;
+      key: string;
+      mode: string;
+    }
+  | undefined {
+  try {
+    return parseName(name);
+  } catch {
+    return undefined;
   }
 }
 
@@ -323,7 +404,41 @@ function compareBenchResults(a: BenchResult, b: BenchResult): number {
     return keyCompare;
   }
 
+  const modeRankDiff = modeRank(a.mode) - modeRank(b.mode);
+
+  if (modeRankDiff !== 0) {
+    return modeRankDiff;
+  }
+
   return (a.mode ?? "").localeCompare(b.mode ?? "");
+}
+
+function modeRank(mode: string | undefined): number {
+  if (mode === "referenceRaw") {
+    return 0;
+  }
+
+  if (mode === "referenceReadonlyView") {
+    return 1;
+  }
+
+  if (mode === "snapshot") {
+    return 2;
+  }
+
+  if (mode === "referenceRaw_access") {
+    return 3;
+  }
+
+  if (mode === "referenceReadonlyView_access") {
+    return 4;
+  }
+
+  if (mode === "snapshot_access") {
+    return 5;
+  }
+
+  return 10;
 }
 
 function formatRatio(value: number | undefined): string {
@@ -347,7 +462,15 @@ function formatHeapDelta(value: number | undefined): string {
     return "-";
   }
 
-  return `${value}`;
+  if (Math.abs(value) < 1024) {
+    return `${value} B`;
+  }
+
+  if (Math.abs(value) < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KiB`;
+  }
+
+  return `${(value / (1024 * 1024)).toFixed(1)} MiB`;
 }
 
 function parseEnvIters(name: string, fallback: number): number {

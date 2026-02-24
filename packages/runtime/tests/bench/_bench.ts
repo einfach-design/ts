@@ -31,11 +31,21 @@ export type BenchMeta = {
   platform: NodeJS.Platform;
   arch: string;
   date: string;
+  runId?: string;
   scenario?: "small" | "medium" | "large";
   benchVersion?: string;
   exposeGc?: boolean;
   memBefore?: BenchMemory;
   memAfter?: BenchMemory;
+  env?: {
+    benchScenarios?: string | undefined;
+    benchKeys?: string | undefined;
+    itersSmall?: string | undefined;
+    itersMedium?: string | undefined;
+    itersLarge?: string | undefined;
+    benchOut?: string | undefined;
+    benchBaseline?: string | undefined;
+  };
 };
 
 export function now(): number {
@@ -128,6 +138,10 @@ export function benchCase(
   };
 }
 
+export function toJson(results: BenchResult[], meta: BenchMeta): string {
+  return JSON.stringify({ meta, results }, null, 2);
+}
+
 export function printJson(results: BenchResult[], meta: BenchMeta): void {
-  console.log(JSON.stringify({ meta, results }, null, 2));
+  console.log(toJson(results, meta));
 }
