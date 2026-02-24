@@ -1180,13 +1180,8 @@ export function runSet(
     let nextImpulseOnTrim = store.impulseQ.config.onTrim;
     let nextImpulseOnError = store.impulseQ.config.onError;
     let nextTrimPendingMaxBytes = store.trimPendingMaxBytes;
-    let nextScopeProjectionBaseline: ScopeProjectionBaseline = {
-      flags: nextFlagsTruth,
-      changedFlags: nextChangedFlags,
-      seenFlags: nextSeenFlags,
-      signal: nextSignal,
-      seenSignals: nextSeenSignals,
-    };
+    const nextScopeProjectionBaseline: ScopeProjectionBaseline =
+      store.scopeProjectionBaseline;
 
     let trimOnTrimError: Error | undefined;
     let trimRemovedAppliedEntries: ImpulseQEntryCanonical[] | undefined;
@@ -1445,13 +1440,7 @@ export function runSet(
       }
     }
 
-    nextScopeProjectionBaseline = {
-      flags: nextFlagsTruth,
-      changedFlags: nextChangedFlags,
-      seenFlags: nextSeenFlags,
-      signal: nextSignal,
-      seenSignals: nextSeenSignals,
-    };
+    // keep baseline; only advance when applied entries are trimmed
 
     store.defaults = nextDefaults;
     store.flagsTruth = nextFlagsTruth;

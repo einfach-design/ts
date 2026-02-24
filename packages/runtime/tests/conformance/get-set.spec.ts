@@ -1769,6 +1769,8 @@ describe("conformance/get-set", () => {
     run.when({ signal: "s", targets: [() => undefined] } as never);
 
     const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    snap.registeredQ = run.get("registeredQ", { as: "snapshot" });
+    snap.registeredById = run.get("registeredById", { as: "snapshot" });
 
     snap.registeredById = new Map([["__bad__", { id: "__bad__" }]]);
 
@@ -1812,6 +1814,9 @@ describe("conformance/get-set", () => {
     const snap = run.get("*", { as: "snapshot" }) as {
       diagnostics: Array<{ code: string }>;
     };
+    snap.diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+      code: string;
+    }>;
 
     const rehydrated = createRuntime();
     try {
@@ -1832,7 +1837,9 @@ describe("conformance/get-set", () => {
     expect(d.some((x) => x.code === "add.id.invalid")).toBe(true);
     expect(d.some((x) => x.code === "add.signals.invalid")).toBe(true);
 
-    expect(d.length).toBe(snap.diagnostics.length);
+    expect(d.map((x) => x.code)).toEqual(
+      (snap.diagnostics as Array<{ code?: string }>).map((x) => x.code),
+    );
   });
 
   it("REF-ALIAS-01 — reference is alias: mutations are visible in subsequent snapshot", () => {
