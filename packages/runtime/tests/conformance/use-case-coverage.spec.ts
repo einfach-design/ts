@@ -1306,6 +1306,98 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     expect(baseline.flags.list).toEqual(["BASE"]);
     expect(baseline.flags.map).toEqual({ BASE: true });
   });
+
+  it("SET-TRIM-BASELINE-03 — pristine hydration + trim must not double-apply removed applied entries into scopeProjectionBaseline", () => {
+    const run = createRuntime();
+
+    const h = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    delete (h as { scopeProjectionBaseline?: unknown }).scopeProjectionBaseline;
+
+    h.impulseQ = {
+      config: { retain: 0, maxBytes: 1 },
+      q: {
+        cursor: 2,
+        entries: [
+          {
+            signals: ["a"],
+            addFlags: ["fa"],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+          {
+            signals: ["b"],
+            addFlags: ["fb"],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+          {
+            signals: [],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+        ],
+      },
+    };
+
+    run.set(h as never);
+
+    const base = run.get("scopeProjectionBaseline", { as: "snapshot" }) as {
+      flags: { list: string[] };
+    };
+    expect(base.flags.list.sort()).toEqual(["fa", "fb"]);
+  });
+
+  it("SET-TRIM-BASELINE-04 — repeating same hydration does not grow baseline further", () => {
+    const run = createRuntime();
+
+    const h = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    delete (h as { scopeProjectionBaseline?: unknown }).scopeProjectionBaseline;
+
+    h.impulseQ = {
+      config: { retain: 0, maxBytes: 1 },
+      q: {
+        cursor: 2,
+        entries: [
+          {
+            signals: ["a"],
+            addFlags: ["fa"],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+          {
+            signals: ["b"],
+            addFlags: ["fb"],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+          {
+            signals: [],
+            addFlags: [],
+            removeFlags: [],
+            useFixedFlags: false,
+          },
+        ],
+      },
+    };
+
+    run.set(h as never);
+
+    const b1 = run.get("scopeProjectionBaseline", { as: "snapshot" }) as {
+      flags: { list: string[] };
+    };
+    expect(b1.flags.list.sort()).toEqual(["fa", "fb"]);
+
+    const h2 = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    delete (h2 as { scopeProjectionBaseline?: unknown })
+      .scopeProjectionBaseline;
+    run.set(h2 as never);
+
+    const b2 = run.get("scopeProjectionBaseline", { as: "snapshot" }) as {
+      flags: { list: string[] };
+    };
+    expect(b2.flags.list.sort()).toEqual(["fa", "fb"]);
+  });
 });
 
 describe("conformance/use-case-coverage/auto-id-basics", () => {

@@ -1532,6 +1532,11 @@ describe("conformance/get-set", () => {
     >;
 
     const rehydrated = createRuntime();
+    (
+      snapshot as { scopeProjectionBaseline?: unknown }
+    ).scopeProjectionBaseline = run.get("scopeProjectionBaseline", {
+      as: "snapshot",
+    });
     rehydrated.set(snapshot);
 
     expect(
@@ -2307,6 +2312,13 @@ describe("conformance/get-set/scope-projection-baseline-after-set", () => {
     s.seenSignals = { list: [], map: {} };
     s.signal = undefined;
     s.changedFlags = undefined;
+    (s as { scopeProjectionBaseline?: unknown }).scopeProjectionBaseline = {
+      flags: { list: ["a"], map: { a: true } },
+      changedFlags: undefined,
+      seenFlags: { list: [], map: {} },
+      signal: undefined,
+      seenSignals: { list: [], map: {} },
+    };
     s.impulseQ = {
       config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
       q: {
@@ -2348,6 +2360,13 @@ describe("conformance/get-set/scope-projection-baseline-after-set", () => {
 
     s.flagsTruth = { list: ["a"], map: { a: true } };
     s.flags = { list: ["a"], map: { a: true } };
+    (s as { scopeProjectionBaseline?: unknown }).scopeProjectionBaseline = {
+      flags: { list: ["a"], map: { a: true } },
+      changedFlags: undefined,
+      seenFlags: { list: [], map: {} },
+      signal: undefined,
+      seenSignals: { list: [], map: {} },
+    };
     s.impulseQ = {
       config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
       q: { cursor: 0, entries: [] },
@@ -2423,6 +2442,13 @@ describe("conformance/get-set/scope-projection-signal-seenSignals", () => {
     s.seenFlags = { list: [], map: {} };
     s.flagsTruth = { list: [], map: {} };
     s.flags = { list: [], map: {} };
+    (s as { scopeProjectionBaseline?: unknown }).scopeProjectionBaseline = {
+      flags: { list: [], map: {} },
+      changedFlags: undefined,
+      seenFlags: { list: [], map: {} },
+      signal: "base",
+      seenSignals: { list: [], map: {} },
+    };
     s.impulseQ = {
       config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
       q: {
