@@ -2,6 +2,9 @@ import { performance as nodePerformance } from "node:perf_hooks";
 
 export type BenchResult = {
   name: string;
+  scenario?: string;
+  key?: string;
+  mode?: string;
   iters: number;
   repeats: number;
   ms: number;
@@ -10,6 +13,9 @@ export type BenchResult = {
   maxMs: number;
   medianMs: number;
   medianNsPerOp: number;
+  ratioToRef?: number;
+  ratioToSnapshot?: number;
+  deltaPct?: number;
   memDelta?: BenchMemory;
 };
 
@@ -28,6 +34,8 @@ export type BenchMeta = {
   scenario?: "small" | "medium" | "large";
   benchVersion?: string;
   exposeGc?: boolean;
+  memBefore?: BenchMemory;
+  memAfter?: BenchMemory;
 };
 
 export function now(): number {

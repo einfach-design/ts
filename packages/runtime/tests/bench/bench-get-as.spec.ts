@@ -1,3 +1,5 @@
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createRuntime } from "../../src/index.js";
 import { readonlyView } from "../../src/runtime/util.js";
@@ -5,7 +7,6 @@ import {
   benchCase,
   diffMem,
   mem,
-  printJson,
   type BenchMeta,
   type BenchResult,
 } from "./_bench.js";
@@ -31,6 +32,8 @@ type ScenarioConfig = {
 };
 
 const shouldBench = process.env.RUNTIME_BENCH === "1";
+const benchBaseline = process.env.RUNTIME_BENCH_BASELINE;
+const benchOut = process.env.RUNTIME_BENCH_OUT;
 
 const SCENARIOS: Record<ScenarioName, ScenarioConfig> = {
   small: {
@@ -76,6 +79,7 @@ const selectedKeys = filterByEnv<BenchKey>(
       const plainRun = buildScenario(scenario, "plain");
       const nonPlainRun = buildScenario(scenario, "nonplain");
       const config = SCENARIOS[scenario];
+      const memBefore = mem();
       const results: BenchResult[] = [];
 
       for (const key of selectedKeys) {
@@ -168,33 +172,35 @@ const selectedKeys = filterByEnv<BenchKey>(
 
       expect(sink).toBeGreaterThanOrEqual(0);
 
+      applyRatioMetrics(results);
+      applyBaselineDelta(results, benchBaseline);
+
+      const memAfter = mem();
       const meta: BenchMeta = {
         nodeVersion: process.version,
         platform: process.platform,
         arch: process.arch,
         date: new Date().toISOString(),
         scenario,
-        benchVersion: "0.112.0",
+        benchVersion: "0.113.0",
         exposeGc: typeof globalThis.gc === "function",
+        memBefore,
+        memAfter,
       };
 
-      printJson(results, meta);
+      const json = JSON.stringify({ meta, results }, null, 2);
+      console.log(json);
 
-      const sortedResults = [...results].sort((a, b) => {
-        const [scenarioA, nameA] = splitBenchName(a.name);
-        const [scenarioB, nameB] = splitBenchName(b.name);
+      if (benchOut !== undefined && benchOut.trim() !== "") {
+        mkdirSync(dirname(benchOut), { recursive: true });
+        writeFileSync(benchOut, json, { encoding: "utf8" });
+      }
 
-        if (scenarioA === scenarioB) {
-          return nameA.localeCompare(nameB);
-        }
-
-        return scenarioA.localeCompare(scenarioB);
-      });
+      const sortedResults = [...results].sort(compareBenchResults);
 
       for (const result of sortedResults) {
-        const [, compactName] = splitBenchName(result.name);
         console.log(
-          `${scenario} | ${compactName} | ${result.medianNsPerOp.toFixed(1)} | ${result.medianMs.toFixed(1)} | ${result.minMs.toFixed(1)}..${result.maxMs.toFixed(1)}`,
+          `${result.scenario ?? "-"} | ${result.key ?? "-"} | ${result.mode ?? "-"} | ${result.medianNsPerOp.toFixed(1)} | ${formatRatio(result.ratioToRef)} | ${formatRatio(result.ratioToSnapshot)} | ${formatDeltaPct(result.deltaPct)} | ${formatHeapDelta(result.memDelta?.heapUsed)}`,
         );
       }
     });
@@ -206,24 +212,142 @@ function runBenchWithMemDelta(
   fn: () => void,
   options?: { warmup?: number; iters?: number; repeats?: number },
 ): BenchResult {
+  const { scenario, key, mode } = parseName(name);
   const m0 = mem();
   const result = benchCase(name, fn, options);
   const m1 = mem();
 
   return {
     ...result,
+    scenario,
+    key,
+    mode,
     memDelta: diffMem(m0, m1),
   };
 }
 
-function splitBenchName(name: string): [string, string] {
-  const firstColon = name.indexOf(":");
+function parseName(name: string): {
+  scenario: string;
+  key: string;
+  mode: string;
+} {
+  const [scenario, key, mode, ...rest] = name.split(":");
 
-  if (firstColon < 0) {
-    return [name, name];
+  if (
+    scenario === undefined ||
+    key === undefined ||
+    mode === undefined ||
+    rest.length > 0
+  ) {
+    throw new Error(
+      `Invalid bench name format: ${name}. Expected <scenario>:<key>:<mode>.`,
+    );
   }
 
-  return [name.slice(0, firstColon), name.slice(firstColon + 1)];
+  return { scenario, key, mode };
+}
+
+function applyRatioMetrics(results: BenchResult[]): void {
+  const grouped = new Map<string, BenchResult[]>();
+
+  for (const result of results) {
+    if (result.scenario === undefined || result.key === undefined) {
+      continue;
+    }
+
+    const groupKey = `${result.scenario}:${result.key}`;
+    const existing = grouped.get(groupKey);
+
+    if (existing === undefined) {
+      grouped.set(groupKey, [result]);
+      continue;
+    }
+
+    existing.push(result);
+  }
+
+  for (const groupResults of grouped.values()) {
+    const referenceRaw = groupResults.find(
+      (result) => result.mode === "referenceRaw",
+    );
+    const snapshot = groupResults.find((result) => result.mode === "snapshot");
+
+    for (const result of groupResults) {
+      if (referenceRaw !== undefined) {
+        result.ratioToRef = result.medianNsPerOp / referenceRaw.medianNsPerOp;
+      }
+
+      if (snapshot !== undefined) {
+        result.ratioToSnapshot = result.medianNsPerOp / snapshot.medianNsPerOp;
+      }
+    }
+  }
+}
+
+function applyBaselineDelta(
+  results: BenchResult[],
+  baselinePath: string | undefined,
+): void {
+  if (baselinePath === undefined || baselinePath.trim() === "") {
+    return;
+  }
+
+  const baselineRaw = readFileSync(baselinePath, { encoding: "utf8" });
+  const baselineData = JSON.parse(baselineRaw) as { results?: BenchResult[] };
+  const baselineResults = baselineData.results ?? [];
+  const baselineByName = new Map(
+    baselineResults.map((result) => [result.name, result] as const),
+  );
+
+  for (const result of results) {
+    const baseline = baselineByName.get(result.name);
+
+    if (baseline === undefined) {
+      continue;
+    }
+
+    result.deltaPct = (result.medianNsPerOp / baseline.medianNsPerOp - 1) * 100;
+  }
+}
+
+function compareBenchResults(a: BenchResult, b: BenchResult): number {
+  const scenarioCompare = (a.scenario ?? "").localeCompare(b.scenario ?? "");
+
+  if (scenarioCompare !== 0) {
+    return scenarioCompare;
+  }
+
+  const keyCompare = (a.key ?? "").localeCompare(b.key ?? "");
+
+  if (keyCompare !== 0) {
+    return keyCompare;
+  }
+
+  return (a.mode ?? "").localeCompare(b.mode ?? "");
+}
+
+function formatRatio(value: number | undefined): string {
+  if (value === undefined) {
+    return "-";
+  }
+
+  return value.toFixed(2);
+}
+
+function formatDeltaPct(value: number | undefined): string {
+  if (value === undefined) {
+    return "-";
+  }
+
+  return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
+function formatHeapDelta(value: number | undefined): string {
+  if (value === undefined) {
+    return "-";
+  }
+
+  return `${value}`;
 }
 
 function parseEnvIters(name: string, fallback: number): number {
