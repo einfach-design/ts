@@ -1544,8 +1544,14 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     snap.backfillQ = { config: { retain: true }, q: "nope" };
 
     const rehydrated = createRuntime();
+    const diags: Array<{ code?: string }> = [];
+    rehydrated.onDiagnostic((d) => diags.push(d));
+
     expect(() => rehydrated.set(snap)).toThrow(
       "set.hydration.backfillQInvalid",
+    );
+    expect(diags.some((d) => d.code === "set.hydration.backfillQInvalid")).toBe(
+      true,
     );
   });
 
@@ -1559,8 +1565,14 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     };
 
     const rehydrated = createRuntime();
+    const diags: Array<{ code?: string }> = [];
+    rehydrated.onDiagnostic((d) => diags.push(d));
+
     expect(() => rehydrated.set(snap)).toThrow(
       "set.hydration.backfillQInvalid",
+    );
+    expect(diags.some((d) => d.code === "set.hydration.backfillQInvalid")).toBe(
+      true,
     );
   });
 
@@ -1574,8 +1586,14 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     };
 
     const rehydrated = createRuntime();
+    const diags: Array<{ code?: string }> = [];
+    rehydrated.onDiagnostic((d) => diags.push(d));
+
     expect(() => rehydrated.set(snap)).toThrow(
       "set.hydration.backfillQInvalid",
+    );
+    expect(diags.some((d) => d.code === "set.hydration.backfillQInvalid")).toBe(
+      true,
     );
   });
 
@@ -1676,6 +1694,47 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
       .scopeProjectionBaseline;
     run.set(h2 as never);
 
+    const b2 = run.get("scopeProjectionBaseline", { as: "snapshot" }) as {
+      flags: { list: string[] };
+    };
+    expect(b2.flags.list.sort()).toEqual(["fa", "fb"]);
+  });
+
+  it("SET-PATCH-TRIM-BASELINE-01 — patch+trim must not double-apply removed applied entries into scopeProjectionBaseline", () => {
+    const run = createRuntime();
+
+    run.set({
+      impulseQ: { config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY } },
+    } as never);
+    run.impulse({ addFlags: ["fa"], signals: ["a"] });
+    run.impulse({ addFlags: ["fb"], signals: ["b"] });
+
+    run.set({
+      impulseQ: { config: { retain: 0, maxBytes: 1 } },
+    } as never);
+
+    const base = run.get("scopeProjectionBaseline", { as: "snapshot" }) as {
+      flags: { list: string[] };
+    };
+    expect(base.flags.list.sort()).toEqual(["fa", "fb"]);
+  });
+
+  it("SET-PATCH-TRIM-BASELINE-02 — repeating same patch does not grow baseline further", () => {
+    const run = createRuntime();
+
+    run.set({
+      impulseQ: { config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY } },
+    } as never);
+    run.impulse({ addFlags: ["fa"], signals: ["a"] });
+    run.impulse({ addFlags: ["fb"], signals: ["b"] });
+
+    run.set({ impulseQ: { config: { retain: 0, maxBytes: 1 } } } as never);
+    const b1 = run.get("scopeProjectionBaseline", { as: "snapshot" }) as {
+      flags: { list: string[] };
+    };
+    expect(b1.flags.list.sort()).toEqual(["fa", "fb"]);
+
+    run.set({ impulseQ: { config: { retain: 0, maxBytes: 1 } } } as never);
     const b2 = run.get("scopeProjectionBaseline", { as: "snapshot" }) as {
       flags: { list: string[] };
     };
