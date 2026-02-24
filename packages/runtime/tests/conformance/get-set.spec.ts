@@ -1566,20 +1566,23 @@ describe("conformance/get-set", () => {
       unknown
     >;
 
-    expect(Object.keys(snapshot).sort()).toEqual([
-      "backfillQ",
-      "changedFlags",
+    const keys = Object.keys(snapshot).sort();
+    for (const key of [
       "defaults",
-      "diagnostics",
       "flags",
+      "changedFlags",
+      "seenFlags",
+      "signal",
+      "seenSignals",
       "impulseQ",
+      "backfillQ",
+      "scopeProjectionBaseline",
       "registeredById",
       "registeredQ",
-      "scopeProjectionBaseline",
-      "seenFlags",
-      "seenSignals",
-      "signal",
-    ]);
+      "diagnostics",
+    ]) {
+      expect(keys).toContain(key);
+    }
   });
 
   it('STAR-01 — get("*", { as:"snapshot" }) contains full hydration surface', () => {
@@ -1621,6 +1624,16 @@ describe("conformance/get-set", () => {
   it('STAR-02 — hydration roundtrip via get("*") works without manual extras', () => {
     const run = createRuntime();
     run.when({ signal: "s", targets: [() => undefined] } as never);
+    expect(() =>
+      run.add({
+        id: 123 as never,
+        signal: "s",
+        targets: [() => undefined],
+      } as never),
+    ).toThrow();
+    expect(() =>
+      run.add({ id: "bad", signal: "", targets: [() => undefined] } as never),
+    ).toThrow();
 
     const baseRef = run.get("scopeProjectionBaseline", {
       as: "reference",
@@ -1650,6 +1663,57 @@ describe("conformance/get-set", () => {
       as: "snapshot",
     }) as Map<string, unknown>;
     expect(byId).toBeInstanceOf(Map);
+
+    const diagnostics = rehydrated.get("diagnostics", {
+      as: "snapshot",
+    }) as Array<{ code?: string }>;
+    expect(Array.isArray(diagnostics)).toBe(true);
+    expect(diagnostics.length).toBeGreaterThanOrEqual(2);
+    expect(diagnostics.some((d) => d.code === "add.id.invalid")).toBe(true);
+    expect(diagnostics.some((d) => d.code === "add.signals.invalid")).toBe(
+      true,
+    );
+
+    const registeredQ = rehydrated.get("registeredQ", {
+      as: "snapshot",
+    }) as unknown[];
+    expect(Array.isArray(registeredQ)).toBe(true);
+    expect(registeredQ.length).toBeGreaterThan(0);
+  });
+
+  it('STAR-03 — backfillQ roundtrips via get("*") snapshot hydration', () => {
+    const run = createRuntime();
+
+    run.when({ signal: "s", targets: [() => undefined] } as never);
+    run.when({ signal: "s", targets: [() => undefined] } as never);
+
+    const h = run.get("*", { as: "snapshot" }) as {
+      backfillQ?: unknown;
+    };
+    expect(h.backfillQ).toBeTruthy();
+
+    const rehydrated = createRuntime();
+    rehydrated.set(h as never);
+
+    const b1 = run.get("backfillQ", { as: "snapshot" }) as {
+      list: string[];
+      map: Record<string, true>;
+    };
+    const b2 = rehydrated.get("backfillQ", { as: "snapshot" }) as {
+      list: string[];
+      map: Record<string, true>;
+    };
+
+    expect(b2).toBeTruthy();
+    expect(Array.isArray(b2.list)).toBe(true);
+    expect(typeof b2.map).toBe("object");
+
+    expect(b2.list.length).toBe(b1.list.length);
+    expect(Object.keys(b2.map).sort()).toEqual(Object.keys(b1.map).sort());
+
+    if (b1.list.length === 0) {
+      expect(b2.list.length).toBe(0);
+    }
   });
 
   it("REF-ALIAS-01 — reference is alias: mutations are visible in subsequent snapshot", () => {

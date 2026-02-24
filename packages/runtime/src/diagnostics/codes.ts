@@ -61,6 +61,24 @@ export const DIAGNOSTIC_CODES = {
       valueType: "string",
     },
   },
+  "set.hydration.registeredQInvalid": {
+    description:
+      "Hydration registeredQ must be an array of entries with unique non-empty string ids.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string",
+    },
+  },
+  "set.hydration.diagnosticsInvalid": {
+    description:
+      "Hydration diagnostics must be an array of entries with a non-empty string code.",
+    severity: "error",
+    shape: {
+      field: "string",
+      valueType: "string",
+    },
+  },
   "set.hydration.scopeProjectionBaselineInvalid": {
     description:
       "Hydration scopeProjectionBaseline must be a validated object with canonical scope projection fields.",
