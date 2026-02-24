@@ -235,19 +235,51 @@ export function runGet(
     const wantsImpulseProjection =
       wantsScopeProjection && wantsImpulseProjectionForKey(resolvedKey);
 
-    let selectedFlags = store.flagsTruth;
-    let selectedChangedFlags = store.changedFlags;
-    let selectedSeenFlags = store.seenFlags;
-    let selectedSignal = store.signal;
-    let selectedSeenSignals = store.seenSignals;
-    let selectedImpulseQ = projectImpulseQ(store.impulseQ, "pending");
+    let projectionsComputed = false;
 
-    if (wantsScopeProjection && wantsImpulseProjection) {
-      const scope = resolveScope(opts?.scope);
-      const projectedImpulseQ = projectImpulseQ(store.impulseQ, scope);
-      selectedImpulseQ = projectedImpulseQ;
+    let selectedFlags: FlagsView;
+    let selectedChangedFlags: FlagsView | undefined;
+    let selectedSeenFlags: FlagsView;
+    let selectedSignal: string | undefined;
+    let selectedSeenSignals: RuntimeStore["seenSignals"];
+    let selectedImpulseQ: RuntimeStore["impulseQ"];
 
-      if (wantsFlagsProjection) {
+    // NOTE: keep projections lazy to avoid hot-path overhead for non-projection keys.
+    const ensureProjections = (): void => {
+      if (projectionsComputed) {
+        return;
+      }
+
+      projectionsComputed = true;
+
+      selectedFlags = store.flagsTruth;
+      selectedChangedFlags = store.changedFlags;
+      selectedSeenFlags = store.seenFlags;
+      selectedSignal = store.signal;
+      selectedSeenSignals = store.seenSignals;
+      selectedImpulseQ = projectImpulseQ(store.impulseQ, "pending");
+
+      if (wantsScopeProjection && wantsImpulseProjection) {
+        const scope = resolveScope(opts?.scope);
+        const projectedImpulseQ = projectImpulseQ(store.impulseQ, scope);
+        selectedImpulseQ = projectedImpulseQ;
+
+        if (wantsFlagsProjection) {
+          const projectionSeed = getProjectionSeed(store, scope);
+          const projectedFlagsState = projectFlagsState(
+            projectedImpulseQ.q.entries,
+            projectionSeed,
+          );
+
+          selectedFlags = projectedFlagsState.flags;
+          selectedChangedFlags = projectedFlagsState.changedFlags;
+          selectedSeenFlags = projectedFlagsState.seenFlags;
+          selectedSignal = projectedFlagsState.signal;
+          selectedSeenSignals = projectedFlagsState.seenSignals;
+        }
+      } else if (wantsScopeProjection && wantsFlagsProjection) {
+        const scope = resolveScope(opts?.scope);
+        const projectedImpulseQ = projectImpulseQ(store.impulseQ, scope);
         const projectionSeed = getProjectionSeed(store, scope);
         const projectedFlagsState = projectFlagsState(
           projectedImpulseQ.q.entries,
@@ -260,21 +292,7 @@ export function runGet(
         selectedSignal = projectedFlagsState.signal;
         selectedSeenSignals = projectedFlagsState.seenSignals;
       }
-    } else if (wantsScopeProjection && wantsFlagsProjection) {
-      const scope = resolveScope(opts?.scope);
-      const projectedImpulseQ = projectImpulseQ(store.impulseQ, scope);
-      const projectionSeed = getProjectionSeed(store, scope);
-      const projectedFlagsState = projectFlagsState(
-        projectedImpulseQ.q.entries,
-        projectionSeed,
-      );
-
-      selectedFlags = projectedFlagsState.flags;
-      selectedChangedFlags = projectedFlagsState.changedFlags;
-      selectedSeenFlags = projectedFlagsState.seenFlags;
-      selectedSignal = projectedFlagsState.signal;
-      selectedSeenSignals = projectedFlagsState.seenSignals;
-    }
+    };
 
     // NOTE: keep derived values lazy (esp. backfillQ snapshot) to avoid hot-path overhead.
     const getSelectedValue = (rk: AllowedGetKey): unknown => {
@@ -282,18 +300,24 @@ export function runGet(
         case "defaults":
           return store.defaults;
         case "flags":
+          ensureProjections();
           return selectedFlags;
         case "changedFlags":
+          ensureProjections();
           return selectedChangedFlags;
         case "seenFlags":
+          ensureProjections();
           return selectedSeenFlags;
         case "signal":
+          ensureProjections();
           return selectedSignal;
         case "seenSignals":
+          ensureProjections();
           return selectedSeenSignals;
         case "scopeProjectionBaseline":
           return store.scopeProjectionBaseline;
         case "impulseQ":
+          ensureProjections();
           return selectedImpulseQ;
         case "backfillQ":
           return toBackfillQSnapshot(store.backfillQ);
@@ -304,6 +328,7 @@ export function runGet(
         case "diagnostics":
           return getDiagnosticsReference(diagnostics);
         case "*":
+          ensureProjections();
           return {
             defaults: store.defaults,
             flags: selectedFlags,
