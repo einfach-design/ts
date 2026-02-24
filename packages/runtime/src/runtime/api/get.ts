@@ -298,8 +298,12 @@ export function runGet(
         seenFlags: selectedSeenFlags,
         signal: selectedSignal,
         seenSignals: selectedSeenSignals,
+        scopeProjectionBaseline: store.scopeProjectionBaseline,
         impulseQ: selectedImpulseQ,
         backfillQ: toBackfillQSnapshot(store.backfillQ),
+        registeredById: expressionRegistry.registeredById,
+        registeredQ: expressionRegistry.registeredQ,
+        diagnostics: selectedDiagnostics,
       },
     };
 

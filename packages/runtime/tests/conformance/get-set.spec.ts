@@ -15,6 +15,14 @@
 import { describe, it, expect } from "vitest";
 import { createRuntime } from "../../src/index.js";
 
+type ScopeProjectionBaselineSnapshot = {
+  flags: { list: string[]; map: Record<string, boolean> };
+  changedFlags: unknown;
+  seenFlags: { list: string[]; map: Record<string, boolean> };
+  signal: string | undefined;
+  seenSignals: { list: string[]; map: Record<string, boolean> };
+};
+
 describe("conformance/get-set", () => {
   it("A1 — get(unknown) must throw (Spec §4.1)", () => {
     const run = createRuntime();
@@ -1175,17 +1183,23 @@ describe("conformance/get-set", () => {
       }
     });
 
-    for (const key of Object.keys(snapshot)) {
-      if (key === "backfillQ") {
-        continue;
-      }
+    const requiredKeys = [
+      "defaults",
+      "flags",
+      "changedFlags",
+      "seenFlags",
+      "signal",
+      "seenSignals",
+      "impulseQ",
+    ];
 
+    for (const key of requiredKeys) {
       const incomplete = { ...snapshot };
       delete incomplete[key as keyof typeof incomplete];
       expect(() => run.set(incomplete)).toThrow("set.hydration.incomplete");
     }
 
-    expect(missingKeyCodes).toHaveLength(Object.keys(snapshot).length - 1);
+    expect(missingKeyCodes).toHaveLength(requiredKeys.length);
   });
 
   it("B4 — patch must reject changedFlags and preserve hydration changedFlags (Spec §4.2)", () => {
@@ -1532,11 +1546,6 @@ describe("conformance/get-set", () => {
     >;
 
     const rehydrated = createRuntime();
-    (
-      snapshot as { scopeProjectionBaseline?: unknown }
-    ).scopeProjectionBaseline = run.get("scopeProjectionBaseline", {
-      as: "snapshot",
-    });
     rehydrated.set(snapshot);
 
     expect(
@@ -1561,12 +1570,86 @@ describe("conformance/get-set", () => {
       "backfillQ",
       "changedFlags",
       "defaults",
+      "diagnostics",
       "flags",
       "impulseQ",
+      "registeredById",
+      "registeredQ",
+      "scopeProjectionBaseline",
       "seenFlags",
       "seenSignals",
       "signal",
     ]);
+  });
+
+  it('STAR-01 — get("*", { as:"snapshot" }) contains full hydration surface', () => {
+    const run = createRuntime();
+
+    run.when({ signal: "s", targets: [() => undefined] } as never);
+    try {
+      run.add({
+        id: 123 as never,
+        signal: "s",
+        targets: [() => undefined],
+      } as never);
+    } catch {
+      // expected
+    }
+
+    const baseRef = run.get("scopeProjectionBaseline", {
+      as: "reference",
+    }) as {
+      flags: { list: string[]; map: Record<string, boolean> };
+    };
+    baseRef.flags.list.push("BASE");
+    baseRef.flags.map.BASE = true;
+
+    const star = run.get("*", { as: "snapshot" }) as {
+      scopeProjectionBaseline: { flags: { list: string[] } };
+      registeredById: Map<string, unknown>;
+      registeredQ: unknown[];
+      diagnostics: unknown[];
+    };
+
+    expect(star.scopeProjectionBaseline).toBeTruthy();
+    expect(star.scopeProjectionBaseline.flags.list).toContain("BASE");
+    expect(star.registeredById).toBeInstanceOf(Map);
+    expect(star.registeredQ).toBeInstanceOf(Array);
+    expect(star.diagnostics).toBeInstanceOf(Array);
+  });
+
+  it('STAR-02 — hydration roundtrip via get("*") works without manual extras', () => {
+    const run = createRuntime();
+    run.when({ signal: "s", targets: [() => undefined] } as never);
+
+    const baseRef = run.get("scopeProjectionBaseline", {
+      as: "reference",
+    }) as {
+      flags: { list: string[]; map: Record<string, boolean> };
+    };
+    baseRef.flags.list.push("BASE");
+    baseRef.flags.map.BASE = true;
+
+    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+      string,
+      unknown
+    >;
+
+    const rehydrated = createRuntime();
+    rehydrated.set(snapshot);
+
+    const base2 = rehydrated.get("scopeProjectionBaseline", {
+      as: "snapshot",
+    }) as {
+      flags: { list: string[]; map: Record<string, boolean> };
+    };
+    expect(base2.flags.list).toContain("BASE");
+    expect(base2.flags.map.BASE).toBe(true);
+
+    const byId = rehydrated.get("registeredById", {
+      as: "snapshot",
+    }) as Map<string, unknown>;
+    expect(byId).toBeInstanceOf(Map);
   });
 
   it("REF-ALIAS-01 — reference is alias: mutations are visible in subsequent snapshot", () => {
@@ -1873,8 +1956,12 @@ describe("conformance/get-set", () => {
       "backfillQ",
       "changedFlags",
       "defaults",
+      "diagnostics",
       "flags",
       "impulseQ",
+      "registeredById",
+      "registeredQ",
+      "scopeProjectionBaseline",
       "seenFlags",
       "seenSignals",
       "signal",
@@ -2308,17 +2395,18 @@ describe("conformance/get-set/scope-projection-baseline-after-set", () => {
 
     s.flagsTruth = { list: ["a"], map: { a: true } };
     s.flags = { list: ["a"], map: { a: true } };
+    const baseline = (
+      s as { scopeProjectionBaseline: ScopeProjectionBaselineSnapshot }
+    ).scopeProjectionBaseline;
+    baseline.flags = { list: ["a"], map: { a: true } };
+    baseline.changedFlags = undefined;
+    baseline.seenFlags = { list: [], map: {} };
+    baseline.signal = undefined;
+    baseline.seenSignals = { list: [], map: {} };
     s.seenFlags = { list: [], map: {} };
     s.seenSignals = { list: [], map: {} };
     s.signal = undefined;
     s.changedFlags = undefined;
-    (s as { scopeProjectionBaseline?: unknown }).scopeProjectionBaseline = {
-      flags: { list: ["a"], map: { a: true } },
-      changedFlags: undefined,
-      seenFlags: { list: [], map: {} },
-      signal: undefined,
-      seenSignals: { list: [], map: {} },
-    };
     s.impulseQ = {
       config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
       q: {
@@ -2360,13 +2448,14 @@ describe("conformance/get-set/scope-projection-baseline-after-set", () => {
 
     s.flagsTruth = { list: ["a"], map: { a: true } };
     s.flags = { list: ["a"], map: { a: true } };
-    (s as { scopeProjectionBaseline?: unknown }).scopeProjectionBaseline = {
-      flags: { list: ["a"], map: { a: true } },
-      changedFlags: undefined,
-      seenFlags: { list: [], map: {} },
-      signal: undefined,
-      seenSignals: { list: [], map: {} },
-    };
+    const baseline = (
+      s as { scopeProjectionBaseline: ScopeProjectionBaselineSnapshot }
+    ).scopeProjectionBaseline;
+    baseline.flags = { list: ["a"], map: { a: true } };
+    baseline.changedFlags = undefined;
+    baseline.seenFlags = { list: [], map: {} };
+    baseline.signal = undefined;
+    baseline.seenSignals = { list: [], map: {} };
     s.impulseQ = {
       config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
       q: { cursor: 0, entries: [] },
@@ -2403,6 +2492,14 @@ describe("conformance/get-set/scope-projection-signal-seenSignals", () => {
     s.seenFlags = { list: [], map: {} };
     s.flagsTruth = { list: [], map: {} };
     s.flags = { list: [], map: {} };
+    const baseline = (
+      s as { scopeProjectionBaseline: ScopeProjectionBaselineSnapshot }
+    ).scopeProjectionBaseline;
+    baseline.flags = { list: [], map: {} };
+    baseline.changedFlags = undefined;
+    baseline.seenFlags = { list: [], map: {} };
+    baseline.signal = "base";
+    baseline.seenSignals = { list: [], map: {} };
     s.impulseQ = {
       config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
       q: {
@@ -2442,13 +2539,14 @@ describe("conformance/get-set/scope-projection-signal-seenSignals", () => {
     s.seenFlags = { list: [], map: {} };
     s.flagsTruth = { list: [], map: {} };
     s.flags = { list: [], map: {} };
-    (s as { scopeProjectionBaseline?: unknown }).scopeProjectionBaseline = {
-      flags: { list: [], map: {} },
-      changedFlags: undefined,
-      seenFlags: { list: [], map: {} },
-      signal: "base",
-      seenSignals: { list: [], map: {} },
-    };
+    const baseline = (
+      s as { scopeProjectionBaseline: ScopeProjectionBaselineSnapshot }
+    ).scopeProjectionBaseline;
+    baseline.flags = { list: [], map: {} };
+    baseline.changedFlags = undefined;
+    baseline.seenFlags = { list: [], map: {} };
+    baseline.signal = "base";
+    baseline.seenSignals = { list: [], map: {} };
     s.impulseQ = {
       config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
       q: {
