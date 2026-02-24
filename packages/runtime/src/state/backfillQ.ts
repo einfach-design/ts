@@ -6,6 +6,9 @@
  * @description Backfill queue helpers.
  */
 
+import { hasOwn } from "../util/hasOwn.js";
+import { createNullProtoRecord, setNullProtoTrue } from "../util/nullProto.js";
+
 export type BackfillExpression = {
   id: string;
   tombstone?: true;
@@ -107,5 +110,3 @@ export function assertBackfillQInvariant<
     }
   }
 }
-import { hasOwn } from "../util/hasOwn.js";
-import { createNullProtoRecord, setNullProtoTrue } from "../util/nullProto.js";
