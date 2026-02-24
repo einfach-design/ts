@@ -1317,6 +1317,94 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     expect(() => rehydrated.set(snap as never)).not.toThrow();
   });
 
+  it("HYDRATE-NEG-01 — registeredQ must be an array", () => {
+    const run = createRuntime();
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    snap.registeredQ = {};
+
+    const rehydrated = createRuntime();
+    const diags: Array<{ code?: string }> = [];
+    rehydrated.onDiagnostic((d) => diags.push(d));
+
+    expect(() => rehydrated.set(snap)).toThrow(
+      "set.hydration.registeredQInvalid",
+    );
+    expect(
+      diags.some((d) => d.code === "set.hydration.registeredQInvalid"),
+    ).toBe(true);
+  });
+
+  it("HYDRATE-NEG-02 — registeredQ entries must have string id", () => {
+    const run = createRuntime();
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    snap.registeredQ = [{ id: 1 }];
+
+    const rehydrated = createRuntime();
+    expect(() => rehydrated.set(snap)).toThrow(
+      "set.hydration.registeredQInvalid",
+    );
+  });
+
+  it("HYDRATE-NEG-03 — registeredQ ids must be unique non-empty", () => {
+    const run = createRuntime();
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    snap.registeredQ = [{ id: "x" }, { id: "x" }];
+
+    const rehydrated = createRuntime();
+    expect(() => rehydrated.set(snap)).toThrow(
+      "set.hydration.registeredQInvalid",
+    );
+
+    const snap2 = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    snap2.registeredQ = [{ id: "   " }];
+
+    const rehydrated2 = createRuntime();
+    expect(() => rehydrated2.set(snap2)).toThrow(
+      "set.hydration.registeredQInvalid",
+    );
+  });
+
+  it("HYDRATE-NEG-04 — diagnostics must be an array", () => {
+    const run = createRuntime();
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    snap.diagnostics = {};
+
+    const rehydrated = createRuntime();
+    const diags: Array<{ code?: string }> = [];
+    rehydrated.onDiagnostic((d) => diags.push(d));
+
+    expect(() => rehydrated.set(snap)).toThrow(
+      "set.hydration.diagnosticsInvalid",
+    );
+    expect(
+      diags.some((d) => d.code === "set.hydration.diagnosticsInvalid"),
+    ).toBe(true);
+  });
+
+  it("HYDRATE-NEG-05 — diagnostics entries must have non-empty string code", () => {
+    const run = createRuntime();
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    snap.diagnostics = [{ code: "" }];
+
+    const rehydrated = createRuntime();
+    expect(() => rehydrated.set(snap)).toThrow(
+      "set.hydration.diagnosticsInvalid",
+    );
+
+    const snap2 = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    snap2.diagnostics = [{ msg: "x" }];
+
+    const rehydrated2 = createRuntime();
+    expect(() => rehydrated2.set(snap2)).toThrow(
+      "set.hydration.diagnosticsInvalid",
+    );
+  });
+
   it("SET-TRIM-BASELINE-03 — pristine hydration + trim must not double-apply removed applied entries into scopeProjectionBaseline", () => {
     const run = createRuntime();
 
