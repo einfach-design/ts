@@ -232,7 +232,7 @@ function readonlyView<T>(value: T): T {
 
           const current = Reflect.get(target, prop, target);
           if (typeof current === "function") {
-            return current.bind(target);
+            return throwReadonlyError;
           }
 
           return toReadonly(current);
@@ -320,7 +320,7 @@ function readonlyView<T>(value: T): T {
 
           const current = Reflect.get(target, prop, target);
           if (typeof current === "function") {
-            return current.bind(target);
+            return throwReadonlyError;
           }
 
           return toReadonly(current);

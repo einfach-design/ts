@@ -1630,10 +1630,10 @@ describe("conformance/get-set", () => {
         signal: "s",
         targets: [() => undefined],
       } as never),
-    ).toThrow();
+    ).toThrow("add.id.invalid");
     expect(() =>
       run.add({ id: "bad", signal: "", targets: [() => undefined] } as never),
-    ).toThrow();
+    ).toThrow("add.signals.invalid");
 
     const baseRef = run.get("scopeProjectionBaseline", {
       as: "reference",
@@ -1744,10 +1744,10 @@ describe("conformance/get-set", () => {
     const run = createRuntime();
     expect(() =>
       run.add({ id: 123 as never, signal: "s", targets: [() => undefined] }),
-    ).toThrow();
+    ).toThrow("add.id.invalid");
 
     const snap = run.get("*", { as: "snapshot" }) as {
-      diagnostics: Array<{ code: string }>;
+      diagnostics: Array<{ code: string; data?: unknown }>;
     };
     const rehydrated = createRuntime();
     rehydrated.set(snap as never);
@@ -1756,11 +1756,95 @@ describe("conformance/get-set", () => {
     const d2 = (
       rehydrated.get("diagnostics", { as: "snapshot" }) as Array<{
         code: string;
+        data?: unknown;
       }>
     )[0]!;
 
     expect(d2).not.toBe(d1);
     expect(d2.code).toBe(d1.code);
+    expect(d2).toEqual(d1);
+    if (typeof d1.data === "object" && d1.data !== null) {
+      expect(d2.data).not.toBe(d1.data);
+    }
+  });
+
+  it("DIAG-REF-01 — diagnostics reference reflects shrink (no stale cache)", () => {
+    const run = createRuntime();
+
+    try {
+      run.add({
+        id: 123 as never,
+        signal: "s",
+        targets: [() => undefined],
+      } as never);
+    } catch {
+      // expected
+    }
+    try {
+      run.add({
+        id: "ok",
+        signal: "" as never,
+        targets: [() => undefined],
+      } as never);
+    } catch {
+      // expected
+    }
+
+    const r1 = run.get("diagnostics", { as: "reference" }) as unknown[];
+    expect(r1.length).toBeGreaterThanOrEqual(2);
+
+    const snap = run.get("*", { as: "snapshot" }) as {
+      diagnostics: unknown[];
+    };
+    snap.diagnostics = [];
+
+    const rehydrated = createRuntime();
+    rehydrated.set(snap);
+
+    const r2 = rehydrated.get("diagnostics", { as: "reference" }) as unknown[];
+    expect(r2.length).toBe(0);
+  });
+
+  it("DIAG-REF-02 — diagnostics reference updates on same-length rebuild (no stale objects)", () => {
+    const run = createRuntime();
+
+    try {
+      run.add({
+        id: 123 as never,
+        signal: "s",
+        targets: [() => undefined],
+      } as never);
+    } catch {
+      // expected
+    }
+    try {
+      run.add({
+        id: "ok",
+        signal: "" as never,
+        targets: [() => undefined],
+      } as never);
+    } catch {
+      // expected
+    }
+
+    const snap = run.get("*", { as: "snapshot" }) as {
+      diagnostics: unknown[];
+    };
+
+    const rehydrated = createRuntime();
+    rehydrated.set(snap);
+
+    const r1 = rehydrated.get("diagnostics", { as: "reference" }) as unknown[];
+    expect(r1.length).toBe(snap.diagnostics.length);
+    const old0 = r1[0];
+
+    rehydrated.set(snap);
+
+    const r2 = rehydrated.get("diagnostics", { as: "reference" }) as unknown[];
+    expect(r2).toBe(r1);
+    if (r2.length > 0) {
+      expect(r2[0]).not.toBe(old0);
+    }
   });
 
   it("STAR-06 — hydration ignores provided registeredById and rebuilds from registeredQ", () => {
@@ -2024,8 +2108,8 @@ describe("conformance/get-set", () => {
     const after = run.get("diagnostics", { as: "snapshot" }) as Array<{
       code: string;
     }>;
-    expect(after.length).toBe(before.length + 1);
-    expect(after.some((d) => d.code === "test.injected")).toBe(true);
+    expect(after.length).toBe(before.length);
+    expect(after.some((d) => d.code === "test.injected")).toBe(false);
   });
 
   it("REF-ALIAS-08 — reference scopeProjectionBaseline is alias (mutation visible in snapshot)", () => {

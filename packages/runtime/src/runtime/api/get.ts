@@ -193,8 +193,26 @@ const getDiagnosticsReference = (
     return latest;
   }
 
+  // Grow: append delta
   if (latest.length > cached.length) {
     cached.push(...latest.slice(cached.length));
+    return cached;
+  }
+
+  // Shrink OR rebuild (clear + re-emit)
+  if (latest.length !== cached.length) {
+    cached.length = 0;
+    cached.push(...latest);
+    return cached;
+  }
+
+  // Same length but different objects (rebuild)
+  for (let i = 0; i < latest.length; i++) {
+    if (cached[i] !== latest[i]) {
+      cached.length = 0;
+      cached.push(...latest);
+      break;
+    }
   }
 
   return cached;

@@ -94,7 +94,7 @@ describe("conformance/backfill-pending", () => {
         },
         targets: [() => {}],
       }),
-    ).toThrow();
+    ).toThrow("Duplicate registered expression id: expr:id-reuse:first");
 
     run.add({
       id: secondId,

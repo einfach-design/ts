@@ -195,7 +195,7 @@ describe("conformance/use-case-coverage/registry-id-uniqueness", () => {
         signal: "s",
         targets: [() => undefined],
       }),
-    ).toThrow();
+    ).toThrow("Duplicate registered expression id: uc:REG04");
   });
 });
 
@@ -2004,22 +2004,19 @@ describe("conformance/use-case-coverage/add-validation-more", () => {
         signal: "s",
         targets: [undefined as never],
       } as never),
-    ).toThrow();
+    ).toThrow("add.objectTarget.missingEntrypoint");
 
     // should not register anything
     expect(registeredById(run).has("uc:MIN-VAL-02")).toBe(false);
 
-    // and must emit a deterministic add.* diagnostic
-    expect(
-      diags.some((d) => {
-        if (typeof d !== "object" || d === null || !("code" in d)) {
-          return false;
-        }
-
-        const { code } = d as { code: unknown };
-        return typeof code === "string" && code.startsWith("add.");
-      }),
-    ).toBe(true);
+    const codes = diags
+      .filter(
+        (d): d is { code: unknown } =>
+          typeof d === "object" && d !== null && "code" in d,
+      )
+      .map((d) => d.code)
+      .filter((c): c is string => typeof c === "string");
+    expect(codes).toContain("add.objectTarget.missingEntrypoint");
   });
 });
 
