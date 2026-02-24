@@ -746,13 +746,6 @@ export function runSet(
       }
 
       const hydration = patch as Record<string, unknown>;
-      const isPristineHydrationTarget =
-        store.impulseQ.q.entries.length === 0 &&
-        store.impulseQ.q.cursor === 0 &&
-        store.flagsTruth.list.length === 0 &&
-        store.seenFlags.list.length === 0 &&
-        store.signal === undefined &&
-        store.seenSignals.list.length === 0;
 
       assertValidDefaultsSnapshot(diagnostics, hydration.defaults);
       const hydrationDefaults = hydration.defaults as Defaults;
@@ -973,17 +966,7 @@ export function runSet(
         hasOwn(hydration, "scopeProjectionBaseline") &&
         hydration.scopeProjectionBaseline !== undefined
           ? (hydration.scopeProjectionBaseline as ScopeProjectionBaseline)
-          : isPristineHydrationTarget
-            ? {
-                flags: nextFlagsTruth,
-                changedFlags: hasOwn(hydration, "changedFlags")
-                  ? nextChangedFlags
-                  : undefined,
-                seenFlags: nextSeenFlags,
-                signal: nextSignal,
-                seenSignals: nextSeenSignals,
-              }
-            : store.scopeProjectionBaseline;
+          : store.scopeProjectionBaseline;
 
       store.defaults = nextDefaults;
       store.flagsTruth = nextFlagsTruth;
