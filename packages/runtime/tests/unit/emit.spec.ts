@@ -79,12 +79,12 @@ describe("diagnostics/emit", () => {
       (diagnostic: { message: string; data?: { value?: number } }) => {
         expect(() => {
           (diagnostic as { message: string }).message = "mutated";
-        }).toThrow();
+        }).toThrow(TypeError);
         expect(() => {
           if (diagnostic.data !== undefined) {
             diagnostic.data.value = 2;
           }
-        }).toThrow();
+        }).toThrow(TypeError);
       },
     );
 

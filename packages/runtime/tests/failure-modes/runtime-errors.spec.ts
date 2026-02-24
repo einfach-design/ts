@@ -772,7 +772,7 @@ describe("failure-modes/runtime-errors", () => {
           signal: "s",
           targets: [] as unknown as never[],
         } as never),
-      ).toThrow();
+      ).toThrow("add.target.required");
 
       // runtime must not throw due to listener crash beyond the expected add-throw
       // and listener B must have received both:
@@ -809,7 +809,7 @@ describe("failure-modes/runtime-errors", () => {
           signal: "s",
           targets: [] as unknown as never[],
         } as never),
-      ).toThrow();
+      ).toThrow("add.target.required");
 
       // must emit at least one listenerError, but not an unbounded cascade
       const listenerErrors = seen.filter(

@@ -1592,92 +1592,118 @@ describe("conformance/use-case-coverage/add-validation-more", () => {
 describe("conformance/use-case-coverage/string-input-policy", () => {
   it("MIN-STR-01 — empty/whitespace-only id/signal/signals/flags must be rejected", () => {
     const run = createRuntime();
-    const diags: unknown[] = [];
+    const diags: Array<{ code?: unknown }> = [];
     run.onDiagnostic((d) => diags.push(d));
 
+    const expectRejectWithDiag = (
+      fn: () => unknown,
+      expectedThrow: string,
+      expectedDiag?: string,
+    ) => {
+      const before = diags.length;
+      expect(fn).toThrow(expectedThrow);
+      const newly = diags
+        .slice(before)
+        .map((d) => d.code)
+        .filter((c): c is string => typeof c === "string");
+      if (expectedDiag !== undefined) {
+        expect(newly).toContain(expectedDiag);
+      }
+    };
+
     // id
-    expect(() =>
-      run.when({
-        id: "",
-        signal: "s",
-        targets: [() => undefined],
-      } as never),
-    ).toThrow();
+    expectRejectWithDiag(
+      () =>
+        run.when({
+          id: "",
+          signal: "s",
+          targets: [() => undefined],
+        } as never),
+      "add.id.invalid",
+      "add.id.invalid",
+    );
     expect(registeredById(run).has("")).toBe(false);
 
-    expect(() =>
-      run.when({
-        id: "   ",
-        signal: "s",
-        targets: [() => undefined],
-      } as never),
-    ).toThrow();
+    expectRejectWithDiag(
+      () =>
+        run.when({
+          id: "   ",
+          signal: "s",
+          targets: [() => undefined],
+        } as never),
+      "add.id.invalid",
+      "add.id.invalid",
+    );
     expect(registeredById(run).has("   ")).toBe(false);
 
     // signal (single)
-    expect(() =>
-      run.when({
-        id: "uc:MIN-STR-01:s1",
-        signal: "",
-        targets: [() => undefined],
-      } as never),
-    ).toThrow();
+    expectRejectWithDiag(
+      () =>
+        run.when({
+          id: "uc:MIN-STR-01:s1",
+          signal: "",
+          targets: [() => undefined],
+        } as never),
+      "add.signals.invalid",
+      "add.signals.invalid",
+    );
 
-    expect(() =>
-      run.when({
-        id: "uc:MIN-STR-01:s2",
-        signal: "   ",
-        targets: [() => undefined],
-      } as never),
-    ).toThrow();
+    expectRejectWithDiag(
+      () =>
+        run.when({
+          id: "uc:MIN-STR-01:s2",
+          signal: "   ",
+          targets: [() => undefined],
+        } as never),
+      "add.signals.invalid",
+      "add.signals.invalid",
+    );
 
     // signals (array entries)
-    expect(() =>
-      run.when({
-        id: "uc:MIN-STR-01:sa1",
-        signals: [""],
-        targets: [() => undefined],
-      } as never),
-    ).toThrow();
+    expectRejectWithDiag(
+      () =>
+        run.when({
+          id: "uc:MIN-STR-01:sa1",
+          signals: [""],
+          targets: [() => undefined],
+        } as never),
+      "add.signals.invalid",
+      "add.signals.invalid",
+    );
 
-    expect(() =>
-      run.when({
-        id: "uc:MIN-STR-01:sa2",
-        signals: ["a", "   "],
-        targets: [() => undefined],
-      } as never),
-    ).toThrow();
+    expectRejectWithDiag(
+      () =>
+        run.when({
+          id: "uc:MIN-STR-01:sa2",
+          signals: ["a", "   "],
+          targets: [() => undefined],
+        } as never),
+      "add.signals.invalid",
+      "add.signals.invalid",
+    );
 
     // flags token
-    expect(() =>
-      run.when({
-        id: "uc:MIN-STR-01:f1",
-        signal: "s",
-        flags: [""],
-        targets: [() => undefined],
-      } as never),
-    ).toThrow();
+    expectRejectWithDiag(
+      () =>
+        run.when({
+          id: "uc:MIN-STR-01:f1",
+          signal: "s",
+          flags: [""],
+          targets: [() => undefined],
+        } as never),
+      "add.flags.invalidToken",
+    );
 
-    expect(() =>
-      run.when({
-        id: "uc:MIN-STR-01:f2",
-        signal: "s",
-        flags: ["   "],
-        targets: [() => undefined],
-      } as never),
-    ).toThrow();
-
-    // deterministic add.* diagnostics should exist (we don't pin exact codes/messages)
-    expect(
-      diags.some((d) => {
-        if (typeof d !== "object" || d === null || !("code" in d)) {
-          return false;
-        }
-
-        const { code } = d as { code: unknown };
-        return typeof code === "string" && code.startsWith("add.");
-      }),
-    ).toBe(true);
+    expectRejectWithDiag(
+      () =>
+        run.when({
+          id: "uc:MIN-STR-01:f2",
+          signal: "s",
+          flags: ["   "],
+          targets: [() => undefined],
+        } as never),
+      "add.flags.invalidToken",
+    );
   });
 
   it("MIN-STR-02 — whitespace is NOT trimmed (exact match semantics)", () => {
