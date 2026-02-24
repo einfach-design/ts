@@ -276,41 +276,54 @@ export function runGet(
       selectedSeenSignals = projectedFlagsState.seenSignals;
     }
 
-    const selectedDiagnostics = getDiagnosticsReference(diagnostics);
-
-    const valueByKey: Record<AllowedGetKey, unknown> = {
-      defaults: store.defaults,
-      flags: selectedFlags,
-      changedFlags: selectedChangedFlags,
-      seenFlags: selectedSeenFlags,
-      signal: selectedSignal,
-      seenSignals: selectedSeenSignals,
-      scopeProjectionBaseline: store.scopeProjectionBaseline,
-      impulseQ: selectedImpulseQ,
-      backfillQ: toBackfillQSnapshot(store.backfillQ),
-      registeredQ: expressionRegistry.registeredQ,
-      registeredById: expressionRegistry.registeredById,
-      diagnostics: selectedDiagnostics,
-      "*": {
-        defaults: store.defaults,
-        flags: selectedFlags,
-        changedFlags: selectedChangedFlags,
-        seenFlags: selectedSeenFlags,
-        signal: selectedSignal,
-        seenSignals: selectedSeenSignals,
-        scopeProjectionBaseline: store.scopeProjectionBaseline,
-        impulseQ: selectedImpulseQ,
-        backfillQ: toBackfillQSnapshot(store.backfillQ),
-        registeredById: expressionRegistry.registeredById,
-        registeredQ: expressionRegistry.registeredQ,
-        diagnostics: selectedDiagnostics,
-      },
+    // NOTE: keep derived values lazy (esp. backfillQ snapshot) to avoid hot-path overhead.
+    const getSelectedValue = (rk: AllowedGetKey): unknown => {
+      switch (rk) {
+        case "defaults":
+          return store.defaults;
+        case "flags":
+          return selectedFlags;
+        case "changedFlags":
+          return selectedChangedFlags;
+        case "seenFlags":
+          return selectedSeenFlags;
+        case "signal":
+          return selectedSignal;
+        case "seenSignals":
+          return selectedSeenSignals;
+        case "scopeProjectionBaseline":
+          return store.scopeProjectionBaseline;
+        case "impulseQ":
+          return selectedImpulseQ;
+        case "backfillQ":
+          return toBackfillQSnapshot(store.backfillQ);
+        case "registeredQ":
+          return expressionRegistry.registeredQ;
+        case "registeredById":
+          return expressionRegistry.registeredById;
+        case "diagnostics":
+          return getDiagnosticsReference(diagnostics);
+        case "*":
+          return {
+            defaults: store.defaults,
+            flags: selectedFlags,
+            changedFlags: selectedChangedFlags,
+            seenFlags: selectedSeenFlags,
+            signal: selectedSignal,
+            seenSignals: selectedSeenSignals,
+            scopeProjectionBaseline: store.scopeProjectionBaseline,
+            impulseQ: selectedImpulseQ,
+            backfillQ: toBackfillQSnapshot(store.backfillQ),
+            registeredQ: expressionRegistry.registeredQ,
+            registeredById: expressionRegistry.registeredById,
+            diagnostics: getDiagnosticsReference(diagnostics),
+          };
+      }
     };
 
-    const selected =
-      key !== undefined
-        ? valueByKey[resolvedKey as AllowedGetKey]
-        : valueByKey["*"];
+    const selected = getSelectedValue(
+      key !== undefined ? (resolvedKey as AllowedGetKey) : "*",
+    );
     if (as === "reference") {
       return selected; // UNSAFE FAST PATH: alias for ALL keys
     }
