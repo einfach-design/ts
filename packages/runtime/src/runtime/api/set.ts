@@ -643,6 +643,39 @@ export function runSet(
     return value;
   };
 
+  const assertHydrationScopeProjectionBaseline = (
+    value: unknown,
+  ): ScopeProjectionBaseline => {
+    if (!isRecordObject(value)) {
+      diagnostics.emit({
+        code: "set.hydration.scopeProjectionBaselineInvalid",
+        message: "Hydration scopeProjectionBaseline must be a record object.",
+        severity: "error",
+        data: {
+          field: "scopeProjectionBaseline",
+          valueType: toValueType(value),
+        },
+      });
+      throw new Error("set.hydration.scopeProjectionBaselineInvalid");
+    }
+
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    if (Object.values(descriptors).some((descriptor) => descriptor.get)) {
+      return value as ScopeProjectionBaseline;
+    }
+
+    return {
+      flags: assertHydrationFlagsView("flags", value.flags),
+      changedFlags:
+        hasOwn(value, "changedFlags") && value.changedFlags !== undefined
+          ? assertHydrationFlagsView("changedFlags", value.changedFlags)
+          : undefined,
+      seenFlags: assertHydrationFlagsView("seenFlags", value.seenFlags),
+      signal: assertHydrationSignal(value.signal),
+      seenSignals: assertHydrationSeenSignals(value.seenSignals),
+    };
+  };
+
   const assertHydrationBackfillQ = (value: unknown): FlagsView => {
     if (
       !isRecordObject(value) ||
@@ -1051,7 +1084,9 @@ export function runSet(
       const nextScopeProjectionBaseline =
         hasOwn(hydration, "scopeProjectionBaseline") &&
         hydration.scopeProjectionBaseline !== undefined
-          ? (hydration.scopeProjectionBaseline as ScopeProjectionBaseline)
+          ? assertHydrationScopeProjectionBaseline(
+              hydration.scopeProjectionBaseline,
+            )
           : store.scopeProjectionBaseline;
 
       store.defaults = nextDefaults;

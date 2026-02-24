@@ -1317,6 +1317,120 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     expect(() => rehydrated.set(snap as never)).not.toThrow();
   });
 
+  it("HYDRATE-NEG-SPB-01 — scopeProjectionBaseline must be a record object", () => {
+    const run = createRuntime();
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    snap.scopeProjectionBaseline = "nope";
+
+    const rehydrated = createRuntime();
+    const diags: Array<{ code?: string }> = [];
+    rehydrated.onDiagnostic((d) => diags.push(d));
+
+    expect(() => rehydrated.set(snap)).toThrow(
+      "set.hydration.scopeProjectionBaselineInvalid",
+    );
+    expect(
+      diags.some(
+        (d) => d.code === "set.hydration.scopeProjectionBaselineInvalid",
+      ),
+    ).toBe(true);
+  });
+
+  it("HYDRATE-NEG-SPB-02 — scopeProjectionBaseline.flags must be flagsView", () => {
+    const run = createRuntime();
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    const scopeProjectionBaseline = snap.scopeProjectionBaseline as Record<
+      string,
+      unknown
+    >;
+    snap.scopeProjectionBaseline = {
+      ...scopeProjectionBaseline,
+      flags: { list: "nope", map: {} },
+    };
+
+    const rehydrated = createRuntime();
+    expect(() => rehydrated.set(snap)).toThrow(
+      "set.hydration.flagsViewInvalid",
+    );
+  });
+
+  it("HYDRATE-NEG-SPB-03 — scopeProjectionBaseline.seenFlags must be flagsView", () => {
+    const run = createRuntime();
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    const scopeProjectionBaseline = snap.scopeProjectionBaseline as Record<
+      string,
+      unknown
+    >;
+    snap.scopeProjectionBaseline = {
+      ...scopeProjectionBaseline,
+      seenFlags: { list: [], map: "nope" },
+    };
+
+    const rehydrated = createRuntime();
+    expect(() => rehydrated.set(snap)).toThrow(
+      "set.hydration.flagsViewInvalid",
+    );
+  });
+
+  it("HYDRATE-NEG-SIG-01 — signal must be string or undefined", () => {
+    const run = createRuntime();
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    snap.signal = 123;
+
+    const rehydrated = createRuntime();
+    const diags: Array<{ code?: string }> = [];
+    rehydrated.onDiagnostic((d) => diags.push(d));
+
+    expect(() => rehydrated.set(snap)).toThrow("set.hydration.signalInvalid");
+    expect(diags.some((d) => d.code === "set.hydration.signalInvalid")).toBe(
+      true,
+    );
+  });
+
+  it("HYDRATE-NEG-SS-01 — seenSignals must be a {list,map} record", () => {
+    const run = createRuntime();
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    snap.seenSignals = { list: "nope", map: {} };
+
+    const rehydrated = createRuntime();
+    const diags: Array<{ code?: string }> = [];
+    rehydrated.onDiagnostic((d) => diags.push(d));
+
+    expect(() => rehydrated.set(snap)).toThrow(
+      "set.hydration.seenSignalsInvalid",
+    );
+    expect(
+      diags.some((d) => d.code === "set.hydration.seenSignalsInvalid"),
+    ).toBe(true);
+  });
+
+  it("HYDRATE-NEG-FV-01 — flags views must be valid (list array, map record)", () => {
+    const run = createRuntime();
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    snap.flags = { list: {}, map: {} };
+
+    const rehydrated = createRuntime();
+    expect(() => rehydrated.set(snap)).toThrow(
+      "set.hydration.flagsViewInvalid",
+    );
+  });
+
+  it('HYDRATE-POS-01 — set(get("*",{as:"snapshot"})) still works', () => {
+    const run = createRuntime();
+    run.when({ signal: "s", targets: [() => undefined] } as never);
+
+    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+
+    const rehydrated = createRuntime();
+    expect(() => rehydrated.set(snap)).not.toThrow();
+  });
+
   it("HYDRATE-NEG-01 — registeredQ must be an array", () => {
     const run = createRuntime();
     const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
