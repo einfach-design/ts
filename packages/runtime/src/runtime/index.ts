@@ -110,7 +110,7 @@ type RuntimeCompat = Readonly<{
   impulse: (opts?: unknown) => void;
   get: (
     key?: string,
-    opts?: { as?: "snapshot" | "reference"; scope?: string },
+    opts?: { as?: "snapshot" | "reference" | "unsafeAlias"; scope?: string },
   ) => unknown;
   set: (patch: Record<string, unknown>) => void;
   matchExpression: (opts: MatchExpressionOpts) => boolean;
@@ -119,12 +119,24 @@ type RuntimeCompat = Readonly<{
   ) => () => void;
 }>;
 
+const resolveIsDevMode = (): boolean => {
+  if (typeof process === "undefined") {
+    return false;
+  }
+
+  return process.env.NODE_ENV !== "production";
+};
+
 /**
  * Creates a Runtime instance as defined by the Runtime Spec.
  */
-export function createRuntime(): RuntimeCompat {
+export function createRuntime(opts?: {
+  allowUnsafeAlias?: boolean;
+}): RuntimeCompat {
   const expressionRegistry = registry<RegisteredExpression>();
   const store = initRuntimeStore<RegisteredExpression>();
+  const allowUnsafeAlias = opts?.allowUnsafeAlias === true;
+  const isDevMode = resolveIsDevMode();
 
   let handlingDiagnosticListenerError = false;
 
@@ -160,7 +172,9 @@ export function createRuntime(): RuntimeCompat {
     get(key, opts) {
       return runtime.get(
         key as RunGetKey | undefined,
-        opts as { as?: "snapshot" | "reference"; scope?: RunScope } | undefined,
+        opts as
+          | { as?: "snapshot" | "reference" | "unsafeAlias"; scope?: RunScope }
+          | undefined,
       );
     },
     matchExpression(opts) {
@@ -855,7 +869,16 @@ export function createRuntime(): RuntimeCompat {
     },
 
     get(key, opts) {
-      return runGet(store, deps, key, opts);
+      return runGet(
+        store,
+        {
+          ...deps,
+          allowUnsafeAlias,
+          isDevMode,
+        },
+        key,
+        opts,
+      );
     },
 
     set(patch) {

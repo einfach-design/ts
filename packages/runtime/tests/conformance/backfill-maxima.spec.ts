@@ -3,7 +3,7 @@ import { createRuntime } from "../../src/index.js";
 
 describe("conformance/backfill-maxima", () => {
   it("treats gate max reached as reject without debt shrink or run increment", () => {
-    const run = createRuntime();
+    const run = createRuntime({ allowUnsafeAlias: true });
 
     run.add({
       id: "expr:maxed",
@@ -18,7 +18,7 @@ describe("conformance/backfill-maxima", () => {
 
     run.impulse({ addFlags: ["tick"] });
 
-    const byId = run.get("registeredById", { as: "reference" }) as Map<
+    const byId = run.get("registeredById", { as: "unsafeAlias" }) as Map<
       string,
       {
         backfill?: {

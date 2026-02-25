@@ -120,7 +120,10 @@ export type RunTime = Readonly<{
   impulse: (opts?: ImpulseOpts) => void;
   get: (
     key?: RunGetKey,
-    opts?: { as?: "snapshot" | "reference"; scope?: RunScope },
+    opts?: {
+      as?: "snapshot" | "reference" | "unsafeAlias";
+      scope?: RunScope;
+    },
   ) => unknown;
   set: (patch: RunSetInput) => void;
   matchExpression: (opts: MatchExpressionOpts) => boolean;

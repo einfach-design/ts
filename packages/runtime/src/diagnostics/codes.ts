@@ -419,6 +419,33 @@ export const DIAGNOSTIC_CODES = {
       key: "string",
     },
   },
+  "runtime.get.reference.fallbackSnapshot": {
+    description:
+      "get reference mode fell back to a snapshot for an opaque value kind.",
+    severity: "info",
+    shape: {
+      key: "string?",
+      scope: "string?",
+      valueKind: "string",
+    },
+  },
+  "runtime.get.unsafeAlias.used": {
+    description: "get unsafeAlias mode returned a direct internal alias.",
+    severity: "info",
+    shape: {
+      key: "string?",
+      scope: "string?",
+    },
+  },
+  "get.as.unsafeAlias.forbidden": {
+    description:
+      "get unsafeAlias mode is forbidden in development unless explicitly enabled.",
+    severity: "error",
+    shape: {
+      key: "string?",
+      scope: "string?",
+    },
+  },
   "impulse.input.invalid": {
     description: "Invalid impulse payload was rejected.",
     severity: "error",

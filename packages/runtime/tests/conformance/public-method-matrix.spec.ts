@@ -76,6 +76,15 @@ describe("conformance/public-method-matrix", () => {
       expect(() =>
         run.get(key, { as: "snapshot", scope: "pendingOnly" }),
       ).not.toThrow();
+      expect(() => run.get(key, { as: "unsafeAlias" })).toThrow(
+        "get.as.unsafeAlias.forbidden",
+      );
+    }
+
+    const runUnsafe = createRuntime({ allowUnsafeAlias: true });
+    runUnsafe.impulse({ signals: ["s1"], addFlags: ["a"] });
+    for (const key of getKeys) {
+      expect(runUnsafe.get(key, { as: "unsafeAlias" })).toBeDefined();
     }
 
     expect(() => run.get("__invalid__")).toThrow("get.key.invalid");
