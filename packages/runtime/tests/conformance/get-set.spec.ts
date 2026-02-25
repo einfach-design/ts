@@ -2084,6 +2084,52 @@ describe("conformance/get-set", () => {
       () => new (ref as unknown as new (...args: unknown[]) => unknown)(),
     ).toThrow("runtime.readonly");
   });
+
+  it("REF-FALLBACK-05 — reference wraps nested Function as readonly + emits telemetry once", () => {
+    const run = createRuntime({ allowUnsafeAlias: true });
+    const events: Array<{ code: string; data?: Record<string, unknown> }> = [];
+    run.onDiagnostic((d) =>
+      events.push({
+        code: d.code,
+        ...(d.data !== undefined
+          ? { data: d.data as Record<string, unknown> }
+          : {}),
+      }),
+    );
+
+    const fn = function nestedFn() {
+      return 123;
+    };
+
+    const alias = run.get("flags", { as: "unsafeAlias" }) as {
+      map: Record<string, unknown>;
+    };
+    alias.map.fn = fn;
+
+    const ref = run.get("flags", { as: "reference" }) as {
+      map: {
+        fn: ((...args: unknown[]) => unknown) & { x?: number };
+      };
+    };
+
+    const nested = ref.map.fn;
+    expect(typeof nested).toBe("function");
+
+    expect(() => {
+      nested.x = 1;
+    }).toThrow("runtime.readonly");
+    expect(() => nested()).toThrow("runtime.readonly");
+
+    const nestedAgain = ref.map.fn;
+    expect(() => nestedAgain()).toThrow("runtime.readonly");
+
+    const fallbackEvents = events.filter(
+      (e) => e.code === "runtime.get.reference.fallbackSnapshot",
+    );
+    expect(fallbackEvents).toHaveLength(1);
+    expect(fallbackEvents[0]?.data?.valueKind).toBe("Function");
+  });
+
   it("UNSAFE-ALIAS-03 — unsafeAlias aliases state when enabled", () => {
     const run = createRuntime({ allowUnsafeAlias: true });
     const events: Array<{ code: string }> = [];
