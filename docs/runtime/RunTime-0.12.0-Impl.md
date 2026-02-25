@@ -234,8 +234,12 @@ Nur in Tests (`__TEST__`), niemals Teil der public API.
 
 #### Schritt 4 — Value-Kind Klassifikation für Telemetry
 
-`valueKind` wird deterministisch und ohne Objekt-Dumps gebildet, mindestens mit folgenden Klassen:
+Bei `runtime.get.reference.fallbackSnapshot` **MUSS** `valueKind` immer gesetzt sein (nie `undefined`).
 
+`valueKind` wird deterministisch und ohne Objekt-Dumps gebildet. Der Katalog ist:
+
+- `Null`
+- `Primitive`
 - `Array`
 - `PlainObject`
 - `Date`
@@ -245,6 +249,7 @@ Nur in Tests (`__TEST__`), niemals Teil der public API.
 - `Function`
 - `Error`
 - `UnknownObject`
+- `NonWrappableObject` (Proxy-Invariants verhindern Wrapping; deshalb Fallback auf Snapshot)
 
 Keine Objekt-Payloads, keine serialisierten Dumps im Event.
 

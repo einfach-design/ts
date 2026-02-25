@@ -1982,12 +1982,13 @@ describe("conformance/get-set", () => {
 
     expect(() => ref.set("x", {})).toThrow("runtime.readonly");
 
+    const fallbackEvent = events.find(
+      (e) => e.code === "runtime.get.reference.fallbackSnapshot",
+    );
+    expect(fallbackEvent?.data?.valueKind).toBe("Map");
     expect(
-      events.some(
-        (e) =>
-          e.code === "runtime.get.reference.fallbackSnapshot" &&
-          e.data?.valueKind === "Map",
-      ),
+      typeof fallbackEvent?.data?.valueKind === "string" &&
+        fallbackEvent.data.valueKind.length > 0,
     ).toBe(true);
   });
 
@@ -2024,12 +2025,13 @@ describe("conformance/get-set", () => {
       ref.locked.x = 2;
     }).toThrow("runtime.readonly");
 
+    const fallbackEvent = events.find(
+      (e) => e.code === "runtime.get.reference.fallbackSnapshot",
+    );
+    expect(fallbackEvent?.data?.valueKind).toBe("NonWrappableObject");
     expect(
-      events.some(
-        (e) =>
-          e.code === "runtime.get.reference.fallbackSnapshot" &&
-          e.data?.valueKind === "NonWrappableObject",
-      ),
+      typeof fallbackEvent?.data?.valueKind === "string" &&
+        fallbackEvent.data.valueKind.length > 0,
     ).toBe(true);
 
     expect(ref.locked).not.toBe(inner);
