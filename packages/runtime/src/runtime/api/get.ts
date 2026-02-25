@@ -8,7 +8,12 @@ import {
 } from "../../state/flagsView.js";
 import { extendSeenSignals, projectSignal } from "../../state/signals.js";
 import type { ImpulseQEntryCanonical } from "../../canon/impulseEntry.js";
-import { snapshot } from "../util.js";
+import {
+  classifyValueKind,
+  readonlyOpaque,
+  readonlyView,
+  snapshot,
+} from "../util.js";
 import type { RuntimeStore } from "../store.js";
 import type { DiagnosticCollector } from "../../diagnostics/index.js";
 import type { RegistryStore } from "../../state/registry.js";
@@ -223,12 +228,16 @@ export function runGet(
   {
     expressionRegistry,
     diagnostics,
+    allowUnsafeAlias,
+    isDevMode,
   }: {
     expressionRegistry: RegistryStore<RegisteredExpression>;
     diagnostics: DiagnosticCollector;
+    allowUnsafeAlias: boolean;
+    isDevMode: boolean;
   },
   key?: string,
-  opts?: { as?: "snapshot" | "reference"; scope?: string },
+  opts?: { as?: "snapshot" | "reference" | "unsafeAlias"; scope?: string },
 ): unknown {
   const resolvedKey = (key ?? "*") as string;
 
@@ -367,8 +376,69 @@ export function runGet(
     const selected = getSelectedValue(
       key !== undefined ? (resolvedKey as AllowedGetKey) : "*",
     );
+
+    if (as === "unsafeAlias") {
+      if (isDevMode && allowUnsafeAlias !== true) {
+        diagnostics.emit({
+          code: "get.as.unsafeAlias.forbidden",
+          message:
+            "unsafeAlias is forbidden in dev mode unless explicitly enabled.",
+          severity: "error",
+          data: {
+            ...(key !== undefined ? { key: resolvedKey } : {}),
+            ...(opts?.scope !== undefined ? { scope: opts.scope } : {}),
+          },
+        });
+        throw new Error("get.as.unsafeAlias.forbidden");
+      }
+
+      diagnostics.emit({
+        code: "runtime.get.unsafeAlias.used",
+        message: "unsafeAlias returned a direct internal alias.",
+        severity: "info",
+        data: {
+          ...(key !== undefined ? { key: resolvedKey } : {}),
+          ...(opts?.scope !== undefined ? { scope: opts.scope } : {}),
+        },
+      });
+
+      return selected;
+    }
+
     if (as === "reference") {
-      return selected; // UNSAFE FAST PATH: alias for ALL keys
+      const valueKind = classifyValueKind(selected);
+      const isSafeKind =
+        valueKind === "Null" ||
+        valueKind === "Primitive" ||
+        valueKind === "Array" ||
+        valueKind === "PlainObject";
+
+      if (valueKind === "Null" || valueKind === "Primitive") {
+        return selected;
+      }
+
+      if (isSafeKind) {
+        return readonlyView(snapshot(selected));
+      }
+
+      const copy = snapshot(selected);
+      diagnostics.emit({
+        code: "runtime.get.reference.fallbackSnapshot",
+        message:
+          "reference request used snapshot fallback for an opaque value kind.",
+        severity: "info",
+        data: {
+          ...(key !== undefined ? { key: resolvedKey } : {}),
+          ...(opts?.scope !== undefined ? { scope: opts.scope } : {}),
+          valueKind,
+        },
+      });
+
+      if (typeof copy === "object" && copy !== null) {
+        return readonlyOpaque(copy);
+      }
+
+      return copy;
     }
 
     return snapshot(selected);

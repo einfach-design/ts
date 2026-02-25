@@ -1599,14 +1599,6 @@ describe("conformance/get-set", () => {
       // expected
     }
 
-    const baseRef = run.get("scopeProjectionBaseline", {
-      as: "reference",
-    }) as {
-      flags: { list: string[]; map: Record<string, boolean> };
-    };
-    baseRef.flags.list.push("BASE");
-    baseRef.flags.map.BASE = true;
-
     const star = run.get("*", { as: "snapshot" }) as {
       scopeProjectionBaseline: { flags: { list: string[] } };
       registeredById: Map<string, unknown>;
@@ -1615,7 +1607,6 @@ describe("conformance/get-set", () => {
     };
 
     expect(star.scopeProjectionBaseline).toBeTruthy();
-    expect(star.scopeProjectionBaseline.flags.list).toContain("BASE");
     expect(star.registeredById).toBeInstanceOf(Map);
     expect(star.registeredQ).toBeInstanceOf(Array);
     expect(star.diagnostics).toBeInstanceOf(Array);
@@ -1635,14 +1626,6 @@ describe("conformance/get-set", () => {
       run.add({ id: "bad", signal: "", targets: [() => undefined] } as never),
     ).toThrow("add.signals.invalid");
 
-    const baseRef = run.get("scopeProjectionBaseline", {
-      as: "reference",
-    }) as {
-      flags: { list: string[]; map: Record<string, boolean> };
-    };
-    baseRef.flags.list.push("BASE");
-    baseRef.flags.map.BASE = true;
-
     const snapshot = run.get("*", { as: "snapshot" }) as Record<
       string,
       unknown
@@ -1656,8 +1639,7 @@ describe("conformance/get-set", () => {
     }) as {
       flags: { list: string[]; map: Record<string, boolean> };
     };
-    expect(base2.flags.list).toContain("BASE");
-    expect(base2.flags.map.BASE).toBe(true);
+    expect(Array.isArray(base2.flags.list)).toBe(true);
 
     const byId = rehydrated.get("registeredById", {
       as: "snapshot",
@@ -1841,7 +1823,7 @@ describe("conformance/get-set", () => {
     rehydrated.set(snap);
 
     const r2 = rehydrated.get("diagnostics", { as: "reference" }) as unknown[];
-    expect(r2).toBe(r1);
+    expect(r2).not.toBe(r1);
     if (r2.length > 0) {
       expect(r2[0]).not.toBe(old0);
     }
@@ -1926,7 +1908,7 @@ describe("conformance/get-set", () => {
     );
   });
 
-  it("REF-ALIAS-01 — reference is alias: mutations are visible in subsequent snapshot", () => {
+  it("REF-READONLY-01 — reference prevents nested array/object mutations", () => {
     const run = createRuntime();
 
     run.set({ flags: { list: ["a"], map: { a: true } } } as never);
@@ -1935,8 +1917,61 @@ describe("conformance/get-set", () => {
       list: string[];
       map: Record<string, boolean>;
     };
-    ref.list.push("b");
-    ref.map.b = true;
+
+    expect(() => {
+      ref.list[0] = "x";
+    }).toThrow("runtime.readonly");
+    expect(() => {
+      ref.list.push("b");
+    }).toThrow("runtime.readonly");
+    expect(() => {
+      ref.map.a = false;
+    }).toThrow("runtime.readonly");
+  });
+
+  it("REF-FALLBACK-02 — reference falls back to snapshot for opaque values and emits telemetry", () => {
+    const run = createRuntime();
+    const events: Array<{ code: string; data?: Record<string, unknown> }> = [];
+    run.onDiagnostic((d) =>
+      events.push({
+        code: d.code,
+        ...(d.data !== undefined
+          ? { data: d.data as Record<string, unknown> }
+          : {}),
+      }),
+    );
+
+    run.when({ id: "opaque:map", signal: "s", targets: [() => undefined] });
+
+    const ref = run.get("registeredById", { as: "reference" }) as Map<
+      string,
+      unknown
+    >;
+
+    expect(() => ref.set("x", {})).toThrow("runtime.readonly");
+
+    expect(
+      events.some(
+        (e) =>
+          e.code === "runtime.get.reference.fallbackSnapshot" &&
+          e.data?.valueKind === "Map",
+      ),
+    ).toBe(true);
+  });
+
+  it("UNSAFE-ALIAS-03 — unsafeAlias aliases state when enabled", () => {
+    const run = createRuntime({ allowUnsafeAlias: true });
+    const events: Array<{ code: string }> = [];
+    run.onDiagnostic((d) => events.push({ code: d.code }));
+
+    run.set({ flags: { list: ["a"], map: { a: true } } } as never);
+
+    const alias = run.get("flags", { as: "unsafeAlias" }) as {
+      list: string[];
+      map: Record<string, boolean>;
+    };
+    alias.list.push("b");
+    alias.map.b = true;
 
     const snap = run.get("flags", { as: "snapshot" }) as {
       list: string[];
@@ -1944,229 +1979,22 @@ describe("conformance/get-set", () => {
     };
     expect(snap.list).toEqual(["a", "b"]);
     expect(snap.map).toEqual({ a: true, b: true });
+    expect(events.some((e) => e.code === "runtime.get.unsafeAlias.used")).toBe(
+      true,
+    );
   });
 
-  it("REF-ALIAS-02 — reference is stable (===) for store-backed keys", () => {
+  it("UNSAFE-ALIAS-04 — unsafeAlias is forbidden by default in dev mode", () => {
     const run = createRuntime();
-    run.set({ flags: { list: ["a"], map: { a: true } } } as never);
+    const events: Array<{ code: string }> = [];
+    run.onDiagnostic((d) => events.push({ code: d.code }));
 
-    const r1 = run.get("flags", { as: "reference" }) as {
-      list: string[];
-      map: Record<string, boolean>;
-    };
-    const r2 = run.get("flags", { as: "reference" }) as {
-      list: string[];
-      map: Record<string, boolean>;
-    };
-
-    expect(r1).toBe(r2);
-    expect(r1.list).toBe(r2.list);
-    expect(r1.map).toBe(r2.map);
-  });
-
-  it("REF-ALIAS-03 — extracting Array mutators from reference mutates store", () => {
-    const run = createRuntime();
-    run.set({ flags: { list: ["a"], map: { a: true } } } as never);
-
-    const ref = run.get("flags", { as: "reference" }) as {
-      list: string[];
-    };
-    const push = ref.list.push.bind(ref.list);
-    push("x");
-
-    const splice = ref.list.splice.bind(ref.list);
-    splice(1, 0, "y");
-
-    const snap = run.get("flags", { as: "snapshot" }) as {
-      list: string[];
-    };
-    expect(snap.list).toEqual(["a", "y", "x"]);
-  });
-
-  it("REF-ALIAS-04 — Map/Set mutators work on reference (direct + prototype-call)", () => {
-    const run = createRuntime();
-    const k1 = { k: 1 };
-    const k2 = { k: 2 };
-
-    run.set({ impulseQ: { config: { retain: true } } } as never);
-    run.impulse({
-      signals: ["s"],
-      livePayload: { map: new Map([[k1, "v1"]]), set: new Set([k1]) },
-    } as never);
-
-    const ref = run.get("impulseQ", { as: "reference" }) as {
-      q: {
-        entries: Array<{
-          livePayload?: { map?: Map<object, string>; set?: Set<object> };
-        }>;
-      };
-    };
-    const refMap = ref.q.entries[0]!.livePayload!.map!;
-    const refSet = ref.q.entries[0]!.livePayload!.set!;
-
-    refMap.set(k2, "v2");
-    refSet.add(k2);
-
-    Map.prototype.set.call(refMap, { k: 3 }, "v3");
-    Set.prototype.add.call(refSet, { k: 3 });
-
-    const snap = run.get("impulseQ", { as: "snapshot" }) as {
-      q: {
-        entries: Array<{
-          livePayload?: { map?: Map<object, string>; set?: Set<object> };
-        }>;
-      };
-    };
-    const lp = snap.q.entries[0]!.livePayload!;
-    expect(lp.map!.size).toBe(3);
-    expect(lp.set!.size).toBe(3);
-  });
-
-  it("REF-ALIAS-05 — reference is unsafe: Date/RegExp/URL method mutations affect subsequent snapshots", () => {
-    const run = createRuntime();
-
-    run.set({ impulseQ: { config: { retain: true } } } as never);
-    run.impulse({
-      signals: ["s"],
-      livePayload: {
-        when: new Date("2020-01-01T00:00:00.000Z"),
-        re: /a/g,
-        url: new URL("https://example.com/?a=1"),
-      },
-    } as never);
-
-    const ref = run.get("impulseQ", { as: "reference" }) as {
-      q: {
-        entries: Array<{
-          livePayload?: { when?: Date; re?: RegExp; url?: URL };
-        }>;
-      };
-    };
-    const lp = ref.q.entries[0]!.livePayload!;
-
-    lp.when!.setUTCFullYear(1999);
-    lp.re!.test("a");
-    lp.url!.searchParams.set("a", "999");
-
-    const snap = run.get("impulseQ", { as: "snapshot" }) as {
-      q: {
-        entries: Array<{
-          livePayload?: { when?: Date; re?: RegExp; url?: URL };
-        }>;
-      };
-    };
-    const lp2 = snap.q.entries[0]!.livePayload!;
-
-    expect(lp2.when!.toISOString()).toBe("1999-01-01T00:00:00.000Z");
-    expect(lp2.re!.lastIndex).not.toBe(0);
-    expect(lp2.url!.toString()).toBe("https://example.com/?a=999");
-  });
-
-  it("REF-ALIAS-06 — snapshot remains isolated even after reference mutations", () => {
-    const run = createRuntime();
-    run.set({ flags: { list: ["a"], map: { a: true } } } as never);
-
-    const s1 = run.get("flags", { as: "snapshot" }) as {
-      list: string[];
-    };
-    const ref = run.get("flags", { as: "reference" }) as {
-      list: string[];
-    };
-
-    ref.list.push("x");
-
-    expect(s1.list).toEqual(["a"]);
-  });
-
-  it("REF-ALIAS-07 — reference diagnostics is alias + stable (===)", () => {
-    const run = createRuntime();
-
-    // create at least one diagnostic
-    try {
-      run.add({
-        id: 123 as never,
-        signal: "s",
-        targets: [() => undefined],
-      } as never);
-    } catch {
-      // expected
-    }
-
-    const r1 = run.get("diagnostics", { as: "reference" }) as Array<{
-      code: string;
-    }>;
-    const r2 = run.get("diagnostics", { as: "reference" }) as Array<{
-      code: string;
-    }>;
-    expect(r1).toBe(r2);
-
-    const before = run.get("diagnostics", { as: "snapshot" }) as Array<{
-      code: string;
-    }>;
-    r1.push({ code: "test.injected" } as never);
-
-    const after = run.get("diagnostics", { as: "snapshot" }) as Array<{
-      code: string;
-    }>;
-    expect(after.length).toBe(before.length);
-    expect(after.some((d) => d.code === "test.injected")).toBe(false);
-  });
-
-  it("REF-ALIAS-08 — reference scopeProjectionBaseline is alias (mutation visible in snapshot)", () => {
-    const run = createRuntime();
-
-    // ensure baseline exists (it is store-internal but should be gettable)
-    const base = run.get("scopeProjectionBaseline", { as: "reference" }) as {
-      flags: { list: string[]; map: Record<string, boolean> };
-    };
-    base.flags.list.push("BASE_MUT");
-    base.flags.map.BASE_MUT = true;
-
-    const snap = run.get("scopeProjectionBaseline", { as: "snapshot" }) as {
-      flags: { list: string[]; map: Record<string, boolean> };
-    };
-    expect(snap.flags.list).toContain("BASE_MUT");
-    expect(snap.flags.map.BASE_MUT).toBe(true);
-  });
-
-  it("REF-ALIAS-09 — reference registeredById/registeredQ are alias + stable", () => {
-    const run = createRuntime();
-
-    // create one registration so registry is non-empty
-    run.when({ signal: "s", targets: [() => undefined] } as never);
-
-    const byId1 = run.get("registeredById", { as: "reference" }) as Map<
-      string,
-      unknown
-    >;
-    const byId2 = run.get("registeredById", { as: "reference" }) as Map<
-      string,
-      unknown
-    >;
-    expect(byId1).toBe(byId2);
-
-    const q1 = run.get("registeredQ", { as: "reference" }) as Array<unknown>;
-    const q2 = run.get("registeredQ", { as: "reference" }) as Array<unknown>;
-    expect(q1).toBe(q2);
-
-    // mutate in a type-safe way: duplicate existing value under a new id
-    const first = Array.from(byId1.entries())[0];
-    expect(first).toBeTruthy();
-    const [_id0, run0] = first!;
-
-    byId1.set("__test__", run0);
-
-    const snap = run.get("registeredById", { as: "snapshot" }) as Map<
-      string,
-      unknown
-    >;
-    expect(snap.has("__test__")).toBe(true);
-
-    // and for registeredQ: push an existing entry (or the same run object)
-    q1.push(run0);
-
-    const snapQ = run.get("registeredQ", { as: "snapshot" }) as Array<unknown>;
-    expect(snapQ.length).toBeGreaterThan(0);
+    expect(() => run.get("flags", { as: "unsafeAlias" })).toThrow(
+      "get.as.unsafeAlias.forbidden",
+    );
+    expect(events.some((e) => e.code === "get.as.unsafeAlias.forbidden")).toBe(
+      true,
+    );
   });
 
   it("A11 — hydration reports unresolved backfill ids and drops them", () => {

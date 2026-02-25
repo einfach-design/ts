@@ -6,6 +6,15 @@ import { cloneNullProtoRecord } from "../util/nullProto.js";
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
+const isPlainObject = (value: unknown): value is Record<string, unknown> => {
+  if (!isObject(value)) {
+    return false;
+  }
+
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+};
+
 const READONLY_ERROR = "runtime.readonly";
 
 const ARRAY_MUTATOR_METHODS = new Set([
@@ -343,8 +352,7 @@ function readonlyView<T>(value: T): T {
       return setProxy;
     }
 
-    const proto = Object.getPrototypeOf(input);
-    const isPlain = proto === Object.prototype || proto === null;
+    const isPlain = isPlainObject(input);
 
     const proxy = new Proxy(input, {
       get(target, prop, receiver) {
@@ -373,6 +381,85 @@ function readonlyView<T>(value: T): T {
 
   return toReadonly(value) as T;
 }
+
+const classifyValueKind = (value: unknown): string => {
+  if (value === null) {
+    return "Null";
+  }
+
+  if (typeof value === "function") {
+    return "Function";
+  }
+
+  if (typeof value !== "object") {
+    return "Primitive";
+  }
+
+  if (Array.isArray(value)) {
+    return "Array";
+  }
+
+  if (isPlainObject(value)) {
+    return "PlainObject";
+  }
+
+  if (value instanceof Date) {
+    return "Date";
+  }
+
+  if (value instanceof RegExp) {
+    return "RegExp";
+  }
+
+  if (value instanceof Map) {
+    return "Map";
+  }
+
+  if (value instanceof Set) {
+    return "Set";
+  }
+
+  if (value instanceof Error) {
+    return "Error";
+  }
+
+  return "UnknownObject";
+};
+
+const readonlyOpaque = <T extends object>(value: T): T => {
+  const seen = new WeakMap<object, unknown>();
+
+  const toReadonlyOpaque = (input: unknown): unknown => {
+    if (typeof input !== "object" || input === null) {
+      return input;
+    }
+
+    if (seen.has(input)) {
+      return seen.get(input);
+    }
+
+    const proxy = new Proxy(input, {
+      get(target, prop) {
+        const current = Reflect.get(target, prop, target);
+        if (typeof current === "function") {
+          return () => throwReadonlyError();
+        }
+
+        return toReadonlyOpaque(current);
+      },
+      set: throwReadonlyError,
+      deleteProperty: throwReadonlyError,
+      defineProperty: throwReadonlyError,
+      setPrototypeOf: throwReadonlyError,
+      preventExtensions: throwReadonlyError,
+    });
+
+    seen.set(input, proxy);
+    return proxy;
+  };
+
+  return toReadonlyOpaque(value) as T;
+};
 
 const entryBytesCache = new WeakMap<object, number>();
 
@@ -419,6 +506,9 @@ export {
   toMatchFlagsView,
   snapshot,
   clone,
+  isPlainObject,
+  classifyValueKind,
   readonlyView,
+  readonlyOpaque,
   measureEntryBytes,
 };
