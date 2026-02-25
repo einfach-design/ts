@@ -1929,6 +1929,38 @@ describe("conformance/get-set", () => {
     }).toThrow("runtime.readonly");
   });
 
+  it("REF-VIEW-02 — reference on safe kind is a borrowed view (no snapshot)", () => {
+    const run = createRuntime({ allowUnsafeAlias: true });
+    const events: Array<{ code: string }> = [];
+    run.onDiagnostic((d) => events.push({ code: d.code }));
+
+    run.set({ flags: { list: ["a"], map: { a: true } } } as never);
+
+    const ref = run.get("flags", { as: "reference" }) as {
+      list: string[];
+      map: Record<string, boolean>;
+    };
+    const alias = run.get("flags", { as: "unsafeAlias" }) as {
+      list: string[];
+      map: Record<string, boolean>;
+    };
+
+    alias.list.push("b");
+    alias.map.b = true;
+
+    expect(ref.list).toContain("b");
+    expect(ref.map.b).toBe(true);
+
+    expect(() => ref.list.push("x")).toThrow("runtime.readonly");
+    expect(() => {
+      ref.map.x = true;
+    }).toThrow("runtime.readonly");
+
+    expect(
+      events.some((e) => e.code === "runtime.get.reference.fallbackSnapshot"),
+    ).toBe(false);
+  });
+
   it("REF-FALLBACK-02 — reference falls back to snapshot for opaque values and emits telemetry", () => {
     const run = createRuntime();
     const events: Array<{ code: string; data?: Record<string, unknown> }> = [];

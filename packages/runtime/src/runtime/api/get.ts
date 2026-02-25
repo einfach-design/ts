@@ -407,18 +407,12 @@ export function runGet(
 
     if (as === "reference") {
       const valueKind = classifyValueKind(selected);
-      const isSafeKind =
-        valueKind === "Null" ||
-        valueKind === "Primitive" ||
-        valueKind === "Array" ||
-        valueKind === "PlainObject";
-
       if (valueKind === "Null" || valueKind === "Primitive") {
         return selected;
       }
 
-      if (isSafeKind) {
-        return readonlyView(snapshot(selected));
+      if (valueKind === "Array" || valueKind === "PlainObject") {
+        return readonlyView(selected as object);
       }
 
       const copy = snapshot(selected);
