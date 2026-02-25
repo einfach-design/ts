@@ -16,3 +16,12 @@
  * Implementation details live in their own modules.
  */
 export { createRuntime } from "./runtime/index.js";
+
+export type {
+  AddOpts,
+  ImpulseOpts,
+  MatchExpressionOpts,
+  RunGetKey,
+  RunScope,
+  RunTime,
+} from "./index.types.js";

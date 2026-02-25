@@ -14,6 +14,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { createRuntime } from "../../src/index.js";
+import type { RunGetKey } from "../../src/index.types.js";
 
 type ScopeProjectionBaselineSnapshot = {
   flags: { list: string[]; map: Record<string, boolean> };
@@ -26,7 +27,7 @@ type ScopeProjectionBaselineSnapshot = {
 describe("conformance/get-set", () => {
   it("A1 — get(unknown) must throw (Spec §4.1)", () => {
     const run = createRuntime();
-    expect(() => run.get("unknown-key" as string | undefined)).toThrow(
+    expect(() => run.get("unknown-key" as unknown as RunGetKey)).toThrow(
       "get.key.invalid",
     );
   });
@@ -206,7 +207,7 @@ describe("conformance/get-set", () => {
     >);
     run.impulse({ signals: ["a"] } as Record<string, unknown>);
 
-    const snap = run.get("impulseQ" as string | undefined, {
+    const snap = run.get("impulseQ", {
       as: "snapshot",
     }) as {
       q: { entries: Array<{ signals: string[] }> };
@@ -216,7 +217,7 @@ describe("conformance/get-set", () => {
 
     expect(
       (
-        run.get("impulseQ" as string | undefined, {
+        run.get("impulseQ", {
           as: "snapshot",
         }) as {
           q: { entries: Array<{ signals: string[] }> };
@@ -367,7 +368,7 @@ describe("conformance/get-set", () => {
       },
     } as Record<string, unknown>);
 
-    const after = run.get("impulseQ" as string | undefined, {
+    const after = run.get("impulseQ", {
       as: "snapshot",
     }) as { q: { cursor: number } };
 
@@ -377,7 +378,7 @@ describe("conformance/get-set", () => {
     const run = createRuntime();
 
     run.set({
-      defaults: run.get("defaults" as string | undefined, {
+      defaults: run.get("defaults", {
         as: "snapshot",
       }) as Record<string, unknown>,
       flags: { list: ["a"], map: { a: true } },
@@ -424,50 +425,34 @@ describe("conformance/get-set", () => {
       diagnostics: [],
     });
 
-    expect(
-      run.get("flags" as string | undefined, { scope: "applied" }),
-    ).toEqual({
+    expect(run.get("flags", { scope: "applied" })).toEqual({
       list: ["a"],
       map: { a: true },
     });
-    expect(
-      run.get("flags" as string | undefined, { scope: "pending" }),
-    ).toEqual({
+    expect(run.get("flags", { scope: "pending" })).toEqual({
       list: ["a", "b"],
       map: { a: true, b: true },
     });
-    expect(
-      run.get("flags" as string | undefined, { scope: "pendingOnly" }),
-    ).toEqual({
+    expect(run.get("flags", { scope: "pendingOnly" })).toEqual({
       list: ["b"],
       map: { b: true },
     });
 
-    expect(
-      run.get("seenFlags" as string | undefined, { scope: "pendingOnly" }),
-    ).toEqual({
+    expect(run.get("seenFlags", { scope: "pendingOnly" })).toEqual({
       list: ["b"],
       map: { b: true },
     });
 
-    expect(run.get("signal" as string | undefined, { scope: "applied" })).toBe(
-      "applied-signal",
-    );
-    expect(run.get("signal" as string | undefined, { scope: "pending" })).toBe(
-      "pending-signal",
-    );
-    expect(
-      run.get("signal" as string | undefined, { scope: "pendingOnly" }),
-    ).toBe("pending-signal");
+    expect(run.get("signal", { scope: "applied" })).toBe("applied-signal");
+    expect(run.get("signal", { scope: "pending" })).toBe("pending-signal");
+    expect(run.get("signal", { scope: "pendingOnly" })).toBe("pending-signal");
 
-    expect(
-      run.get("seenSignals" as string | undefined, { scope: "pendingOnly" }),
-    ).toEqual({
+    expect(run.get("seenSignals", { scope: "pendingOnly" })).toEqual({
       list: ["pending-signal"],
       map: { "pending-signal": true },
     });
 
-    const pendingQ = run.get("impulseQ" as string | undefined, {
+    const pendingQ = run.get("impulseQ", {
       scope: "pending",
       as: "snapshot",
     }) as {
@@ -477,9 +462,7 @@ describe("conformance/get-set", () => {
       };
     };
 
-    expect(
-      run.get("impulseQ" as string | undefined, { scope: "applied" }),
-    ).toEqual({
+    expect(run.get("impulseQ", { scope: "applied" })).toEqual({
       q: {
         cursor: pendingQ.q.cursor,
         entries: pendingQ.q.entries.slice(0, pendingQ.q.cursor),
@@ -489,15 +472,11 @@ describe("conformance/get-set", () => {
         maxBytes: Number.POSITIVE_INFINITY,
       },
     });
-    const starUnscoped = run.get("*" as string | undefined, {
+    const starUnscoped = run.get("*", {
       as: "snapshot",
     });
-    expect(run.get("*" as string | undefined, { scope: "applied" })).toEqual(
-      starUnscoped,
-    );
-    expect(
-      run.get("*" as string | undefined, { scope: "pendingOnly" }),
-    ).toEqual(starUnscoped);
+    expect(run.get("*", { scope: "applied" })).toEqual(starUnscoped);
+    expect(run.get("*", { scope: "pendingOnly" })).toEqual(starUnscoped);
   });
 
   it("A2b — scoped get('*') must be trim-safe and side-effect free (Spec §4.1, §4.3)", () => {
@@ -519,23 +498,21 @@ describe("conformance/get-set", () => {
       },
     });
 
-    const before = run.get("impulseQ" as string | undefined, {
+    const before = run.get("impulseQ", {
       as: "snapshot",
     });
 
-    const projected = run.get("*" as string | undefined, {
+    const projected = run.get("*", {
       scope: "pendingOnly",
       as: "snapshot",
     }) as { impulseQ: { q: { entries: unknown[]; cursor: number } } };
 
-    const after = run.get("impulseQ" as string | undefined, {
+    const after = run.get("impulseQ", {
       as: "snapshot",
     });
 
     // Spec §4.1 + §4.3: scoped reads must not mutate queue state or trigger extra trim work.
-    expect(projected).toEqual(
-      run.get("*" as string | undefined, { as: "snapshot" }),
-    );
+    expect(projected).toEqual(run.get("*", { as: "snapshot" }));
     expect(trims.length).toBeGreaterThan(0);
     expect(after).toEqual(before);
   });
@@ -544,7 +521,7 @@ describe("conformance/get-set", () => {
     const run = createRuntime();
 
     run.set({
-      defaults: run.get("defaults" as string | undefined, {
+      defaults: run.get("defaults", {
         as: "snapshot",
       }) as Record<string, unknown>,
       flags: { list: ["a"], map: { a: true } },
@@ -591,21 +568,19 @@ describe("conformance/get-set", () => {
       diagnostics: [],
     });
 
-    const scoped = run.get("*" as string | undefined, {
+    const scoped = run.get("*", {
       scope: "applied",
       as: "snapshot",
     });
 
-    expect(scoped).toEqual(
-      run.get("*" as string | undefined, { as: "snapshot" }),
-    );
+    expect(scoped).toEqual(run.get("*", { as: "snapshot" }));
   });
 
   it("A2.2 — scope projection consistency for all RunGetKey at pending scope", () => {
     const run = createRuntime();
 
     run.set({
-      defaults: run.get("defaults" as string | undefined, {
+      defaults: run.get("defaults", {
         as: "snapshot",
       }) as Record<string, unknown>,
       flags: { list: ["a"], map: { a: true } },
@@ -652,21 +627,19 @@ describe("conformance/get-set", () => {
       diagnostics: [],
     });
 
-    const scoped = run.get("*" as string | undefined, {
+    const scoped = run.get("*", {
       scope: "pending",
       as: "snapshot",
     });
 
-    expect(scoped).toEqual(
-      run.get("*" as string | undefined, { as: "snapshot" }),
-    );
+    expect(scoped).toEqual(run.get("*", { as: "snapshot" }));
   });
 
   it("A2.3 — scope projection consistency for all RunGetKey at pendingOnly scope", () => {
     const run = createRuntime();
 
     run.set({
-      defaults: run.get("defaults" as string | undefined, {
+      defaults: run.get("defaults", {
         as: "snapshot",
       }) as Record<string, unknown>,
       flags: { list: ["a"], map: { a: true } },
@@ -713,14 +686,12 @@ describe("conformance/get-set", () => {
       diagnostics: [],
     });
 
-    const scoped = run.get("*" as string | undefined, {
+    const scoped = run.get("*", {
       scope: "pendingOnly",
       as: "snapshot",
     });
 
-    expect(scoped).toEqual(
-      run.get("*" as string | undefined, { as: "snapshot" }),
-    );
+    expect(scoped).toEqual(run.get("*", { as: "snapshot" }));
   });
 
   it("A2.4 — get without scope must not execute scope projection path (Spec §4.1)", () => {
@@ -748,7 +719,7 @@ describe("conformance/get-set", () => {
     });
 
     run.set({
-      defaults: run.get("defaults" as string | undefined, {
+      defaults: run.get("defaults", {
         as: "snapshot",
       }) as Record<string, unknown>,
       flags: { list: [], map: {} },
@@ -779,10 +750,10 @@ describe("conformance/get-set", () => {
       diagnostics: [],
     });
 
-    expect(() => run.get("flags" as string | undefined)).not.toThrow();
-    expect(() =>
-      run.get("flags" as string | undefined, { scope: "applied" }),
-    ).toThrow("projection.path.should.not.run");
+    expect(() => run.get("flags")).not.toThrow();
+    expect(() => run.get("flags", { scope: "applied" })).toThrow(
+      "projection.path.should.not.run",
+    );
   });
 
   it("A2.5 — scope applied projection preserves state across trim via baseline (Spec §2.11.3, §4.1)", () => {
@@ -792,7 +763,7 @@ describe("conformance/get-set", () => {
     run.impulse({ addFlags: ["a"] });
     run.impulse({ addFlags: ["b"] });
 
-    const scopedBeforeTrim = run.get("flags" as string | undefined, {
+    const scopedBeforeTrim = run.get("flags", {
       scope: "applied",
       as: "snapshot",
     });
@@ -806,9 +777,7 @@ describe("conformance/get-set", () => {
       },
     });
 
-    expect(
-      run.get("impulseQ" as string | undefined, { as: "snapshot" }),
-    ).toMatchObject({
+    expect(run.get("impulseQ", { as: "snapshot" })).toMatchObject({
       q: {
         cursor: 1,
         entries: [{ addFlags: ["b"] }],
@@ -816,20 +785,18 @@ describe("conformance/get-set", () => {
     });
 
     expect(
-      run.get("flags" as string | undefined, {
+      run.get("flags", {
         scope: "applied",
         as: "snapshot",
       }),
     ).toEqual(scopedBeforeTrim);
 
-    const scopedStar = run.get("*" as string | undefined, {
+    const scopedStar = run.get("*", {
       scope: "applied",
       as: "snapshot",
     });
 
-    expect(scopedStar).toEqual(
-      run.get("*" as string | undefined, { as: "snapshot" }),
-    );
+    expect(scopedStar).toEqual(run.get("*", { as: "snapshot" }));
   });
 
   it("A2.6 — retain-trim with cursor>0 keeps applied semantics and preserves pending entries", () => {
@@ -849,7 +816,7 @@ describe("conformance/get-set", () => {
     };
 
     run.set({
-      defaults: run.get("defaults" as string | undefined, {
+      defaults: run.get("defaults", {
         as: "snapshot",
       }) as Record<string, unknown>,
       flags: { list: ["a", "b"], map: { a: true, b: true } },
@@ -892,7 +859,7 @@ describe("conformance/get-set", () => {
       diagnostics: [],
     });
 
-    const appliedBeforeTrim = run.get("flags" as string | undefined, {
+    const appliedBeforeTrim = run.get("flags", {
       scope: "applied",
       as: "snapshot",
     });
@@ -905,7 +872,7 @@ describe("conformance/get-set", () => {
       },
     });
 
-    const impulseQAfterTrim = run.get("impulseQ" as string | undefined, {
+    const impulseQAfterTrim = run.get("impulseQ", {
       as: "snapshot",
     }) as {
       q: {
@@ -928,13 +895,13 @@ describe("conformance/get-set", () => {
     ]);
 
     expect(
-      run.get("flags" as string | undefined, {
+      run.get("flags", {
         scope: "applied",
         as: "snapshot",
       }),
     ).toEqual(appliedBeforeTrim);
     expect(
-      run.get("flags" as string | undefined, {
+      run.get("flags", {
         scope: "pendingOnly",
         as: "snapshot",
       }),
@@ -943,7 +910,7 @@ describe("conformance/get-set", () => {
       map: { c: true },
     });
     expect(
-      run.get("flags" as string | undefined, {
+      run.get("flags", {
         scope: "pending",
         as: "snapshot",
       }),
@@ -982,7 +949,7 @@ describe("conformance/get-set", () => {
     };
 
     run.set({
-      defaults: run.get("defaults" as string | undefined, {
+      defaults: run.get("defaults", {
         as: "snapshot",
       }) as Record<string, unknown>,
       flags: { list: ["a", "b", "c"], map: { a: true, b: true, c: true } },
@@ -1022,7 +989,7 @@ describe("conformance/get-set", () => {
     const maxBytes =
       JSON.stringify(appliedEntryB).length +
       JSON.stringify(appliedEntryC).length;
-    const appliedBeforeTrim = run.get("flags" as string | undefined, {
+    const appliedBeforeTrim = run.get("flags", {
       scope: "applied",
       as: "snapshot",
     });
@@ -1035,7 +1002,7 @@ describe("conformance/get-set", () => {
       },
     });
 
-    const impulseQAfterTrim = run.get("impulseQ" as string | undefined, {
+    const impulseQAfterTrim = run.get("impulseQ", {
       as: "snapshot",
     }) as {
       q: {
@@ -1059,13 +1026,13 @@ describe("conformance/get-set", () => {
     ]);
 
     expect(
-      run.get("flags" as string | undefined, {
+      run.get("flags", {
         scope: "applied",
         as: "snapshot",
       }),
     ).toEqual(appliedBeforeTrim);
     expect(
-      run.get("flags" as string | undefined, {
+      run.get("flags", {
         scope: "pendingOnly",
         as: "snapshot",
       }),
@@ -1074,7 +1041,7 @@ describe("conformance/get-set", () => {
       map: { d: true },
     });
     expect(
-      run.get("flags" as string | undefined, {
+      run.get("flags", {
         scope: "pending",
         as: "snapshot",
       }),
@@ -1099,7 +1066,7 @@ describe("conformance/get-set", () => {
       livePayload,
     });
 
-    const impulseQ = run.get("impulseQ" as string | undefined, {
+    const impulseQ = run.get("impulseQ", {
       as: "snapshot",
     }) as {
       q: {
@@ -1140,7 +1107,7 @@ describe("conformance/get-set", () => {
       flags: { list: ["a", "b"], map: { a: true, b: true } },
     } as Record<string, unknown>);
 
-    const changed = run.get("changedFlags" as string | undefined) as unknown;
+    const changed = run.get("changedFlags") as unknown;
 
     // Spec expectation: changedFlags must NOT be auto-diffed when only flagsTruth is patched.
     // Fail if "b" appears implicitly.
@@ -1172,7 +1139,7 @@ describe("conformance/get-set", () => {
 
   it("B3 — hydration must require full snapshot shape (Spec §4.2)", () => {
     const run = createRuntime();
-    const snapshot = run.get("*" as string | undefined, {
+    const snapshot = run.get("*", {
       as: "snapshot",
     }) as Record<string, unknown>;
 
@@ -1209,7 +1176,7 @@ describe("conformance/get-set", () => {
       run.set({ changedFlags: { list: ["x"], map: { x: true } } }),
     ).toThrow("set.patch.forbidden");
 
-    const snapshot = run.get("*" as string | undefined, {
+    const snapshot = run.get("*", {
       as: "snapshot",
     }) as Record<string, unknown>;
 
@@ -1219,7 +1186,7 @@ describe("conformance/get-set", () => {
       backfillQ: { list: [], map: {} },
     });
 
-    expect(run.get("changedFlags" as string | undefined)).toEqual({
+    expect(run.get("changedFlags")).toEqual({
       list: ["h"],
       map: { h: true },
     });
@@ -1239,7 +1206,7 @@ describe("conformance/get-set", () => {
       },
     });
 
-    const impulseQ = run.get("impulseQ" as string | undefined) as {
+    const impulseQ = run.get("impulseQ") as {
       q: { entries: unknown[]; cursor: number };
       config: { retain: number | boolean; maxBytes: number };
     };
@@ -2336,7 +2303,7 @@ describe("conformance/get-set", () => {
         string,
         unknown
       >,
-      signal: run.get("signal", { as: "snapshot" }) as string | undefined,
+      signal: run.get("signal", { as: "snapshot" }),
       seenSignals: run.get("seenSignals", { as: "snapshot" }) as Record<
         string,
         unknown
