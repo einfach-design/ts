@@ -1,6 +1,6 @@
 /**
  * @file packages/runtime/src/processing/actImpulse.ts
- * @version 0.11.3
+ * @version 0.12.0
  * @maintainer Axel Elstermann | einfach.design (e2d)
  * @scope Runtime package source code.
  * @description Impulse application mechanics (occurrence construction).

@@ -1,6 +1,6 @@
 /**
  * @file packages/runtime/tests/unit/dispatch.spec.ts
- * @version 0.11.3
+ * @version 0.12.0
  * @maintainer Axel Elstermann | einfach.design (e2d)
  * @scope Runtime package test code.
  * @description Unit coverage for target dispatch.

@@ -18,8 +18,8 @@ This repository is an AI-first workspace. Agents must produce PR-ready changes w
 
 ## Sources of Truth (SSoT)
 
-- docs/runtime/RunTime-0.11.3-Specification.md
-- docs/runtime/RunTime-0.11.3-Impl.md
+- docs/runtime/RunTime-0.12.0-Specification.md
+- docs/runtime/RunTime-0.12.0-Impl.md
 - docs/styleguide/typescript.md
 - packages/runtime/WORKMAP.md
 

@@ -1,5 +1,5 @@
 # location: .github/workflows/runtime.yaml
-# version: 0.11.3
+# version: 0.12.0
 # maintainer: Axel Elstermann | einfach.design (e2d)
 # scope: CI workflow for the runtime package.
 # description: CI workflow for the runtime package (lint/format/typecheck/test/build).
