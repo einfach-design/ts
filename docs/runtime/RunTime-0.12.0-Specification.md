@@ -826,22 +826,34 @@ Norm
 
 - `as: "snapshot"` MUSS einen stabilen Snapshot liefern, der unabhängig von späteren State-Änderungen bleibt.
 - `as: "snapshot"` DARF NICHT eine Live-Referenz auf interne, mutierbare Daten zurückgeben.
-- `as: "reference"` MUSS eine borrowed deep-readonly view zurückgeben.
+- `as: "reference"` MUSS eine borrowed readonly Rückgabe liefern und DARF NICHT allein aufgrund des Value-Kinds throwen.
 - Ein Rückgabewert aus `as: "reference"` DARF NICHT gespeichert werden.
 - Ein Rückgabewert aus `as: "reference"` DARF NICHT weitergereicht werden.
 - Ein Rückgabewert aus `as: "reference"` MUSS deep-readonly sein, sodass Mutationsversuche (inkl. nested/arrays) throwen.
+- Mutationsversuche auf `as: "reference"`-Rückgaben MÜSSEN in allen Builds throwen, mindestens für: `obj.x = ...`, `arr[i] = ...`, `delete obj.x`, `Object.defineProperty(...)`, `Object.defineProperties(...)`, `Object.setPrototypeOf(...)` sowie Array-Mutatoren `push`, `pop`, `shift`, `unshift`, `splice`, `sort`, `reverse`, `fill`, `copyWithin`.
 - `as: "reference"` DARF lazy implementiert werden; eine vollständige Traversierung ist NICHT erforderlich.
+- Für Safe Value-Kinds MUSS `as: "reference"` eine readonly view liefern (typisch Proxy).
+- Für Opaque Value-Kinds MUSS `as: "reference"` auf snapshot/copy fallbacken und eine readonly Rückgabe dieser Repräsentation liefern.
+- Bei jedem Fallback von `as: "reference"` auf snapshot/copy MUSS ein Diagnostic-/Telemetry-Event mit Code `runtime.get.reference.fallbackSnapshot` emittiert werden.
+- Metadata für `runtime.get.reference.fallbackSnapshot` SOLL `key`, `scope` und `valueKind` enthalten (optional; nur Strings/Primitives) und DARF KEINE Objekt-Referenzen oder Objekt-Payloads enthalten.
 - Eine externe Mutation eines `as: "reference"`-Rückgabewerts DARF NICHT den nächsten `as: "snapshot"`-Rückgabewert für denselben Getter beeinflussen.
+- `as: "reference"` gibt keine point-in-time Stabilitätsgarantie; Konsumenten DÜRFEN NICHT annehmen, dass der Rückgabewert über nachfolgende Runtime-Verarbeitung hinweg stabil bleibt.
 
 - `as: "unsafeAlias"` DARF ein Alias auf interne Strukturen zurückgeben.
 - Externe Mutationen eines `as: "unsafeAlias"`-Rückgabewerts DÜRFEN nachfolgende Reads beeinflussen.
 - Für `as: "unsafeAlias"` gelten Guardrails:
   - In Dev-Builds MUSS `as: "unsafeAlias"` throwen, sofern die Runtime nicht mit `allowUnsafeAlias: true` (oder äquivalentem Flag) erzeugt wurde.
-  - Implementierungen SOLLTEN bei Nutzung von `as: "unsafeAlias"` einen Diagnostic-/Telemetry-Event emittieren (mindestens in Dev-Builds).
+  - Bei jeder erfolgreichen Nutzung von `as: "unsafeAlias"` MUSS/SOLL ein Diagnostic-/Telemetry-Event mit Code `runtime.get.unsafeAlias.used` emittiert werden.
 - `run.get(...)` DARF pro Call neue Objektidentitäten liefern.
 - `run.get(...)` DARF Rückgabewerte cachen.
 - Für Getter, deren Rückgabewert ein Primitiv ist, DARF `as` semantisch bedeutungslos sein.
 - Für Getter, deren Rückgabewert ein Primitiv ist, MUSS `as` akzeptiert werden.
+
+- Value-Kinds für `as: "reference"` MÜSSEN wie folgt klassifiziert werden:
+  - Safe Value-Kinds (Reference-View): `null`, Primitives (`string`, `number`, `boolean`, `bigint`, `symbol`, `undefined`), Arrays, Plain Objects.
+  - Opaque Value-Kinds (Reference-Fallback Snapshot): jedes `object`, das weder Array noch Plain Object ist; darunter fallen z. B. `Date`, `RegExp`, `URL`, Klasseninstanzen, Funktionen, Proxies, TypedArrays, `Map`, `Set`, Error-Objekte.
+- Ein Plain Object MUSS ein gewöhnliches Objekt ohne benutzerdefinierten Prototyp sein; d. h. `Object.getPrototypeOf(x)` ist `Object.prototype` oder `null`.
+- Die konkrete Klassifikation DARF implementation-defined sein, MUSS aber jedes nicht-Array- und nicht-Plain-Object im Ergebnis als Opaque Value-Kind behandeln.
 
 - `scope` MUSS als Projektion über `impulseQ.q.entries` relativ zu `impulseQ.q.cursor` interpretiert werden.
 - Die applied segment MUSS die Teilmenge mit `index < cursor` sein.
@@ -2110,6 +2122,8 @@ type Diagnostic = {
 - `impulse.flags.removeNotPresent`
 - `set.flags.addRemoveConflict`
 - `set.flags.removeNotPresent`
+- `runtime.get.reference.fallbackSnapshot`
+- `runtime.get.unsafeAlias.used`
 
 - `matchExpression.reference.invalid`
 
@@ -2225,7 +2239,8 @@ type Diagnostic = {
 
 - Eine Conformance-Suite MUSS testen, dass as:"snapshot" keine Live-Referenzen leakt:
   spätere interne State-Änderungen DÜRFEN den alten Rückgabewert nicht verändern.
-- Die Suite MUSS testen, dass as:"reference" deep-readonly ist, sodass direkte und indirekte Mutationsversuche verhindert werden und throwen.
+- Die Suite MUSS testen, dass as:"reference" Mutationen throwen lässt und keine mutierbare Alias-Referenz nach außen gibt.
+- Die Suite MUSS testen, dass as:"reference" für Opaque Value-Kinds auf snapshot/copy fallbackt und dabei pro Fallback ein Event `runtime.get.reference.fallbackSnapshot` emittiert.
 - Die Suite MUSS testen, dass as:"unsafeAlias" eine Aliasing-Form sein DARF (Änderungen dürfen sichtbar werden).
 - Die Suite MUSS testen, dass `as:"unsafeAlias"` in Dev-Builds ohne `allowUnsafeAlias: true` throwt.
 
