@@ -1,6 +1,6 @@
 /**
  * @file packages/runtime/src/util/guards.ts
- * @version 0.11.3
+ * @version 0.12.0
  * @maintainer Axel Elstermann | einfach.design (e2d)
  * @scope Runtime package source code.
  * @description Small runtime type guards and utilities.

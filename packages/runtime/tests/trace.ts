@@ -1,6 +1,6 @@
 /**
  * @file packages/runtime/tests/trace.ts
- * @version 0.11.3
+ * @version 0.12.0
  * @maintainer Axel Elstermann | einfach.design (e2d)
  * @scope Runtime package test code.
  * @description Deterministic trace recorder utilities for runtime conformance tests.

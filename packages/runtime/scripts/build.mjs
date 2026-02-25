@@ -1,6 +1,6 @@
 /**
  * @file packages/runtime/scripts/build.mjs
- * @version 0.11.3
+ * @version 0.12.0
  * @maintainer Axel Elstermann | einfach.design (e2d)
  * @scope Runtime package documentation and configuration.
  * @description Local build helper script for the runtime package.
