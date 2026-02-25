@@ -414,7 +414,29 @@ export function runGet(
 
       const isSafeKind = valueKind === "Array" || valueKind === "PlainObject";
       if (isSafeKind && isProxyWrappableObject(selected)) {
-        return readonlyView(selected as object);
+        const seenOpaqueValues = new WeakSet<object>();
+
+        return readonlyView(selected as object, {
+          onOpaque(nestedValueKind, opaque) {
+            const opaqueObject = opaque as unknown as object;
+            if (seenOpaqueValues.has(opaqueObject)) {
+              return;
+            }
+
+            seenOpaqueValues.add(opaqueObject);
+            diagnostics.emit({
+              code: "runtime.get.reference.fallbackSnapshot",
+              message:
+                "reference request used snapshot fallback for an opaque value kind.",
+              severity: "info",
+              data: {
+                ...(key !== undefined ? { key: resolvedKey } : {}),
+                ...(opts?.scope !== undefined ? { scope: opts.scope } : {}),
+                valueKind: nestedValueKind,
+              },
+            });
+          },
+        });
       }
 
       if (isSafeKind) {
