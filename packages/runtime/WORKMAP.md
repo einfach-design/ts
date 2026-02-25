@@ -18,7 +18,7 @@ Single Source of Truth für Implementierungs-Ownership, Parallelisierung, PR-Reg
 
 ## Quellen (SSoT)
 
-- `../../docs/runtime/RunTime-0.11.3-Specification.md`
+- `../../docs/runtime/RunTime-0.12.0-Specification.md`
 - `../../docs/runtime/RunTime-0.11.3-Impl.md`
 - `../../docs/styleguide/typescript.md`
 

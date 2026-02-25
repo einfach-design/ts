@@ -1,12 +1,12 @@
 ---
-location: docs/runtime/RunTime-0.11.3-Specification.md
-version: 0.11.3
+location: docs/runtime/RunTime-0.12.0-Specification.md
+version: 0.12.0
 maintainer: Axel Elstermann | einfach.design (e2d)
 scope: Runtime specification and implementation notes.
 description: Runtime documentation (specification and implementation notes).
 ---
 
-# RunTime 0.11.3 – Specification (pre-release)
+# RunTime 0.12.0 – Specification (pre-release)
 
 **Referenzraum (X):** RunTime 0.x (RunIverse: Impulse Signal Flag)
 **Geltungsbereich:** Normative Semantik für API, Matching, Queue-/Backfill-Verarbeitung, Retroactive-Onboarding, Fehler & Diagnostics.  
@@ -21,8 +21,9 @@ description: Runtime documentation (specification and implementation notes).
 > Leitprinzip (SSoT, nicht normativ): **Flags und Signals kommen aus der Realität** und müssen das System **sofort** durchdringen.  
 > `run.get(...)` liefert immer **Wahrheit zum Aufrufzeitpunkt**.
 
-- `as: "snapshot"` (Default) gibt einen **stabilen Snapshot** zurück: Der Rückgabewert bleibt unabhängig von späteren State-Änderungen; es wird **keine Live-Referenz** auf interne, mutierbare Daten geleakt.
-- `as: "reference"` gibt eine **Referenz auf interne, mutierbare Daten** zurück und ist **UNSAFE**: Der Rückgabewert kann spätere Mutationen widerspiegeln und/oder externe Mutation erlauben.
+- `as: "snapshot"` (Default) gibt einen **stabilen point-in-time Snapshot** zurück: Der Rückgabewert bleibt unabhängig von späteren State-Änderungen; externe Mutationen am Rückgabewert beeinflussen den Runtime-State nicht.
+- `as: "reference"` gibt eine **borrowed deep-readonly view** auf den State zurück: direkte und indirekte Mutationsversuche (inkl. nested/arrays) MÜSSEN verhindert werden und MÜSSEN throwen; die Umsetzung DARF lazy erfolgen (z. B. per on-demand Proxy-Wrapping).
+- `as: "unsafeAlias"` gibt ein **borrowed, mutierbares Alias** auf interne Strukturen zurück: externe Mutationen DÜRFEN den Runtime-State beeinflussen; Guardrails gelten gemäß §4.1.
 
 ## 1. Normative Sprache
 
@@ -805,7 +806,7 @@ export type RunGetFullSnapshot = Readonly<{
 
 export type RunGetOpts = Readonly<{
   scope?: Scope;
-  as?: "snapshot" | "reference";
+  as?: "snapshot" | "reference" | "unsafeAlias";
 }>;
 
 export type RunCore = Readonly<{
@@ -819,18 +820,24 @@ Norm
 - Alles, was nach außen als Getter exponiert wird, MUSS ausschließlich über `run.get` erreichbar sein.
 - `run.get(name)` MUSS throwen, wenn `name` weder `"*"` ist noch ein Element von `RunGetKey` ist.
 - `RunGetOpts.scope` MUSS `Scope` akzeptieren.
-- `RunGetOpts.as` MUSS `"snapshot"` und `"reference"` akzeptieren.
+- `RunGetOpts.as` MUSS `"snapshot"`, `"reference"` und `"unsafeAlias"` akzeptieren.
 - Ein Getter MUSS als scope-aware gelten, wenn er `RunGetOpts.scope` auswertet.
 - `run.get(...)` MUSS für scope-aware Getter die Scope-Projektion aus dem aktuellen internen RunState berechnen.
 
 - `as: "snapshot"` MUSS einen stabilen Snapshot liefern, der unabhängig von späteren State-Änderungen bleibt.
 - `as: "snapshot"` DARF NICHT eine Live-Referenz auf interne, mutierbare Daten zurückgeben.
-- `as: "reference"` DARF eine borrowed reference auf interne Strukturen zurückgeben.
+- `as: "reference"` MUSS eine borrowed deep-readonly view zurückgeben.
 - Ein Rückgabewert aus `as: "reference"` DARF NICHT gespeichert werden.
 - Ein Rückgabewert aus `as: "reference"` DARF NICHT weitergereicht werden.
-- Ein Rückgabewert aus `as: "reference"` DARF NICHT mutiert werden.
+- Ein Rückgabewert aus `as: "reference"` MUSS deep-readonly sein, sodass Mutationsversuche (inkl. nested/arrays) throwen.
+- `as: "reference"` DARF lazy implementiert werden; eine vollständige Traversierung ist NICHT erforderlich.
 - Eine externe Mutation eines `as: "reference"`-Rückgabewerts DARF NICHT den nächsten `as: "snapshot"`-Rückgabewert für denselben Getter beeinflussen.
-- In Dev-Mode SOLL die Implementation `as: "reference"`-Rückgabewerte schreibschützen.
+
+- `as: "unsafeAlias"` DARF ein Alias auf interne Strukturen zurückgeben.
+- Externe Mutationen eines `as: "unsafeAlias"`-Rückgabewerts DÜRFEN nachfolgende Reads beeinflussen.
+- Für `as: "unsafeAlias"` gelten Guardrails:
+  - In Dev-Builds MUSS `as: "unsafeAlias"` throwen, sofern die Runtime nicht mit `allowUnsafeAlias: true` (oder äquivalentem Flag) erzeugt wurde.
+  - Implementierungen SOLLTEN bei Nutzung von `as: "unsafeAlias"` einen Diagnostic-/Telemetry-Event emittieren (mindestens in Dev-Builds).
 - `run.get(...)` DARF pro Call neue Objektidentitäten liefern.
 - `run.get(...)` DARF Rückgabewerte cachen.
 - Für Getter, deren Rückgabewert ein Primitiv ist, DARF `as` semantisch bedeutungslos sein.
@@ -1055,7 +1062,7 @@ export type ImpulseQSnapshot = Readonly<{
  *
  * Reasoning:
  * config und q sind orthogonal: Policy vs Daten.
- * as:"snapshot"|"reference" wirkt konsistent auf die gesamte Struktur.
+ * as:"snapshot"|"reference"|"unsafeAlias" wirkt konsistent auf die gesamte Struktur.
  */
 export type ImpulseQSnapshotView = Readonly<{
   config: ImpulseQConfigCanonical;
@@ -2212,14 +2219,15 @@ type Diagnostic = {
 - Eine Conformance-Suite DARF testen, dass für eine einzelne Expression innerhalb derselben deterministischen Visit-Situation nicht beide Backfill-Debts gleichzeitig von `<=0 → >0` wechseln.
 - Wenn dieser Test implementiert wird, dann MUSS die Suite die Erwartung ausschließlich an eine explizit normierte Debt-Erzeugungsregel koppeln und DARF NICHT aus §14 allein eine neue Norm ableiten.
 
-#### 14.2.9 as:"snapshot" vs as:"reference" (Aliasing)
+#### 14.2.9 as:"snapshot" vs as:"reference" vs as:"unsafeAlias" (Aliasing)
 
 **Norm**
 
 - Eine Conformance-Suite MUSS testen, dass as:"snapshot" keine Live-Referenzen leakt:
   spätere interne State-Änderungen DÜRFEN den alten Rückgabewert nicht verändern.
-- Die Suite MUSS testen, dass as:"reference" eine Aliasing-Form sein DARF (Änderungen dürfen sichtbar werden),
-  aber dass externe Mutation als Contract-Verstoß behandelt wird (throw oder Diagnostic, je nach Implementierungsvorgabe).
+- Die Suite MUSS testen, dass as:"reference" deep-readonly ist, sodass direkte und indirekte Mutationsversuche verhindert werden und throwen.
+- Die Suite MUSS testen, dass as:"unsafeAlias" eine Aliasing-Form sein DARF (Änderungen dürfen sichtbar werden).
+- Die Suite MUSS testen, dass `as:"unsafeAlias"` in Dev-Builds ohne `allowUnsafeAlias: true` throwt.
 
 #### 14.2.10 defaults.force:false ist invalid
 
