@@ -20,6 +20,7 @@ import type { DiagnosticCollector } from "../../diagnostics/index.js";
 import type { RegistryStore } from "../../state/registry.js";
 import type { RegisteredExpression } from "../../runs/coreRun.js";
 import { createNullProtoRecord } from "../../util/nullProto.js";
+import type { RunGetKey, RunScope } from "../../index.types.js";
 
 export const snapshotGetKeys = [
   "defaults",
@@ -42,7 +43,6 @@ export const debugGetKeys = [
 const allowedGetKeys = ["*", ...snapshotGetKeys, ...debugGetKeys] as const;
 
 type AllowedGetKey = (typeof allowedGetKeys)[number];
-type Scope = "applied" | "pending" | "pendingOnly";
 
 type ProjectionState = {
   flags: FlagsView;
@@ -52,7 +52,7 @@ type ProjectionState = {
   seenSignals: RuntimeStore["seenSignals"];
 };
 
-const resolveScope = (scope: string | undefined): Scope => {
+const resolveScope = (scope: RunScope | undefined): RunScope => {
   if (scope === "applied" || scope === "pendingOnly") {
     return scope;
   }
@@ -131,7 +131,7 @@ const toCanonicalImpulseQConfig = (
 
 const projectImpulseQ = (
   impulseQ: RuntimeStore["impulseQ"],
-  scope: Scope,
+  scope: RunScope,
 ): RuntimeStore["impulseQ"] => {
   if (scope === "pending") {
     return {
@@ -161,7 +161,7 @@ const projectImpulseQ = (
 
 const getProjectionSeed = (
   store: RuntimeStore,
-  scope: Scope,
+  scope: RunScope,
 ): ProjectionState => {
   if (scope === "pendingOnly") {
     return {
@@ -237,8 +237,8 @@ export function runGet(
     allowUnsafeAlias: boolean;
     isDevMode: boolean;
   },
-  key?: string,
-  opts?: { as?: "snapshot" | "reference" | "unsafeAlias"; scope?: string },
+  key?: RunGetKey,
+  opts?: { as?: "snapshot" | "reference" | "unsafeAlias"; scope?: RunScope },
 ): unknown {
   const resolvedKey = (key ?? "*") as string;
 

@@ -20,7 +20,7 @@ describe("conformance/matchExpression", () => {
     const run = createRuntime();
 
     // establish a runtime reference (flags + signal) via public API
-    run.impulse({ signals: ["sig:one"], addFlags: ["f1"] } as unknown);
+    run.impulse({ signals: ["sig:one"], addFlags: ["f1"] });
 
     // Per spec, the wrapper should fill in defaults + reference from runtime state
     // when input omits them. Current impl may throw (red) — keep strict.

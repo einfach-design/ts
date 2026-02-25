@@ -45,6 +45,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { createRuntime } from "../../src/index.js";
+import type { RunGetKey } from "../../src/index.types.js";
 import type { MatchExpressionInput } from "../../src/match/matchExpression.js";
 import { createTrace } from "../trace.js";
 
@@ -87,7 +88,9 @@ describe("conformance/public-method-matrix", () => {
       expect(runUnsafe.get(key, { as: "unsafeAlias" })).toBeDefined();
     }
 
-    expect(() => run.get("__invalid__")).toThrow("get.key.invalid");
+    expect(() => run.get("__invalid__" as unknown as RunGetKey)).toThrow(
+      "get.key.invalid",
+    );
   });
 
   it("run.get defaults ignores scope projection semantics", () => {

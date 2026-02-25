@@ -31,6 +31,7 @@ import type {
   RuntimeDiagnostic,
 } from "../../diagnostics/index.js";
 import type { RegisteredExpression } from "../../runs/coreRun.js";
+import type { RunSetInput } from "../../index.types.js";
 
 const hydrationRequiredKeys = [
   "defaults",
@@ -419,7 +420,7 @@ export function runSet(
     expressionRegistry: RegistryStore<RegisteredExpression>;
     diagnostics: DiagnosticCollector;
   },
-  patch: Record<string, unknown>,
+  patch: RunSetInput,
 ): void {
   const emitFlagDeltaInvalid = (
     field: "addFlags" | "removeFlags",

@@ -27,7 +27,7 @@ describe("conformance/runtime", () => {
       removeFlags: ["y"],
     } as Record<string, unknown>);
 
-    const flags = run.get("flags" as string | undefined) as unknown;
+    const flags = run.get("flags") as unknown;
 
     const listValue =
       flags && typeof flags === "object"

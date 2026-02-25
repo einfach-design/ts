@@ -12,6 +12,7 @@ import type {
   FlagsView,
   MatchExpressionInput,
 } from "./match/matchExpression.js";
+import type { RuntimeTarget } from "./runs/coreRun.js";
 
 export type RunScope = "applied" | "pending" | "pendingOnly";
 
@@ -22,9 +23,7 @@ export type Diagnostic = Readonly<{
   data?: Record<string, unknown>;
 }>;
 
-export type TargetToken =
-  | ((i: unknown, a: unknown, r: unknown) => void)
-  | { on: Record<string, unknown> };
+export type TargetToken = RuntimeTarget;
 
 export type RuntimeErrorContext = Readonly<{
   phase: string;

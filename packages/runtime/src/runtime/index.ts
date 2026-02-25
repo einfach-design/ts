@@ -6,7 +6,6 @@
  * @description Runtime public API facade and core wiring.
  */
 
-import { type FlagSpecInput } from "../canon/flagSpecInput.js";
 import { type ImpulseQEntryCanonical } from "../canon/impulseEntry.js";
 import {
   createDiagnosticCollector,
@@ -40,7 +39,6 @@ import {
   coreRun as coreRunImpl,
   type RegisteredExpression,
   type RuntimeCore,
-  type RuntimeTarget,
 } from "../runs/coreRun.js";
 import { runAdd } from "./api/add.js";
 import { runGet } from "./api/get.js";
@@ -91,34 +89,6 @@ const toMatcherExpression = (
   return base;
 };
 
-type RuntimeCompat = Readonly<{
-  add: (opts: {
-    id?: string;
-    signal?: string;
-    signals?: readonly string[];
-    flags?: FlagSpecInput;
-    required?: { flags?: { min?: number; max?: number; changed?: number } };
-    target?: RuntimeTarget;
-    targets?: readonly RuntimeTarget[];
-    backfill?: AddOpts["backfill"];
-    runs?: { max: number };
-    onError?: AddOpts["onError"];
-    retroactive?: boolean;
-  }) => () => void;
-  on: (opts: AddOpts) => () => void;
-  when: (opts: AddOpts) => () => void;
-  impulse: (opts?: unknown) => void;
-  get: (
-    key?: string,
-    opts?: { as?: "snapshot" | "reference" | "unsafeAlias"; scope?: string },
-  ) => unknown;
-  set: (patch: Record<string, unknown>) => void;
-  matchExpression: (opts: MatchExpressionOpts) => boolean;
-  onDiagnostic: (
-    handler: (diagnostic: RuntimeDiagnostic) => void,
-  ) => () => void;
-}>;
-
 const resolveIsDevMode = (): boolean => {
   if (typeof process === "undefined") {
     return false;
@@ -130,9 +100,7 @@ const resolveIsDevMode = (): boolean => {
 /**
  * Creates a Runtime instance as defined by the Runtime Spec.
  */
-export function createRuntime(opts?: {
-  allowUnsafeAlias?: boolean;
-}): RuntimeCompat {
+export function createRuntime(opts?: { allowUnsafeAlias?: boolean }): RunTime {
   const expressionRegistry = registry<RegisteredExpression>();
   const store = initRuntimeStore<RegisteredExpression>();
   const allowUnsafeAlias = opts?.allowUnsafeAlias === true;
@@ -894,5 +862,5 @@ export function createRuntime(opts?: {
     },
   };
 
-  return runtime as RuntimeCompat;
+  return runtime;
 }
