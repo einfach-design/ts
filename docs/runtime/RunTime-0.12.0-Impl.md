@@ -229,8 +229,16 @@ Nur in Tests (`__TEST__`), niemals Teil der public API.
 
 - Für Opaque-Werte wird **kein Fehler** geworfen.
 - Stattdessen wird ein Snapshot/eine Kopie mit **demselben Clone-Mechanismus wie `as:"snapshot"`** erstellt (keine Sonderlogik).
-- Rückgabe erfolgt readonly auf Basis dieser Kopie (z.B. readonlyView über der Kopie).
+- Rückgabe erfolgt als **opaque readonly** auf Basis dieser Kopie (konservatives Token-Verhalten statt typspezifischer API-Garantie).
+- `readonlyOpaque` blockiert Property-Mutationen (`set`, `defineProperty`, `deleteProperty`, `setPrototypeOf`, `preventExtensions`) deterministisch via `runtime.readonly`.
+- `readonlyOpaque` liefert für Function-/Method-Properties Wrapper, die bei Aufruf deterministisch `runtime.readonly` werfen.
+- Functions selbst werden als opaque readonly behandelt: `apply` und `construct` sind blockiert und werfen `runtime.readonly`.
 - Zusätzlich Telemetry-Event emittieren: `runtime.get.reference.fallbackSnapshot` mit Feldern `key`, `scope`, `valueKind`.
+
+#### Opaque Readonly – Motivation
+
+Für Opaque Werte kann Readonly nicht allgemein durch Proxies garantiert werden, weil Mutationen über Methoden mit internem Zustand passieren können.
+Daher nutzt `as:"reference"` im Opaque-Fallback konservatives „opaque token“-Verhalten statt einer Methodengarantie.
 
 #### Schritt 4 — Value-Kind Klassifikation für Telemetry
 

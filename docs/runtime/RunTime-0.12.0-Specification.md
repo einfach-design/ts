@@ -834,10 +834,13 @@ Norm
 - `as: "reference"` DARF lazy implementiert werden; eine vollständige Traversierung ist NICHT erforderlich.
 - Für Safe Value-Kinds MUSS `as: "reference"` eine readonly view liefern (typisch Proxy).
 - Für Opaque Value-Kinds MUSS `as: "reference"` auf snapshot/copy fallbacken und eine readonly Rückgabe dieser Repräsentation liefern.
+- Für Opaque Value-Kinds MUSS die Rückgabe als **opaque readonly Repräsentation** behandelt werden; diese Spezifikation garantiert ausschließlich, dass Mutationsversuche throwen.
+- Methodenaufrufe und typ-spezifische Operationen auf Opaque-Repräsentationen sind NICHT Teil der Garantie und DÜRFEN `runtime.readonly` auslösen.
 - Bei jedem Fallback von `as: "reference"` auf snapshot/copy MUSS ein Diagnostic-/Telemetry-Event mit Code `runtime.get.reference.fallbackSnapshot` emittiert werden.
 - Metadata für `runtime.get.reference.fallbackSnapshot` SOLL `key`, `scope` und `valueKind` enthalten (optional; nur Strings/Primitives) und DARF KEINE Objekt-Referenzen oder Objekt-Payloads enthalten.
 - Eine externe Mutation eines `as: "reference"`-Rückgabewerts DARF NICHT den nächsten `as: "snapshot"`-Rückgabewert für denselben Getter beeinflussen.
 - `as: "reference"` gibt keine point-in-time Stabilitätsgarantie; Konsumenten DÜRFEN NICHT annehmen, dass der Rückgabewert über nachfolgende Runtime-Verarbeitung hinweg stabil bleibt.
+- Wenn Konsumenten typ-spezifische Operationen benötigen (z.B. `Date#getTime`, `Map#get`), SOLL stattdessen `as: "snapshot"` verwendet werden.
 
 - `as: "unsafeAlias"` DARF ein Alias auf interne Strukturen zurückgeben.
 - Externe Mutationen eines `as: "unsafeAlias"`-Rückgabewerts DÜRFEN nachfolgende Reads beeinflussen.
