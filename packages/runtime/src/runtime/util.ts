@@ -162,11 +162,11 @@ function readonlyView<T>(
     }
 
     if (typeof input === "function") {
-      opts?.onOpaque?.("Function", input);
       if (opaqueSnapshotCache.has(input)) {
         return opaqueSnapshotCache.get(input);
       }
 
+      opts?.onOpaque?.("Function", input);
       const readonly = readonlyOpaque(snapshot(input));
       opaqueSnapshotCache.set(input, readonly);
       return readonly;
@@ -178,12 +178,12 @@ function readonlyView<T>(
 
     const isPlain = isPlainObject(input);
     if (!Array.isArray(input) && !isPlain) {
-      const valueKind = classifyValueKind(input);
-      opts?.onOpaque?.(valueKind, input);
       if (opaqueSnapshotCache.has(input)) {
         return opaqueSnapshotCache.get(input);
       }
 
+      const valueKind = classifyValueKind(input);
+      opts?.onOpaque?.(valueKind, input);
       const readonly = readonlyOpaque(snapshot(input));
       opaqueSnapshotCache.set(input, readonly);
       return readonly;
