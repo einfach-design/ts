@@ -360,6 +360,16 @@ function readonlyView<T>(value: T): T {
           return throwReadonlyError;
         }
 
+        const descriptor = Reflect.getOwnPropertyDescriptor(target, prop);
+        if (
+          descriptor !== undefined &&
+          "value" in descriptor &&
+          descriptor.configurable === false &&
+          descriptor.writable === false
+        ) {
+          return descriptor.value;
+        }
+
         const current = Reflect.get(target, prop, receiver);
         if (typeof current === "function") {
           return current.bind(isPlain ? receiver : target);
