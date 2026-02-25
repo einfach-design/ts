@@ -2122,6 +2122,7 @@ describe("conformance/get-set", () => {
 
     const nestedAgain = ref.map.fn;
     expect(() => nestedAgain()).toThrow("runtime.readonly");
+    expect(ref.map.fn).toBe(ref.map.fn);
 
     const fallbackEvents = events.filter(
       (e) => e.code === "runtime.get.reference.fallbackSnapshot",

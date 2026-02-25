@@ -150,6 +150,7 @@ function readonlyView<T>(
   },
 ): T {
   const seen = new WeakMap<object, unknown>();
+  const opaqueSnapshotCache = new WeakMap<object, unknown>();
 
   const toReadonly = (input: unknown): unknown => {
     if (input === null) {
@@ -162,7 +163,13 @@ function readonlyView<T>(
 
     if (typeof input === "function") {
       opts?.onOpaque?.("Function", input);
-      return readonlyOpaque(snapshot(input));
+      if (opaqueSnapshotCache.has(input)) {
+        return opaqueSnapshotCache.get(input);
+      }
+
+      const readonly = readonlyOpaque(snapshot(input));
+      opaqueSnapshotCache.set(input, readonly);
+      return readonly;
     }
 
     if (seen.has(input)) {
@@ -173,7 +180,13 @@ function readonlyView<T>(
     if (!Array.isArray(input) && !isPlain) {
       const valueKind = classifyValueKind(input);
       opts?.onOpaque?.(valueKind, input);
-      return readonlyOpaque(snapshot(input));
+      if (opaqueSnapshotCache.has(input)) {
+        return opaqueSnapshotCache.get(input);
+      }
+
+      const readonly = readonlyOpaque(snapshot(input));
+      opaqueSnapshotCache.set(input, readonly);
+      return readonly;
     }
 
     const proxy = new Proxy(input, {
@@ -288,11 +301,11 @@ const isProxyWrappableObject = (value: unknown): boolean => {
   return true;
 };
 
+const readonlyOpaqueCache = new WeakMap<object, unknown>();
+
 const readonlyOpaque = <T extends object | ((...args: unknown[]) => unknown)>(
   value: T,
 ): T => {
-  const seen = new WeakMap<object, unknown>();
-
   const toReadonlyOpaque = (input: unknown): unknown => {
     if (input === null) {
       return input;
@@ -302,8 +315,8 @@ const readonlyOpaque = <T extends object | ((...args: unknown[]) => unknown)>(
       return input;
     }
 
-    if (seen.has(input)) {
-      return seen.get(input);
+    if (readonlyOpaqueCache.has(input)) {
+      return readonlyOpaqueCache.get(input);
     }
 
     const proxy = new Proxy(input, {
@@ -324,7 +337,7 @@ const readonlyOpaque = <T extends object | ((...args: unknown[]) => unknown)>(
       construct: throwReadonlyError,
     });
 
-    seen.set(input, proxy);
+    readonlyOpaqueCache.set(input, proxy);
     return proxy;
   };
 
