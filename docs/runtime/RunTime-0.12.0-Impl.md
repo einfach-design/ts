@@ -235,6 +235,23 @@ Nur in Tests (`__TEST__`), niemals Teil der public API.
 - Functions selbst werden als opaque readonly behandelt: `apply` und `construct` sind blockiert und werfen `runtime.readonly`.
 - Zusätzlich Telemetry-Event emittieren: `runtime.get.reference.fallbackSnapshot` mit Feldern `key`, `scope`, `valueKind`.
 
+#### Nested Opaque Values (lazy)
+
+- Die Safe/Opaque-Policy wird rekursiv und lazy innerhalb derselben `as:"reference"`-View angewendet.
+- Safe-Kinds werden weiterhin als readonly view (Proxy) on-demand gewrappt.
+- Bei jedem `get`/Property-Access in der View gilt deterministisch:
+  - ist der gelesene Wert Safe, wird (falls nötig) die readonly view zurückgegeben.
+  - ist der gelesene Wert Opaque, wird `snapshot(value)` erstellt und als `readonlyOpaque(copy)` zurückgegeben.
+  - beim Opaque-Fallback wird `runtime.get.reference.fallbackSnapshot` mit `valueKind` emittiert.
+
+#### Flood-Control pro `get(..., { as: "reference" })`
+
+- Pro äußerem `get`-Call mit `as:"reference"` wird eine dedizierte Dedup-Struktur geführt (WeakSet/WeakMap-basiert, implementation-defined).
+- Diese Dedup verhindert deterministisch, dass dieselbe Opaque-Identity innerhalb dieser einen View mehrfach Telemetry auslöst.
+- Für unterschiedliche `get`-Calls beginnt die Dedup jeweils neu.
+
+- Opaque-Wrapper werden innerhalb einer View über WeakMap gecacht, sodass z. B. `ref.path.leaf === ref.path.leaf` stabil bleibt.
+
 #### Opaque Readonly – Motivation
 
 Für Opaque Werte kann Readonly nicht allgemein durch Proxies garantiert werden, weil Mutationen über Methoden mit internem Zustand passieren können.

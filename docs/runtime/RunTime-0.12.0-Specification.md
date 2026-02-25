@@ -834,9 +834,13 @@ Norm
 - `as: "reference"` DARF lazy implementiert werden; eine vollständige Traversierung ist NICHT erforderlich.
 - Für Safe Value-Kinds MUSS `as: "reference"` eine readonly view liefern (typisch Proxy).
 - Für Opaque Value-Kinds MUSS `as: "reference"` auf snapshot/copy fallbacken und eine readonly Rückgabe dieser Repräsentation liefern.
+- Die Safe/Opaque-Policy MUSS rekursiv auf jede beim Zugriff beobachtete Teilstruktur angewendet werden: Tritt innerhalb einer `as: "reference"`-View bei Zugriff auf verschachtelte Werte ein Opaque Value-Kind auf, MUSS die Runtime für genau diesen Wert auf snapshot/copy fallbacken und eine opaque-readonly Repräsentation liefern.
+- Die Anwendung der Safe/Opaque-Policy DARF lazy erfolgen; die Runtime MUSS den Objektgraphen nicht vorab vollständig traversieren.
 - Für Opaque Value-Kinds MUSS die Rückgabe als **opaque readonly Repräsentation** behandelt werden; diese Spezifikation garantiert ausschließlich, dass Mutationsversuche throwen.
 - Methodenaufrufe und typ-spezifische Operationen auf Opaque-Repräsentationen sind NICHT Teil der Garantie und DÜRFEN `runtime.readonly` auslösen.
 - Bei jedem Fallback von `as: "reference"` auf snapshot/copy MUSS ein Diagnostic-/Telemetry-Event mit Code `runtime.get.reference.fallbackSnapshot` emittiert werden.
+- Für jeden Opaque-Fallback innerhalb von `as: "reference"` (inklusive nested/verschachtelter Zugriffe) MUSS `runtime.get.reference.fallbackSnapshot` emittiert werden.
+- Implementierungen SOLLEN verhindern, dass für dieselbe Opaque-Identität innerhalb eines einzelnen `get(..., { as: "reference" })` mehrfach Events emittiert werden (Flood-Control; implementation-defined).
 - Metadata für `runtime.get.reference.fallbackSnapshot` SOLL `key`, `scope` und `valueKind` enthalten (optional; nur Strings/Primitives) und DARF KEINE Objekt-Referenzen oder Objekt-Payloads enthalten.
 - Eine externe Mutation eines `as: "reference"`-Rückgabewerts DARF NICHT den nächsten `as: "snapshot"`-Rückgabewert für denselben Getter beeinflussen.
 - `as: "reference"` gibt keine point-in-time Stabilitätsgarantie; Konsumenten DÜRFEN NICHT annehmen, dass der Rückgabewert über nachfolgende Runtime-Verarbeitung hinweg stabil bleibt.
