@@ -436,6 +436,33 @@ const classifyValueKind = (value: unknown): string => {
   return "UnknownObject";
 };
 
+const isProxyWrappableObject = (value: unknown): boolean => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Reflect.getOwnPropertyDescriptor(value, key);
+    if (
+      descriptor !== undefined &&
+      "value" in descriptor &&
+      descriptor.configurable === false &&
+      descriptor.writable === false
+    ) {
+      const descriptorValue = descriptor.value;
+      if (
+        descriptorValue !== null &&
+        (typeof descriptorValue === "object" ||
+          typeof descriptorValue === "function")
+      ) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+};
+
 const readonlyOpaque = <T extends object>(value: T): T => {
   const seen = new WeakMap<object, unknown>();
 
@@ -518,6 +545,7 @@ export {
   clone,
   isPlainObject,
   classifyValueKind,
+  isProxyWrappableObject,
   readonlyView,
   readonlyOpaque,
   measureEntryBytes,

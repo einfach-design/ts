@@ -10,6 +10,7 @@ import { extendSeenSignals, projectSignal } from "../../state/signals.js";
 import type { ImpulseQEntryCanonical } from "../../canon/impulseEntry.js";
 import {
   classifyValueKind,
+  isProxyWrappableObject,
   readonlyOpaque,
   readonlyView,
   snapshot,
@@ -406,13 +407,18 @@ export function runGet(
     }
 
     if (as === "reference") {
-      const valueKind = classifyValueKind(selected);
+      let valueKind = classifyValueKind(selected);
       if (valueKind === "Null" || valueKind === "Primitive") {
         return selected;
       }
 
-      if (valueKind === "Array" || valueKind === "PlainObject") {
+      const isSafeKind = valueKind === "Array" || valueKind === "PlainObject";
+      if (isSafeKind && isProxyWrappableObject(selected)) {
         return readonlyView(selected as object);
+      }
+
+      if (isSafeKind) {
+        valueKind = "NonWrappableObject";
       }
 
       const copy = snapshot(selected);
