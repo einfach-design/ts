@@ -2036,6 +2036,54 @@ describe("conformance/get-set", () => {
 
     expect(ref.locked).not.toBe(inner);
   });
+
+  it("REF-FALLBACK-04 — reference fallback for Function returns readonly & emits telemetry", () => {
+    const run = createRuntime({ allowUnsafeAlias: true });
+    const events: Array<{ code: string; data?: Record<string, unknown> }> = [];
+    run.onDiagnostic((d) =>
+      events.push({
+        code: d.code,
+        ...(d.data !== undefined
+          ? { data: d.data as Record<string, unknown> }
+          : {}),
+      }),
+    );
+
+    const fn = function namedFn() {
+      return 123;
+    } as (...args: unknown[]) => unknown;
+
+    const baselineAlias = run.get("scopeProjectionBaseline", {
+      as: "unsafeAlias",
+    }) as {
+      signal: unknown;
+    };
+    baselineAlias.signal = fn;
+
+    const ref = run.get("signal", {
+      as: "reference",
+      scope: "applied",
+    }) as ((...args: unknown[]) => unknown) & {
+      x?: number;
+    };
+
+    const fallbackEvent = events.find(
+      (e) => e.code === "runtime.get.reference.fallbackSnapshot",
+    );
+    expect(fallbackEvent?.data?.valueKind).toBe("Function");
+
+    expect(() => {
+      ref.x = 1;
+    }).toThrow("runtime.readonly");
+    expect(() => Object.defineProperty(ref, "x", { value: 1 })).toThrow(
+      "runtime.readonly",
+    );
+
+    expect(() => ref()).toThrow("runtime.readonly");
+    expect(
+      () => new (ref as unknown as new (...args: unknown[]) => unknown)(),
+    ).toThrow("runtime.readonly");
+  });
   it("UNSAFE-ALIAS-03 — unsafeAlias aliases state when enabled", () => {
     const run = createRuntime({ allowUnsafeAlias: true });
     const events: Array<{ code: string }> = [];
