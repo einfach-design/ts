@@ -32,6 +32,8 @@ Diese Aufgabe bündelt alle offenen `get.ts`-Änderungen, die in parallelen Bran
 
 > Ziel: Eine Implementierung, die sich **hart** durch Conformance-Tests absichern lässt (drift-proof),
 > synchron + deterministisch, mit klaren Contracts für Flags, `get("*")`, EmptyImpulse, Backfill, Trim und Target-Dispatch.
+>
+> Die **Spec 0.12.0** (`docs/runtime/RunTime-0.12.0-Specification.md`) ist die Source of Truth; dieses Dokument konkretisiert ausschließlich die Implementierungsnotizen.
 
 ---
 
@@ -204,12 +206,47 @@ Nur in Tests (`__TEST__`), niemals Teil der public API.
 - liefert stabile Kopien (keine live leaks).
 - darf frei mutierbar sein (Userland).
 
-### 5.3 `as:"reference"` (read-only view, throw-on-write)
+### 5.3 `as:"reference"` – readonly view mit Fallback
 
-- `as:"reference"` liefert eine **read-only** Ansicht, die intern aliasen darf (keine Kopie), aber **nie** beschreibbar ist.
-- Einheitlich **throw-on-write** (Dev und Prod), um CI eindeutig zu halten.
-- `reference` darf nur Strukturen enthalten, die vollständig write-protectable sind (**keine nested mutable objects**).
-- `as:"reference"` darf niemals direkte, beschreibbare SSoT-Objekte exponieren; es liefert ausschließlich read-only Views/Wrapper.
+`as:"reference"` arbeitet deterministisch und **wirft nicht aufgrund des Value-Kinds**. Stattdessen gilt Safe-vs-Opaque mit Fallback auf Snapshot.
+
+#### Schritt 1 — Klassifiziere Getter-Rückgabewert: Safe vs Opaque
+
+- **Safe**:
+  - `null`
+  - primitive (`string`, `number`, `boolean`, `bigint`, `symbol`, `undefined`)
+  - Arrays
+  - Plain Objects (Prototype ist `Object.prototype` oder `null`)
+- **Opaque**: alles andere (z.B. `Date`, `RegExp`, `Map`, `Set`, `Function`, `Error`, Klasseninstanzen, unbekannte Objektprototypen).
+
+#### Schritt 2 — Safe: lazy deep-readonly view
+
+- Rückgabe ist eine **lazy deep-readonly view** via Proxy-Wrapping on-demand.
+- Ein `WeakMap`-Cache stellt sicher, dass pro Objekt genau ein Proxy pro View-Lifecycle erzeugt wird (stabile Proxy-Identität, kein Mehrfach-Wrapping).
+- Mutationsvektoren werden blockiert (throw-on-write), inkl. Property-Write/Delete, `defineProperty`, `setPrototypeOf`, `preventExtensions`/`seal`/`freeze` sowie Array-Mutatoren.
+
+#### Schritt 3 — Opaque: fallback auf Snapshot/Copie
+
+- Für Opaque-Werte wird **kein Fehler** geworfen.
+- Stattdessen wird ein Snapshot/eine Kopie mit **demselben Clone-Mechanismus wie `as:"snapshot"`** erstellt (keine Sonderlogik).
+- Rückgabe erfolgt readonly auf Basis dieser Kopie (z.B. readonlyView über der Kopie).
+- Zusätzlich Telemetry-Event emittieren: `runtime.get.reference.fallbackSnapshot` mit Feldern `key`, `scope`, `valueKind`.
+
+#### Schritt 4 — Value-Kind Klassifikation für Telemetry
+
+`valueKind` wird deterministisch und ohne Objekt-Dumps gebildet, mindestens mit folgenden Klassen:
+
+- `Array`
+- `PlainObject`
+- `Date`
+- `RegExp`
+- `Map`
+- `Set`
+- `Function`
+- `Error`
+- `UnknownObject`
+
+Keine Objekt-Payloads, keine serialisierten Dumps im Event.
 
 #### Definition: “Write” (breit)
 
@@ -222,11 +259,23 @@ Write umfasst mindestens:
 - Array mutators (`push`, `pop`, `shift`, `unshift`, `splice`, `sort`, `reverse`, `copyWithin`, `fill`, etc.)
 - Map/Set mutators (sollten idealerweise gar nicht exposed werden)
 
-### 5.4 `run.get("*")`
+### 5.4 `as:"unsafeAlias"` – alias + guardrails
+
+- Alias-Pfad liefert direkte Referenzen (keine Proxies, keine Clones).
+- **Dev-default disabled**: in Dev Mode ohne `allowUnsafeAlias: true` wird deterministisch geworfen.
+- Bei erfolgreicher Rückgabe wird `runtime.get.unsafeAlias.used` emittiert (mindestens mit optionalem `key`/`scope`).
+
+### 5.5 `run.get("*")`
 
 - eigener API-Pfad
 - akzeptiert `scope`, wertet `scope` aber NICHT aus → immer applied+pending
 - enthält determinismusrelevanten Vollzustand inkl. backfillQ (IDs), impulseQ (cursor+entries), flags/signals, defaults.
+
+### 5.6 Diagnostics/Telemetry-Plumbing (Dokumentation)
+
+- Runtime-Events werden über die bestehende Diagnostics/Telemetry-Anbindung des Repos gehookt (bestehender Emitter/Callback/Observer-Pfad; keine neue API).
+- Event-Payloads enthalten ausschließlich primitive Metadaten (z.B. `key`, `scope`, `valueKind`) und **nie** Objekt-Referenzen/Objekt-Dumps.
+- Events sind besonders in Dev relevant (Guardrails, Drift-Debugging), bleiben aber semantisch auch außerhalb von Dev konsistent.
 
 ---
 
@@ -414,6 +463,16 @@ No ref-equality decisions:
   - FlagsView: map/list bijektiv (exact contract)
   - BackfillQSnapshot: map<->list konsistent
   - impulseQ: cursor in range, entries unverändert
+
+- `reference` fallback-Pfad:
+  - Opaque value führt zu `runtime.get.reference.fallbackSnapshot`
+  - `reference` wirft nicht wegen Value-Kind
+
+### 11.1.1 `as:"unsafeAlias"`
+
+- Dev ohne `allowUnsafeAlias: true` => throw
+- Erfolgspfad emittiert `runtime.get.unsafeAlias.used`
+- Alias ist direkt (kein Clone/Proxy)
 
 ### 11.2 `get("*")`
 
