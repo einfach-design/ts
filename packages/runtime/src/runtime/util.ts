@@ -463,11 +463,17 @@ const isProxyWrappableObject = (value: unknown): boolean => {
   return true;
 };
 
-const readonlyOpaque = <T extends object>(value: T): T => {
+const readonlyOpaque = <T extends object | ((...args: unknown[]) => unknown)>(
+  value: T,
+): T => {
   const seen = new WeakMap<object, unknown>();
 
   const toReadonlyOpaque = (input: unknown): unknown => {
-    if (typeof input !== "object" || input === null) {
+    if (input === null) {
+      return input;
+    }
+
+    if (typeof input !== "object" && typeof input !== "function") {
       return input;
     }
 
@@ -489,6 +495,8 @@ const readonlyOpaque = <T extends object>(value: T): T => {
       defineProperty: throwReadonlyError,
       setPrototypeOf: throwReadonlyError,
       preventExtensions: throwReadonlyError,
+      apply: throwReadonlyError,
+      construct: throwReadonlyError,
     });
 
     seen.set(input, proxy);

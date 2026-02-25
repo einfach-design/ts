@@ -434,8 +434,13 @@ export function runGet(
         },
       });
 
-      if (typeof copy === "object" && copy !== null) {
-        return readonlyOpaque(copy);
+      if (
+        (typeof copy === "object" && copy !== null) ||
+        typeof copy === "function"
+      ) {
+        return readonlyOpaque(
+          copy as object | ((...args: unknown[]) => unknown),
+        );
       }
 
       return copy;
