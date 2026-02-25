@@ -2131,6 +2131,89 @@ describe("conformance/get-set", () => {
     expect(fallbackEvents[0]?.data?.valueKind).toBe("Function");
   });
 
+  it("REF-FALLBACK-06 — reference wraps nested Date as snapshot+readonly and emits telemetry once", () => {
+    const run = createRuntime({ allowUnsafeAlias: true });
+    const events: Array<{ code: string; data?: Record<string, unknown> }> = [];
+    run.onDiagnostic((d) =>
+      events.push({
+        code: d.code,
+        ...(d.data !== undefined
+          ? { data: d.data as Record<string, unknown> }
+          : {}),
+      }),
+    );
+
+    const d = new Date("2020-01-01T00:00:00.000Z");
+    const alias = run.get("flags", { as: "unsafeAlias" }) as {
+      map?: Record<string, unknown>;
+    };
+    alias.map ??= {};
+    alias.map.date = d;
+
+    const ref = run.get("flags", { as: "reference" }) as {
+      map: { date: Date & { x?: number } };
+    };
+    const leaf1 = ref.map.date;
+    const leaf2 = ref.map.date;
+
+    expect(leaf1).toBe(leaf2);
+
+    const matches = events.filter(
+      (e) =>
+        e.code === "runtime.get.reference.fallbackSnapshot" &&
+        e.data?.valueKind === "Date",
+    );
+    expect(matches).toHaveLength(1);
+    expect(typeof matches[0]?.data?.valueKind).toBe("string");
+    expect((matches[0]?.data?.valueKind as string).length).toBeGreaterThan(0);
+
+    expect(() => Object.defineProperty(leaf1, "x", { value: 1 })).toThrow(
+      "runtime.readonly",
+    );
+    expect(() => {
+      leaf1.x = 1;
+    }).toThrow("runtime.readonly");
+  });
+
+  it("REF-FALLBACK-07 — reference wraps nested Map as snapshot+readonly and emits telemetry once", () => {
+    const run = createRuntime({ allowUnsafeAlias: true });
+    const events: Array<{ code: string; data?: Record<string, unknown> }> = [];
+    run.onDiagnostic((d) =>
+      events.push({
+        code: d.code,
+        ...(d.data !== undefined
+          ? { data: d.data as Record<string, unknown> }
+          : {}),
+      }),
+    );
+
+    const m = new Map([["a", 1]]);
+    const alias = run.get("flags", { as: "unsafeAlias" }) as {
+      map?: Record<string, unknown>;
+    };
+    alias.map ??= {};
+    alias.map.nestedMap = m;
+
+    const ref = run.get("flags", { as: "reference" }) as {
+      map: { nestedMap: Map<string, number> };
+    };
+
+    const leaf1 = ref.map.nestedMap;
+    const leaf2 = ref.map.nestedMap;
+
+    expect(leaf1).toBe(leaf2);
+    expect(() => leaf1.set("b", 2)).toThrow("runtime.readonly");
+
+    const matches = events.filter(
+      (e) =>
+        e.code === "runtime.get.reference.fallbackSnapshot" &&
+        e.data?.valueKind === "Map",
+    );
+    expect(matches).toHaveLength(1);
+    expect(typeof matches[0]?.data?.valueKind).toBe("string");
+    expect((matches[0]?.data?.valueKind as string).length).toBeGreaterThan(0);
+  });
+
   it("UNSAFE-ALIAS-03 — unsafeAlias aliases state when enabled", () => {
     const run = createRuntime({ allowUnsafeAlias: true });
     const events: Array<{ code: string }> = [];
