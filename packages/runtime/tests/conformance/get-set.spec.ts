@@ -1991,6 +1991,49 @@ describe("conformance/get-set", () => {
     ).toBe(true);
   });
 
+  it("REF-FALLBACK-03 — reference falls back when object is not proxy-wrappable", () => {
+    const run = createRuntime({ allowUnsafeAlias: true });
+    const events: Array<{ code: string; data?: Record<string, unknown> }> = [];
+    run.onDiagnostic((d) =>
+      events.push({
+        code: d.code,
+        ...(d.data !== undefined
+          ? { data: d.data as Record<string, unknown> }
+          : {}),
+      }),
+    );
+
+    run.set({ flags: { list: [], map: {} } } as never);
+
+    const inner = { x: 1 };
+    const flagsAlias = run.get("flags", { as: "unsafeAlias" }) as {
+      locked?: { x: number };
+    };
+    Object.defineProperty(flagsAlias, "locked", {
+      value: inner,
+      writable: false,
+      configurable: false,
+      enumerable: true,
+    });
+
+    const ref = run.get("flags", { as: "reference" }) as {
+      locked: { x: number };
+    };
+
+    expect(() => {
+      ref.locked.x = 2;
+    }).toThrow("runtime.readonly");
+
+    expect(
+      events.some(
+        (e) =>
+          e.code === "runtime.get.reference.fallbackSnapshot" &&
+          e.data?.valueKind === "NonWrappableObject",
+      ),
+    ).toBe(true);
+
+    expect(ref.locked).not.toBe(inner);
+  });
   it("UNSAFE-ALIAS-03 — unsafeAlias aliases state when enabled", () => {
     const run = createRuntime({ allowUnsafeAlias: true });
     const events: Array<{ code: string }> = [];
