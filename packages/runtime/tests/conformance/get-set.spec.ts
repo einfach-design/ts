@@ -2214,6 +2214,75 @@ describe("conformance/get-set", () => {
     expect((matches[0]?.data?.valueKind as string).length).toBeGreaterThan(0);
   });
 
+  it("REF-FALLBACK-08 — telemetry dedup is per reference view, not global", () => {
+    const run = createRuntime({ allowUnsafeAlias: true });
+    const events: Array<{ code: string; data?: Record<string, unknown> }> = [];
+    run.onDiagnostic((e) =>
+      events.push({
+        code: e.code,
+        ...(e.data !== undefined
+          ? { data: e.data as Record<string, unknown> }
+          : {}),
+      }),
+    );
+
+    const d = new Date("2020-01-01T00:00:00.000Z");
+    const alias = run.get("flags", { as: "unsafeAlias" }) as {
+      map?: Record<string, unknown>;
+    };
+    alias.map ??= {};
+    alias.map.date = d;
+
+    const ref1 = run.get("flags", { as: "reference" }) as {
+      map: { date: Date };
+    };
+    void ref1.map.date;
+    void ref1.map.date;
+
+    const ref2 = run.get("flags", { as: "reference" }) as {
+      map: { date: Date };
+    };
+    void ref2.map.date;
+    void ref2.map.date;
+
+    const matches = events.filter(
+      (e) =>
+        e.code === "runtime.get.reference.fallbackSnapshot" &&
+        e.data?.valueKind === "Date",
+    );
+    expect(matches).toHaveLength(2);
+    expect(typeof matches[0]?.data?.valueKind).toBe("string");
+    expect((matches[0]?.data?.valueKind as string).length).toBeGreaterThan(0);
+    expect(typeof matches[1]?.data?.valueKind).toBe("string");
+    expect((matches[1]?.data?.valueKind as string).length).toBeGreaterThan(0);
+  });
+
+  it("REF-FALLBACK-09 — wrapper identity stable within view, not guaranteed across views", () => {
+    const run = createRuntime({ allowUnsafeAlias: true });
+
+    const d = new Date("2020-01-01T00:00:00.000Z");
+    const alias = run.get("flags", { as: "unsafeAlias" }) as {
+      map?: Record<string, unknown>;
+    };
+    alias.map ??= {};
+    alias.map.date = d;
+
+    const ref1 = run.get("flags", { as: "reference" }) as {
+      map: { date: Date };
+    };
+    const a1 = ref1.map.date;
+    const a2 = ref1.map.date;
+    const ref2 = run.get("flags", { as: "reference" }) as {
+      map: { date: Date };
+    };
+    const b1 = ref2.map.date;
+
+    expect(a1).toBe(a2);
+
+    // Cross-view wrapper identity is intentionally not asserted as a strict contract.
+    void b1;
+  });
+
   it("UNSAFE-ALIAS-03 — unsafeAlias aliases state when enabled", () => {
     const run = createRuntime({ allowUnsafeAlias: true });
     const events: Array<{ code: string }> = [];
