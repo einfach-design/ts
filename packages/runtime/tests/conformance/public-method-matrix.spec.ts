@@ -88,9 +88,9 @@ describe("conformance/public-method-matrix", () => {
       expect(runUnsafe.get(key, { as: "unsafeAlias" })).toBeDefined();
     }
 
-    expect(() => run.get("__invalid__" as unknown as RunGetKey)).toThrow(
-      "get.key.invalid",
-    );
+    expect(() =>
+      run.get("__invalid__" as unknown as Exclude<RunGetKey, "*">),
+    ).toThrow("get.key.invalid");
   });
 
   it("run.get defaults ignores scope projection semantics", () => {

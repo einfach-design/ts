@@ -134,7 +134,7 @@ describe("failure-modes/runtime-errors", () => {
         codes.push(diagnostic.code);
       });
 
-      const hydration = run.get(undefined, { as: "snapshot" }) as {
+      const hydration = run.get("*", { as: "snapshot" }) as {
         impulseQ: {
           q: {
             entries: Array<Record<string, unknown>>;
@@ -300,7 +300,9 @@ describe("failure-modes/runtime-errors", () => {
         reportDiagnostics.push(diagnostic);
       });
       expect(() =>
-        reportRun.get("definitely.invalid.key" as unknown as RunGetKey),
+        reportRun.get(
+          "definitely.invalid.key" as unknown as Exclude<RunGetKey, "*">,
+        ),
       ).toThrow("get.key.invalid");
       expect(reportDiagnostics).toEqual(
         expect.arrayContaining([
@@ -318,7 +320,9 @@ describe("failure-modes/runtime-errors", () => {
         swallowDiagnostics.push(diagnostic);
       });
       expect(() =>
-        swallowRun.get("definitely.invalid.key" as unknown as RunGetKey),
+        swallowRun.get(
+          "definitely.invalid.key" as unknown as Exclude<RunGetKey, "*">,
+        ),
       ).toThrow("get.key.invalid");
       expect(swallowDiagnostics).not.toEqual(
         expect.arrayContaining([
@@ -332,7 +336,9 @@ describe("failure-modes/runtime-errors", () => {
       const throwRun = setupWithThrowingListener();
       throwRun.set({ impulseQ: { config: { onError: "throw" } } });
       expect(() =>
-        throwRun.get("definitely.invalid.key" as unknown as RunGetKey),
+        throwRun.get(
+          "definitely.invalid.key" as unknown as Exclude<RunGetKey, "*">,
+        ),
       ).toThrow("listener-boom");
 
       const fnSeen: unknown[] = [];
@@ -347,7 +353,9 @@ describe("failure-modes/runtime-errors", () => {
         },
       });
       expect(() =>
-        fnRun.get("definitely.invalid.key" as unknown as RunGetKey),
+        fnRun.get(
+          "definitely.invalid.key" as unknown as Exclude<RunGetKey, "*">,
+        ),
       ).toThrow("get.key.invalid");
       expect(fnSeen).toHaveLength(1);
 
@@ -362,7 +370,9 @@ describe("failure-modes/runtime-errors", () => {
         },
       });
       expect(() =>
-        fnThrowRun.get("definitely.invalid.key" as unknown as RunGetKey),
+        fnThrowRun.get(
+          "definitely.invalid.key" as unknown as Exclude<RunGetKey, "*">,
+        ),
       ).toThrow("listener-fn-throw-through");
     });
   });
