@@ -1984,7 +1984,7 @@ describe("conformance/get-set", () => {
       enumerable: true,
     });
 
-    const ref = run.get("flags", { as: "reference" }) as {
+    const ref = run.get("flags", { as: "reference" }) as unknown as {
       locked: { x: number };
     };
 
@@ -2030,7 +2030,7 @@ describe("conformance/get-set", () => {
     const ref = run.get("signal", {
       as: "reference",
       scope: "applied",
-    }) as ((...args: unknown[]) => unknown) & {
+    }) as unknown as ((...args: unknown[]) => unknown) & {
       x?: number;
     };
 
@@ -2073,7 +2073,7 @@ describe("conformance/get-set", () => {
     };
     alias.map.fn = fn;
 
-    const ref = run.get("flags", { as: "reference" }) as {
+    const ref = run.get("flags", { as: "reference" }) as unknown as {
       map: {
         fn: ((...args: unknown[]) => unknown) & { x?: number };
       };
@@ -2117,7 +2117,7 @@ describe("conformance/get-set", () => {
     alias.map ??= {};
     alias.map.date = d;
 
-    const ref = run.get("flags", { as: "reference" }) as {
+    const ref = run.get("flags", { as: "reference" }) as unknown as {
       map: { date: Date & { x?: number } };
     };
     const leaf1 = ref.map.date;
@@ -2161,7 +2161,7 @@ describe("conformance/get-set", () => {
     alias.map ??= {};
     alias.map.nestedMap = m;
 
-    const ref = run.get("flags", { as: "reference" }) as {
+    const ref = run.get("flags", { as: "reference" }) as unknown as {
       map: { nestedMap: Map<string, number> };
     };
 
@@ -2200,13 +2200,13 @@ describe("conformance/get-set", () => {
     alias.map ??= {};
     alias.map.date = d;
 
-    const ref1 = run.get("flags", { as: "reference" }) as {
+    const ref1 = run.get("flags", { as: "reference" }) as unknown as {
       map: { date: Date };
     };
     void ref1.map.date;
     void ref1.map.date;
 
-    const ref2 = run.get("flags", { as: "reference" }) as {
+    const ref2 = run.get("flags", { as: "reference" }) as unknown as {
       map: { date: Date };
     };
     void ref2.map.date;
@@ -2234,12 +2234,12 @@ describe("conformance/get-set", () => {
     alias.map ??= {};
     alias.map.date = d;
 
-    const ref1 = run.get("flags", { as: "reference" }) as {
+    const ref1 = run.get("flags", { as: "reference" }) as unknown as {
       map: { date: Date };
     };
     const a1 = ref1.map.date;
     const a2 = ref1.map.date;
-    const ref2 = run.get("flags", { as: "reference" }) as {
+    const ref2 = run.get("flags", { as: "reference" }) as unknown as {
       map: { date: Date };
     };
     const b1 = ref2.map.date;
@@ -2719,7 +2719,9 @@ describe("conformance/get-set/impulseQ-trim-maxBytes", () => {
 
   it("TRM05 — onTrim is called with reason=maxBytes and removed entries match what was removed", () => {
     const run = createRuntime();
-    const s = run.get("*", { as: "snapshot" }) as ImpulseQTrimSnapshot & {
+    const s = run.get("*", {
+      as: "snapshot",
+    }) as unknown as ImpulseQTrimSnapshot & {
       impulseQ: {
         config: ImpulseQTrimSnapshot["impulseQ"]["config"] & {
           onTrim?: (info: {
