@@ -25,6 +25,7 @@ import type {
   RuntimeStore,
   ScopeProjectionBaseline,
 } from "../store.js";
+import type { RunSetInput } from "../../index.types.js";
 import type { RegistryStore } from "../../state/registry.js";
 import type {
   DiagnosticCollector,
@@ -419,7 +420,7 @@ export function runSet(
     expressionRegistry: RegistryStore<RegisteredExpression>;
     diagnostics: DiagnosticCollector;
   },
-  patch: Readonly<Record<string, unknown>>,
+  patch: RunSetInput,
 ): void {
   const emitFlagDeltaInvalid = (
     field: "addFlags" | "removeFlags",
@@ -844,7 +845,8 @@ export function runSet(
       throw new Error("set.patch.invalid");
     }
 
-    const isHydration = hasOwn(patch, "backfillQ");
+    const patchRecord = patch as Record<string, unknown>;
+    const isHydration = hasOwn(patchRecord, "backfillQ");
 
     if (isHydration) {
       for (const key of hydrationRequiredKeys) {
@@ -1157,7 +1159,7 @@ export function runSet(
 
     if (
       hasOwn(patch, "flags") &&
-      (hasOwn(patch, "addFlags") || hasOwn(patch, "removeFlags"))
+      (hasOwn(patchRecord, "addFlags") || hasOwn(patchRecord, "removeFlags"))
     ) {
       diagnostics.emit({
         code: "set.flags.addRemoveConflict",
@@ -1282,12 +1284,12 @@ export function runSet(
       nextSeenFlags = extendSeenFlags(nextSeenFlags, canonical.list);
     }
 
-    if (hasOwn(patch, "addFlags") || hasOwn(patch, "removeFlags")) {
-      const normalizedAddFlags = hasOwn(patch, "addFlags")
-        ? readFlagDelta("addFlags", patch.addFlags)
+    if (hasOwn(patchRecord, "addFlags") || hasOwn(patchRecord, "removeFlags")) {
+      const normalizedAddFlags = hasOwn(patchRecord, "addFlags")
+        ? readFlagDelta("addFlags", patchRecord.addFlags)
         : [];
-      const normalizedRemoveFlags = hasOwn(patch, "removeFlags")
-        ? readFlagDelta("removeFlags", patch.removeFlags)
+      const normalizedRemoveFlags = hasOwn(patchRecord, "removeFlags")
+        ? readFlagDelta("removeFlags", patchRecord.removeFlags)
         : [];
 
       const overlap = new Set(
@@ -1315,10 +1317,10 @@ export function runSet(
       nextSeenFlags = extendSeenFlags(nextSeenFlags, seenInput);
     }
 
-    if (hasOwn(patch, "signals")) {
+    if (hasOwn(patchRecord, "signals")) {
       if (
-        !Array.isArray(patch.signals) ||
-        !patch.signals.every((signal) => typeof signal === "string")
+        !Array.isArray(patchRecord.signals) ||
+        !patchRecord.signals.every((signal) => typeof signal === "string")
       ) {
         diagnostics.emit({
           code: "set.signals.invalid",
@@ -1331,27 +1333,30 @@ export function runSet(
       const nextSignals = patchSignals({
         ...(nextSignal !== undefined ? { previousSignal: nextSignal } : {}),
         previousSeenSignals: nextSeenSignals,
-        signals: patch.signals,
+        signals: patchRecord.signals,
       });
 
       nextSignal = nextSignals.signal;
       nextSeenSignals = nextSignals.seenSignals;
     }
 
-    if (hasOwn(patch, "defaults")) {
-      if (!isRecordObject(patch.defaults)) {
-        throwSetDefaultsInvalid(diagnostics, "defaults", patch.defaults);
+    if (hasOwn(patchRecord, "defaults")) {
+      if (!isRecordObject(patchRecord.defaults)) {
+        throwSetDefaultsInvalid(diagnostics, "defaults", patchRecord.defaults);
       }
 
       try {
-        nextDefaults = setDefaults(nextDefaults, patch.defaults as SetDefaults);
+        nextDefaults = setDefaults(
+          nextDefaults,
+          patchRecord.defaults as SetDefaults,
+        );
       } catch {
-        throwSetDefaultsInvalid(diagnostics, "defaults", patch.defaults);
+        throwSetDefaultsInvalid(diagnostics, "defaults", patchRecord.defaults);
       }
     }
 
-    if (hasOwn(patch, "impulseQ")) {
-      const impulsePatch = patch.impulseQ;
+    if (hasOwn(patchRecord, "impulseQ")) {
+      const impulsePatch = patchRecord.impulseQ;
       if (!isRecordObject(impulsePatch)) {
         const valueType = toValueType(impulsePatch);
         diagnostics.emit({
