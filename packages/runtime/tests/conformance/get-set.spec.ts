@@ -60,6 +60,45 @@ describe("conformance/get-set", () => {
     expect(snap2.list).toEqual(["a"]);
   });
 
+  it("SET-FLAGDELTA-01 — set rejects non-string entries (symbol/number) with set.flags.deltaInvalid", () => {
+    const run = createRuntime();
+    const diagnostics = collectDiagnostics(run);
+
+    expect(() => run.set({ addFlags: [Symbol("x")] } as never)).toThrow(
+      "set.flags.deltaInvalid",
+    );
+    expect(
+      diagnostics.filter(
+        (diagnostic) => diagnostic.code === "set.flags.deltaInvalid",
+      ),
+    ).toHaveLength(1);
+
+    diagnostics.length = 0;
+
+    expect(() => run.set({ addFlags: [1] } as never)).toThrow(
+      "set.flags.deltaInvalid",
+    );
+    expect(
+      diagnostics.filter(
+        (diagnostic) => diagnostic.code === "set.flags.deltaInvalid",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("SET-FLAGDELTA-02 — set rejects empty/whitespace strings with set.flags.deltaInvalid", () => {
+    const run = createRuntime();
+    const diagnostics = collectDiagnostics(run);
+
+    expect(() => run.set({ addFlags: ["", "   "] } as never)).toThrow(
+      "set.flags.deltaInvalid",
+    );
+    expect(
+      diagnostics.filter(
+        (diagnostic) => diagnostic.code === "set.flags.deltaInvalid",
+      ),
+    ).toHaveLength(1);
+  });
+
   it("A1b — set(addFlags) accepts FlagsView delta payloads (Spec §2.5, §4.2)", () => {
     const run = createRuntime();
 

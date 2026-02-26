@@ -125,6 +125,18 @@ describe("failure-modes/runtime-errors", () => {
       ]),
     );
   });
+
+  it("SET-FAIL-01 — symbol in addFlags produces runtime diagnostic error (no JS TypeError)", () => {
+    const run = createRuntime();
+
+    expect(() => run.set({ addFlags: [Symbol("x")] } as never)).toThrow(
+      "set.flags.deltaInvalid",
+    );
+    expect(() => run.set({ addFlags: [Symbol("x")] } as never)).not.toThrow(
+      "Cannot convert a Symbol value to a string",
+    );
+  });
+
   describe("outer phase: impulse/drain", () => {
     it("rejects malformed hydration queue entries before drain processing", () => {
       const run = createRuntime();
