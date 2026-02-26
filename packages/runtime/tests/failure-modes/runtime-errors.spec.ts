@@ -134,7 +134,7 @@ describe("failure-modes/runtime-errors", () => {
         codes.push(diagnostic.code);
       });
 
-      const hydration = run.get("*", { as: "snapshot" }) as {
+      const hydration = run.get("*", { as: "snapshot" }) as unknown as {
         impulseQ: {
           q: {
             entries: Array<Record<string, unknown>>;
@@ -417,7 +417,7 @@ describe("failure-modes/runtime-errors", () => {
 
     expect(() => run.impulse({ addFlags: ["a"] })).toThrow("target throw");
 
-    const impulseQ = run.get("impulseQ", { as: "snapshot" }) as {
+    const impulseQ = run.get("impulseQ", { as: "snapshot" }) as unknown as {
       q: { cursor: number; entries: unknown[] };
     };
 

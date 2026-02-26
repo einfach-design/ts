@@ -20,7 +20,7 @@ describe("conformance/gate-ignore-dimension", () => {
       ],
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
     snapshot.backfillQ = {
@@ -51,7 +51,7 @@ describe("conformance/gate-ignore-dimension", () => {
       ],
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
     snapshot.backfillQ = {
@@ -97,7 +97,10 @@ describe("conformance/gate-ignore-dimension", () => {
     run.impulse({ signals: ["sig:wrong"] });
 
     expect(calls).toEqual([]);
-    const registeredById = run.get("registeredById") as Map<string, unknown>;
+    const registeredById = run.get("registeredById") as unknown as Map<
+      string,
+      unknown
+    >;
     expect(registeredById.has("expr:no-gate:signal-mismatch")).toBe(true);
     expect(registeredById.has("expr:no-gate:flags-mismatch")).toBe(true);
     expect(run.get("backfillQ", { as: "snapshot" })).toEqual({

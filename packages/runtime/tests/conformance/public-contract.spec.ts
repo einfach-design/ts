@@ -60,12 +60,15 @@ describe("conformance: public contract (values)", () => {
 
     run.impulse({ addFlags: ["tick:1"] });
 
-    const registeredById = run.get("registeredById") as Map<string, unknown>;
+    const registeredById = run.get("registeredById") as unknown as Map<
+      string,
+      unknown
+    >;
     expect(registeredById.has("expr:remove-via-applied")).toBe(false);
 
     expect(calls).toEqual(["first"]);
 
-    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
+    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };
@@ -116,7 +119,9 @@ describe("conformance: public contract (values)", () => {
       targets: [() => undefined],
     });
 
-    const beforeRemove = run.get("backfillQ", { as: "snapshot" }) as {
+    const beforeRemove = run.get("backfillQ", {
+      as: "snapshot",
+    }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };
@@ -124,7 +129,7 @@ describe("conformance: public contract (values)", () => {
 
     remove();
 
-    const afterRemove = run.get("backfillQ", { as: "snapshot" }) as {
+    const afterRemove = run.get("backfillQ", { as: "snapshot" }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };
@@ -150,7 +155,7 @@ describe("conformance: public contract (values)", () => {
 
     run.impulse({ signals: ["sig:reuse"] });
 
-    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
+    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };

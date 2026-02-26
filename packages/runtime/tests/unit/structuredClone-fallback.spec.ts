@@ -29,7 +29,10 @@ describe("unit/structuredClone-fallback", () => {
         } as never),
       ).not.toThrow();
 
-      const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+      const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+        string,
+        unknown
+      >;
       const defaults = snap.defaults as Record<string, unknown>;
       const methods = (defaults.methods as Record<string, unknown>) ?? {};
       defaults.methods = methods;
@@ -43,7 +46,7 @@ describe("unit/structuredClone-fallback", () => {
 
       const d2 = rehydrated.get("defaults", {
         as: "snapshot",
-      }) as RuntimeDefaultsSnapshot;
+      }) as unknown as RuntimeDefaultsSnapshot;
       expect(d2.methods.on.runs.max).toBe(2);
     } finally {
       runtimeGlobal.structuredClone = original;

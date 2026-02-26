@@ -37,13 +37,13 @@ describe("conformance/get-set", () => {
 
     run.impulse({ addFlags: ["a"] });
 
-    const snap1 = run.get("flags", { as: "snapshot" }) as {
+    const snap1 = run.get("flags", { as: "snapshot" }) as unknown as {
       map: Record<string, true>;
       list: string[];
     };
     (snap1.map as Record<string, true | undefined>).evil = true;
 
-    const snap2 = run.get("flags", { as: "snapshot" }) as {
+    const snap2 = run.get("flags", { as: "snapshot" }) as unknown as {
       map: Record<string, true>;
       list: string[];
     };
@@ -59,7 +59,7 @@ describe("conformance/get-set", () => {
       addFlags: { list: ["a"], map: { a: true } },
     } as unknown as Record<string, unknown>);
 
-    const flags = run.get("flags") as { list: string[] };
+    const flags = run.get("flags") as unknown as { list: string[] };
     expect(flags.list).toContain("a");
   });
 
@@ -77,7 +77,9 @@ describe("conformance/get-set", () => {
       } as unknown as Record<string, unknown>),
     ).toThrow("set.impulseQ.invalid");
 
-    expect((run.get("flags") as { list: string[] }).list).toEqual(["x"]);
+    expect((run.get("flags") as unknown as { list: string[] }).list).toEqual([
+      "x",
+    ]);
   });
 
   it("A1d — hydration set must be atomic when impulseQ is invalid", () => {
@@ -87,12 +89,17 @@ describe("conformance/get-set", () => {
       unknown
     >);
 
-    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const s = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
     s.flags = { list: ["y"], map: { y: true } };
     s.impulseQ = null;
 
     expect(() => run.set(s)).toThrow("set.impulseQ.invalid");
-    expect((run.get("flags") as { list: string[] }).list).toEqual(["x"]);
+    expect((run.get("flags") as unknown as { list: string[] }).list).toEqual([
+      "x",
+    ]);
   });
 
   it("A1e — defaults.scope invalid value must throw set.defaults.invalid", () => {
@@ -111,7 +118,10 @@ describe("conformance/get-set", () => {
       string,
       unknown
     >);
-    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const s = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     run.set(s);
     (
@@ -125,7 +135,7 @@ describe("conformance/get-set", () => {
       }
     ).gate.signal.value = false;
 
-    const defaults = run.get("defaults") as {
+    const defaults = run.get("defaults") as unknown as {
       scope: {
         signal: { value: string };
         flags: { value: string };
@@ -140,7 +150,10 @@ describe("conformance/get-set", () => {
     const run = createRuntime();
     run.set({ flags: { list: ["x"], map: { x: true } } } as never);
 
-    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const s = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
     s.flags = { list: ["x", "x"], map: { x: true } };
 
     expect(() => run.set(s)).toThrow("set.hydration.flagsViewInvalid");
@@ -163,7 +176,7 @@ describe("conformance/get-set", () => {
       unknown
     >);
     run.impulse({ signals: ["a"] } as Record<string, unknown>);
-    const s = run.get("*", { as: "snapshot" }) as {
+    const s = run.get("*", { as: "snapshot" }) as unknown as {
       impulseQ: { q: { entries: Array<{ signals: string[] }> } };
     };
 
@@ -172,7 +185,7 @@ describe("conformance/get-set", () => {
 
     expect(
       (
-        run.get("impulseQ", { as: "snapshot" }) as {
+        run.get("impulseQ", { as: "snapshot" }) as unknown as {
           q: { entries: Array<{ signals: string[] }> };
         }
       ).q.entries[0]!.signals,
@@ -192,7 +205,7 @@ describe("conformance/get-set", () => {
 
     expect(
       (
-        run.get("impulseQ", { as: "snapshot" }) as {
+        run.get("impulseQ", { as: "snapshot" }) as unknown as {
           q: { entries: Array<{ signals: string[] }> };
         }
       ).q.entries[0]!.signals,
@@ -209,7 +222,7 @@ describe("conformance/get-set", () => {
 
     const snap = run.get("impulseQ", {
       as: "snapshot",
-    }) as {
+    }) as unknown as {
       q: { entries: Array<{ signals: string[] }> };
     };
 
@@ -219,7 +232,7 @@ describe("conformance/get-set", () => {
       (
         run.get("impulseQ", {
           as: "snapshot",
-        }) as {
+        }) as unknown as {
           q: { entries: Array<{ signals: string[] }> };
         }
       ).q.entries[0]!.signals,
@@ -240,7 +253,7 @@ describe("conformance/get-set", () => {
       unknown
     >);
 
-    const snap = run.get("impulseQ", { as: "snapshot" }) as {
+    const snap = run.get("impulseQ", { as: "snapshot" }) as unknown as {
       q: { entries: Array<{ livePayload?: unknown }> };
     };
 
@@ -254,7 +267,7 @@ describe("conformance/get-set", () => {
       defaults: { methods: { on: { runs: { max: 2 } } } },
     } as unknown as Record<string, unknown>);
 
-    const d = run.get("defaults") as {
+    const d = run.get("defaults") as unknown as {
       methods: {
         on: { runs?: { max?: number } };
         when: Record<string, unknown>;
@@ -278,7 +291,7 @@ describe("conformance/get-set", () => {
 
     const first = [
       ...(
-        run.get("registeredById") as Map<
+        run.get("registeredById") as unknown as Map<
           string,
           { signal?: string; runs?: { max?: number } }
         >
@@ -290,7 +303,7 @@ describe("conformance/get-set", () => {
 
     const second = [
       ...(
-        run.get("registeredById") as Map<
+        run.get("registeredById") as unknown as Map<
           string,
           { signal?: string; runs?: { max?: number } }
         >
@@ -317,7 +330,7 @@ describe("conformance/get-set", () => {
 
     const expression = [
       ...(
-        run.get("registeredById") as Map<
+        run.get("registeredById") as unknown as Map<
           string,
           {
             signal?: string;
@@ -346,7 +359,7 @@ describe("conformance/get-set", () => {
       }
 
       hydrated = true;
-      const s = run.get("*", { as: "snapshot" }) as {
+      const s = run.get("*", { as: "snapshot" }) as unknown as {
         impulseQ: {
           config: { retain: number | boolean; maxBytes: number };
         };
@@ -370,7 +383,7 @@ describe("conformance/get-set", () => {
 
     const after = run.get("impulseQ", {
       as: "snapshot",
-    }) as { q: { cursor: number } };
+    }) as unknown as { q: { cursor: number } };
 
     expect(after.q.cursor).toBe(1);
   });
@@ -380,7 +393,7 @@ describe("conformance/get-set", () => {
     run.set({
       defaults: run.get("defaults", {
         as: "snapshot",
-      }) as Record<string, unknown>,
+      }) as unknown as Record<string, unknown>,
       flags: { list: ["a"], map: { a: true } },
       changedFlags: { list: ["a"], map: { a: true } },
       seenFlags: { list: ["a"], map: { a: true } },
@@ -455,7 +468,7 @@ describe("conformance/get-set", () => {
     const pendingQ = run.get("impulseQ", {
       scope: "pending",
       as: "snapshot",
-    }) as {
+    }) as unknown as {
       q: {
         cursor: number;
         entries: readonly unknown[];
@@ -505,7 +518,9 @@ describe("conformance/get-set", () => {
     const projected = run.get("*", {
       scope: "pendingOnly",
       as: "snapshot",
-    }) as { impulseQ: { q: { entries: unknown[]; cursor: number } } };
+    }) as unknown as {
+      impulseQ: { q: { entries: unknown[]; cursor: number } };
+    };
 
     const after = run.get("impulseQ", {
       as: "snapshot",
@@ -523,7 +538,7 @@ describe("conformance/get-set", () => {
     run.set({
       defaults: run.get("defaults", {
         as: "snapshot",
-      }) as Record<string, unknown>,
+      }) as unknown as Record<string, unknown>,
       flags: { list: ["a"], map: { a: true } },
       changedFlags: { list: ["a"], map: { a: true } },
       seenFlags: { list: ["a"], map: { a: true } },
@@ -582,7 +597,7 @@ describe("conformance/get-set", () => {
     run.set({
       defaults: run.get("defaults", {
         as: "snapshot",
-      }) as Record<string, unknown>,
+      }) as unknown as Record<string, unknown>,
       flags: { list: ["a"], map: { a: true } },
       changedFlags: { list: ["a"], map: { a: true } },
       seenFlags: { list: ["a"], map: { a: true } },
@@ -641,7 +656,7 @@ describe("conformance/get-set", () => {
     run.set({
       defaults: run.get("defaults", {
         as: "snapshot",
-      }) as Record<string, unknown>,
+      }) as unknown as Record<string, unknown>,
       flags: { list: ["a"], map: { a: true } },
       changedFlags: { list: ["a"], map: { a: true } },
       seenFlags: { list: ["a"], map: { a: true } },
@@ -721,7 +736,7 @@ describe("conformance/get-set", () => {
     run.set({
       defaults: run.get("defaults", {
         as: "snapshot",
-      }) as Record<string, unknown>,
+      }) as unknown as Record<string, unknown>,
       flags: { list: [], map: {} },
       changedFlags: undefined,
       seenFlags: { list: [], map: {} },
@@ -818,7 +833,7 @@ describe("conformance/get-set", () => {
     run.set({
       defaults: run.get("defaults", {
         as: "snapshot",
-      }) as Record<string, unknown>,
+      }) as unknown as Record<string, unknown>,
       flags: { list: ["a", "b"], map: { a: true, b: true } },
       changedFlags: { list: ["b"], map: { b: true } },
       seenFlags: { list: ["a", "b"], map: { a: true, b: true } },
@@ -874,7 +889,7 @@ describe("conformance/get-set", () => {
 
     const impulseQAfterTrim = run.get("impulseQ", {
       as: "snapshot",
-    }) as {
+    }) as unknown as {
       q: {
         entries: Array<{ addFlags: string[]; signals: string[] }>;
         cursor: number;
@@ -951,7 +966,7 @@ describe("conformance/get-set", () => {
     run.set({
       defaults: run.get("defaults", {
         as: "snapshot",
-      }) as Record<string, unknown>,
+      }) as unknown as Record<string, unknown>,
       flags: { list: ["a", "b", "c"], map: { a: true, b: true, c: true } },
       changedFlags: { list: ["c"], map: { c: true } },
       seenFlags: {
@@ -1004,7 +1019,7 @@ describe("conformance/get-set", () => {
 
     const impulseQAfterTrim = run.get("impulseQ", {
       as: "snapshot",
-    }) as {
+    }) as unknown as {
       q: {
         entries: Array<{ addFlags: string[]; signals: string[] }>;
         cursor: number;
@@ -1068,7 +1083,7 @@ describe("conformance/get-set", () => {
 
     const impulseQ = run.get("impulseQ", {
       as: "snapshot",
-    }) as {
+    }) as unknown as {
       q: {
         entries: Array<{
           livePayload?: {
@@ -1107,7 +1122,7 @@ describe("conformance/get-set", () => {
       flags: { list: ["a", "b"], map: { a: true, b: true } },
     } as Record<string, unknown>);
 
-    const changed = run.get("changedFlags") as unknown;
+    const changed = run.get("changedFlags") as unknown as unknown;
 
     // Spec expectation: changedFlags must NOT be auto-diffed when only flagsTruth is patched.
     // Fail if "b" appears implicitly.
@@ -1141,7 +1156,7 @@ describe("conformance/get-set", () => {
     const run = createRuntime();
     const snapshot = run.get("*", {
       as: "snapshot",
-    }) as Record<string, unknown>;
+    }) as unknown as Record<string, unknown>;
 
     const missingKeyCodes: string[] = [];
     run.onDiagnostic((diagnostic) => {
@@ -1178,7 +1193,7 @@ describe("conformance/get-set", () => {
 
     const snapshot = run.get("*", {
       as: "snapshot",
-    }) as Record<string, unknown>;
+    }) as unknown as Record<string, unknown>;
 
     run.set({
       ...snapshot,
@@ -1206,7 +1221,7 @@ describe("conformance/get-set", () => {
       },
     });
 
-    const impulseQ = run.get("impulseQ") as {
+    const impulseQ = run.get("impulseQ") as unknown as {
       q: { entries: unknown[]; cursor: number };
       config: { retain: number | boolean; maxBytes: number };
     };
@@ -1226,7 +1241,7 @@ describe("conformance/get-set", () => {
     run.set({ impulseQ: { config: { retain: 0 } } });
     run.impulse({ signals: ["sig:x"], addFlags: ["a"] });
 
-    const impulseQ = run.get("impulseQ", { as: "snapshot" }) as {
+    const impulseQ = run.get("impulseQ", { as: "snapshot" }) as unknown as {
       q: { entries: unknown[]; cursor: number };
     };
 
@@ -1239,28 +1254,28 @@ describe("conformance/get-set", () => {
     const run = createRuntime();
 
     run.set({ impulseQ: { config: { retain: true } } });
-    let impulseQ = run.get("impulseQ", { as: "snapshot" }) as {
+    let impulseQ = run.get("impulseQ", { as: "snapshot" }) as unknown as {
       config: { retain: number; maxBytes: number };
     };
     expect(impulseQ.config.retain).toBe(Number.POSITIVE_INFINITY);
     expect(impulseQ.config.maxBytes).toBe(Number.POSITIVE_INFINITY);
 
     run.set({ impulseQ: { config: { retain: false } } });
-    impulseQ = run.get("impulseQ", { as: "snapshot" }) as {
+    impulseQ = run.get("impulseQ", { as: "snapshot" }) as unknown as {
       config: { retain: number; maxBytes: number };
     };
     expect(impulseQ.config.retain).toBe(0);
     expect(impulseQ.config.maxBytes).toBe(Number.POSITIVE_INFINITY);
 
     run.set({ impulseQ: { config: { retain: -3.9, maxBytes: -2.2 } } });
-    impulseQ = run.get("impulseQ", { as: "snapshot" }) as {
+    impulseQ = run.get("impulseQ", { as: "snapshot" }) as unknown as {
       config: { retain: number; maxBytes: number };
     };
     expect(impulseQ.config.retain).toBe(0);
     expect(impulseQ.config.maxBytes).toBe(0);
 
     run.set({ impulseQ: { config: { retain: 4.8, maxBytes: 7.9 } } });
-    impulseQ = run.get("impulseQ", { as: "snapshot" }) as {
+    impulseQ = run.get("impulseQ", { as: "snapshot" }) as unknown as {
       config: { retain: number; maxBytes: number };
     };
     expect(impulseQ.config.retain).toBe(4);
@@ -1274,7 +1289,7 @@ describe("conformance/get-set", () => {
         },
       },
     });
-    impulseQ = run.get("impulseQ", { as: "snapshot" }) as {
+    impulseQ = run.get("impulseQ", { as: "snapshot" }) as unknown as {
       config: { retain: number; maxBytes: number };
     };
     expect(impulseQ.config.retain).toBe(Number.POSITIVE_INFINITY);
@@ -1286,7 +1301,7 @@ describe("conformance/get-set", () => {
 
     run.impulse({ signals: ["a"], addFlags: ["a"] });
 
-    const beforeQ = run.get("impulseQ", { as: "snapshot" }) as {
+    const beforeQ = run.get("impulseQ", { as: "snapshot" }) as unknown as {
       q: { cursor: number; entries: unknown[] };
     };
 
@@ -1298,7 +1313,7 @@ describe("conformance/get-set", () => {
       map: { a: true, "patch-1": true, "patch-2": true },
     });
 
-    const afterQ = run.get("impulseQ", { as: "snapshot" }) as {
+    const afterQ = run.get("impulseQ", { as: "snapshot" }) as unknown as {
       q: { cursor: number; entries: unknown[] };
     };
 
@@ -1367,7 +1382,7 @@ describe("conformance/get-set", () => {
     const run = createRuntime();
 
     run.set({
-      defaults: run.get("defaults", { as: "snapshot" }) as Record<
+      defaults: run.get("defaults", { as: "snapshot" }) as unknown as Record<
         string,
         unknown
       >,
@@ -1439,8 +1454,8 @@ describe("conformance/get-set", () => {
     });
     const appliedFlags = run.get("flags", { scope: "applied", as: "snapshot" });
 
-    expect((pendingImpulseQAfter as { q: unknown }).q).toEqual(
-      (pendingImpulseQBefore as { q: unknown }).q,
+    expect((pendingImpulseQAfter as unknown as { q: unknown }).q).toEqual(
+      (pendingImpulseQBefore as unknown as { q: unknown }).q,
     );
     expect(appliedFlags).toEqual({
       list: ["base", "b"],
@@ -1456,7 +1471,7 @@ describe("conformance/get-set", () => {
     const star = run.get("*", {
       scope: "pendingOnly",
       as: "snapshot",
-    }) as Record<string, unknown>;
+    }) as unknown as Record<string, unknown>;
 
     expect(star).toEqual(run.get("*", { as: "snapshot" }));
   });
@@ -1466,7 +1481,7 @@ describe("conformance/get-set", () => {
 
     run.impulse({ signals: ["applied"], addFlags: ["a"] });
 
-    const hydration = run.get("*", { as: "snapshot" }) as {
+    const hydration = run.get("*", { as: "snapshot" }) as unknown as {
       impulseQ: {
         q: { entries: Array<Record<string, unknown>>; cursor: number };
       };
@@ -1507,7 +1522,7 @@ describe("conformance/get-set", () => {
       },
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
       unknown
     >;
@@ -1528,7 +1543,7 @@ describe("conformance/get-set", () => {
 
   it("A9 — get('*') snapshot only contains hydration keys", () => {
     const run = createRuntime();
-    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
       unknown
     >;
@@ -1566,7 +1581,7 @@ describe("conformance/get-set", () => {
       // expected
     }
 
-    const star = run.get("*", { as: "snapshot" }) as {
+    const star = run.get("*", { as: "snapshot" }) as unknown as {
       scopeProjectionBaseline: { flags: { list: string[] } };
       registeredById: Map<string, unknown>;
       registeredQ: unknown[];
@@ -1593,7 +1608,7 @@ describe("conformance/get-set", () => {
       run.add({ id: "bad", signal: "", targets: [() => undefined] } as never),
     ).toThrow("add.signals.invalid");
 
-    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
       unknown
     >;
@@ -1603,19 +1618,19 @@ describe("conformance/get-set", () => {
 
     const base2 = rehydrated.get("scopeProjectionBaseline", {
       as: "snapshot",
-    }) as {
+    }) as unknown as {
       flags: { list: string[]; map: Record<string, boolean> };
     };
     expect(Array.isArray(base2.flags.list)).toBe(true);
 
     const byId = rehydrated.get("registeredById", {
       as: "snapshot",
-    }) as Map<string, unknown>;
+    }) as unknown as Map<string, unknown>;
     expect(byId).toBeInstanceOf(Map);
 
     const diagnostics = rehydrated.get("diagnostics", {
       as: "snapshot",
-    }) as Array<{ code?: string }>;
+    }) as unknown as Array<{ code?: string }>;
     expect(Array.isArray(diagnostics)).toBe(true);
     expect(diagnostics.length).toBeGreaterThanOrEqual(2);
     expect(diagnostics.some((d) => d.code === "add.id.invalid")).toBe(true);
@@ -1625,7 +1640,7 @@ describe("conformance/get-set", () => {
 
     const registeredQ = rehydrated.get("registeredQ", {
       as: "snapshot",
-    }) as unknown[];
+    }) as unknown as unknown[];
     expect(Array.isArray(registeredQ)).toBe(true);
     expect(registeredQ.length).toBeGreaterThan(0);
   });
@@ -1636,7 +1651,7 @@ describe("conformance/get-set", () => {
     run.when({ signal: "s", targets: [() => undefined] } as never);
     run.when({ signal: "s", targets: [() => undefined] } as never);
 
-    const h = run.get("*", { as: "snapshot" }) as {
+    const h = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ?: unknown;
     };
     expect(h.backfillQ).toBeTruthy();
@@ -1644,11 +1659,11 @@ describe("conformance/get-set", () => {
     const rehydrated = createRuntime();
     rehydrated.set(h as never);
 
-    const b1 = run.get("backfillQ", { as: "snapshot" }) as {
+    const b1 = run.get("backfillQ", { as: "snapshot" }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };
-    const b2 = rehydrated.get("backfillQ", { as: "snapshot" }) as {
+    const b2 = rehydrated.get("backfillQ", { as: "snapshot" }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };
@@ -1669,19 +1684,21 @@ describe("conformance/get-set", () => {
     const run = createRuntime();
     run.when({ id: "star:04", signal: "s", targets: [() => undefined] });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
       unknown
     >;
     const rehydrated = createRuntime();
     rehydrated.set(snapshot);
 
-    const q = rehydrated.get("registeredQ", { as: "snapshot" }) as Array<{
+    const q = rehydrated.get("registeredQ", {
+      as: "snapshot",
+    }) as unknown as Array<{
       id: string;
     }>;
     const byId = rehydrated.get("registeredById", {
       as: "snapshot",
-    }) as Map<string, unknown>;
+    }) as unknown as Map<string, unknown>;
 
     expect(byId.size).toBe(q.length);
     for (const e of q) {
@@ -1695,7 +1712,7 @@ describe("conformance/get-set", () => {
       run.add({ id: 123 as never, signal: "s", targets: [() => undefined] }),
     ).toThrow("add.id.invalid");
 
-    const snap = run.get("*", { as: "snapshot" }) as {
+    const snap = run.get("*", { as: "snapshot" }) as unknown as {
       diagnostics: Array<{ code: string; data?: unknown }>;
     };
     const rehydrated = createRuntime();
@@ -1703,7 +1720,7 @@ describe("conformance/get-set", () => {
 
     const d1 = snap.diagnostics[0]!;
     const d2 = (
-      rehydrated.get("diagnostics", { as: "snapshot" }) as Array<{
+      rehydrated.get("diagnostics", { as: "snapshot" }) as unknown as Array<{
         code: string;
         data?: unknown;
       }>
@@ -1739,10 +1756,12 @@ describe("conformance/get-set", () => {
       // expected
     }
 
-    const r1 = run.get("diagnostics", { as: "reference" }) as unknown[];
+    const r1 = run.get("diagnostics", {
+      as: "reference",
+    }) as unknown as unknown[];
     expect(r1.length).toBeGreaterThanOrEqual(2);
 
-    const snap = run.get("*", { as: "snapshot" }) as {
+    const snap = run.get("*", { as: "snapshot" }) as unknown as {
       diagnostics: unknown[];
     };
     snap.diagnostics = [];
@@ -1750,7 +1769,9 @@ describe("conformance/get-set", () => {
     const rehydrated = createRuntime();
     rehydrated.set(snap);
 
-    const r2 = rehydrated.get("diagnostics", { as: "reference" }) as unknown[];
+    const r2 = rehydrated.get("diagnostics", {
+      as: "reference",
+    }) as unknown as unknown[];
     expect(r2.length).toBe(0);
   });
 
@@ -1776,20 +1797,24 @@ describe("conformance/get-set", () => {
       // expected
     }
 
-    const snap = run.get("*", { as: "snapshot" }) as {
+    const snap = run.get("*", { as: "snapshot" }) as unknown as {
       diagnostics: unknown[];
     };
 
     const rehydrated = createRuntime();
     rehydrated.set(snap);
 
-    const r1 = rehydrated.get("diagnostics", { as: "reference" }) as unknown[];
+    const r1 = rehydrated.get("diagnostics", {
+      as: "reference",
+    }) as unknown as unknown[];
     expect(r1.length).toBe(snap.diagnostics.length);
     const old0 = r1[0];
 
     rehydrated.set(snap);
 
-    const r2 = rehydrated.get("diagnostics", { as: "reference" }) as unknown[];
+    const r2 = rehydrated.get("diagnostics", {
+      as: "reference",
+    }) as unknown as unknown[];
     expect(r2).not.toBe(r1);
     if (r2.length > 0) {
       expect(r2[0]).not.toBe(old0);
@@ -1801,7 +1826,10 @@ describe("conformance/get-set", () => {
     run.when({ signal: "s", targets: [() => undefined] } as never);
     run.when({ signal: "s", targets: [() => undefined] } as never);
 
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
     snap.registeredQ = run.get("registeredQ", { as: "snapshot" });
     snap.registeredById = run.get("registeredById", { as: "snapshot" });
 
@@ -1810,12 +1838,14 @@ describe("conformance/get-set", () => {
     const rehydrated = createRuntime();
     rehydrated.set(snap);
 
-    const q = rehydrated.get("registeredQ", { as: "snapshot" }) as Array<{
+    const q = rehydrated.get("registeredQ", {
+      as: "snapshot",
+    }) as unknown as Array<{
       id: string;
     }>;
     const byId = rehydrated.get("registeredById", {
       as: "snapshot",
-    }) as Map<string, unknown>;
+    }) as unknown as Map<string, unknown>;
 
     expect(byId.has("__bad__")).toBe(false);
     expect(byId.size).toBe(q.length);
@@ -1844,10 +1874,12 @@ describe("conformance/get-set", () => {
       void error;
     }
 
-    const snap = run.get("*", { as: "snapshot" }) as {
+    const snap = run.get("*", { as: "snapshot" }) as unknown as {
       diagnostics: Array<{ code: string }>;
     };
-    snap.diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+    snap.diagnostics = run.get("diagnostics", {
+      as: "snapshot",
+    }) as unknown as Array<{
       code: string;
     }>;
 
@@ -1864,7 +1896,9 @@ describe("conformance/get-set", () => {
 
     rehydrated.set(snap);
 
-    const d = rehydrated.get("diagnostics", { as: "snapshot" }) as Array<{
+    const d = rehydrated.get("diagnostics", {
+      as: "snapshot",
+    }) as unknown as Array<{
       code?: string;
     }>;
     expect(d.some((x) => x.code === "add.id.invalid")).toBe(true);
@@ -1880,7 +1914,7 @@ describe("conformance/get-set", () => {
 
     run.set({ flags: { list: ["a"], map: { a: true } } } as never);
 
-    const ref = run.get("flags", { as: "reference" }) as {
+    const ref = run.get("flags", { as: "reference" }) as unknown as {
       list: string[];
       map: Record<string, boolean>;
     };
@@ -1903,11 +1937,11 @@ describe("conformance/get-set", () => {
 
     run.set({ flags: { list: ["a"], map: { a: true } } } as never);
 
-    const ref = run.get("flags", { as: "reference" }) as {
+    const ref = run.get("flags", { as: "reference" }) as unknown as {
       list: string[];
       map: Record<string, boolean>;
     };
-    const alias = run.get("flags", { as: "unsafeAlias" }) as {
+    const alias = run.get("flags", { as: "unsafeAlias" }) as unknown as {
       list: string[];
       map: Record<string, boolean>;
     };
@@ -1942,10 +1976,9 @@ describe("conformance/get-set", () => {
 
     run.when({ id: "opaque:map", signal: "s", targets: [() => undefined] });
 
-    const ref = run.get("registeredById", { as: "reference" }) as Map<
-      string,
-      unknown
-    >;
+    const ref = run.get("registeredById", {
+      as: "reference",
+    }) as unknown as Map<string, unknown>;
 
     expect(() => ref.set("x", {})).toThrow("runtime.readonly");
 
@@ -1974,7 +2007,7 @@ describe("conformance/get-set", () => {
     run.set({ flags: { list: [], map: {} } } as never);
 
     const inner = { x: 1 };
-    const flagsAlias = run.get("flags", { as: "unsafeAlias" }) as {
+    const flagsAlias = run.get("flags", { as: "unsafeAlias" }) as unknown as {
       locked?: { x: number };
     };
     Object.defineProperty(flagsAlias, "locked", {
@@ -1984,7 +2017,7 @@ describe("conformance/get-set", () => {
       enumerable: true,
     });
 
-    const ref = run.get("flags", { as: "reference" }) as unknown as {
+    const ref = run.get("flags", { as: "reference" }) as unknown as unknown as {
       locked: { x: number };
     };
 
@@ -2022,7 +2055,7 @@ describe("conformance/get-set", () => {
 
     const baselineAlias = run.get("scopeProjectionBaseline", {
       as: "unsafeAlias",
-    }) as {
+    }) as unknown as {
       signal: unknown;
     };
     baselineAlias.signal = fn;
@@ -2030,7 +2063,7 @@ describe("conformance/get-set", () => {
     const ref = run.get("signal", {
       as: "reference",
       scope: "applied",
-    }) as unknown as ((...args: unknown[]) => unknown) & {
+    }) as unknown as unknown as ((...args: unknown[]) => unknown) & {
       x?: number;
     };
 
@@ -2068,12 +2101,12 @@ describe("conformance/get-set", () => {
       return 123;
     };
 
-    const alias = run.get("flags", { as: "unsafeAlias" }) as {
+    const alias = run.get("flags", { as: "unsafeAlias" }) as unknown as {
       map: Record<string, unknown>;
     };
     alias.map.fn = fn;
 
-    const ref = run.get("flags", { as: "reference" }) as unknown as {
+    const ref = run.get("flags", { as: "reference" }) as unknown as unknown as {
       map: {
         fn: ((...args: unknown[]) => unknown) & { x?: number };
       };
@@ -2111,13 +2144,13 @@ describe("conformance/get-set", () => {
     );
 
     const d = new Date("2020-01-01T00:00:00.000Z");
-    const alias = run.get("flags", { as: "unsafeAlias" }) as {
+    const alias = run.get("flags", { as: "unsafeAlias" }) as unknown as {
       map?: Record<string, unknown>;
     };
     alias.map ??= {};
     alias.map.date = d;
 
-    const ref = run.get("flags", { as: "reference" }) as unknown as {
+    const ref = run.get("flags", { as: "reference" }) as unknown as unknown as {
       map: { date: Date & { x?: number } };
     };
     const leaf1 = ref.map.date;
@@ -2155,13 +2188,13 @@ describe("conformance/get-set", () => {
     );
 
     const m = new Map([["a", 1]]);
-    const alias = run.get("flags", { as: "unsafeAlias" }) as {
+    const alias = run.get("flags", { as: "unsafeAlias" }) as unknown as {
       map?: Record<string, unknown>;
     };
     alias.map ??= {};
     alias.map.nestedMap = m;
 
-    const ref = run.get("flags", { as: "reference" }) as unknown as {
+    const ref = run.get("flags", { as: "reference" }) as unknown as unknown as {
       map: { nestedMap: Map<string, number> };
     };
 
@@ -2194,19 +2227,23 @@ describe("conformance/get-set", () => {
     );
 
     const d = new Date("2020-01-01T00:00:00.000Z");
-    const alias = run.get("flags", { as: "unsafeAlias" }) as {
+    const alias = run.get("flags", { as: "unsafeAlias" }) as unknown as {
       map?: Record<string, unknown>;
     };
     alias.map ??= {};
     alias.map.date = d;
 
-    const ref1 = run.get("flags", { as: "reference" }) as unknown as {
+    const ref1 = run.get("flags", {
+      as: "reference",
+    }) as unknown as unknown as {
       map: { date: Date };
     };
     void ref1.map.date;
     void ref1.map.date;
 
-    const ref2 = run.get("flags", { as: "reference" }) as unknown as {
+    const ref2 = run.get("flags", {
+      as: "reference",
+    }) as unknown as unknown as {
       map: { date: Date };
     };
     void ref2.map.date;
@@ -2228,18 +2265,22 @@ describe("conformance/get-set", () => {
     const run = createRuntime({ allowUnsafeAlias: true });
 
     const d = new Date("2020-01-01T00:00:00.000Z");
-    const alias = run.get("flags", { as: "unsafeAlias" }) as {
+    const alias = run.get("flags", { as: "unsafeAlias" }) as unknown as {
       map?: Record<string, unknown>;
     };
     alias.map ??= {};
     alias.map.date = d;
 
-    const ref1 = run.get("flags", { as: "reference" }) as unknown as {
+    const ref1 = run.get("flags", {
+      as: "reference",
+    }) as unknown as unknown as {
       map: { date: Date };
     };
     const a1 = ref1.map.date;
     const a2 = ref1.map.date;
-    const ref2 = run.get("flags", { as: "reference" }) as unknown as {
+    const ref2 = run.get("flags", {
+      as: "reference",
+    }) as unknown as unknown as {
       map: { date: Date };
     };
     const b1 = ref2.map.date;
@@ -2257,14 +2298,14 @@ describe("conformance/get-set", () => {
 
     run.set({ flags: { list: ["a"], map: { a: true } } } as never);
 
-    const alias = run.get("flags", { as: "unsafeAlias" }) as {
+    const alias = run.get("flags", { as: "unsafeAlias" }) as unknown as {
       list: string[];
       map: Record<string, boolean>;
     };
     alias.list.push("b");
     alias.map.b = true;
 
-    const snap = run.get("flags", { as: "snapshot" }) as {
+    const snap = run.get("flags", { as: "snapshot" }) as unknown as {
       list: string[];
       map: Record<string, boolean>;
     };
@@ -2291,31 +2332,35 @@ describe("conformance/get-set", () => {
   it("A11 — hydration reports unresolved backfill ids and drops them", () => {
     const run = createRuntime();
     run.set({
-      defaults: run.get("defaults", { as: "snapshot" }) as Record<
+      defaults: run.get("defaults", { as: "snapshot" }) as unknown as Record<
         string,
         unknown
       >,
-      flags: run.get("flags", { as: "snapshot" }) as Record<string, unknown>,
+      flags: run.get("flags", { as: "snapshot" }) as unknown as Record<
+        string,
+        unknown
+      >,
       changedFlags: run.get("changedFlags", { as: "snapshot" }) as
         | Record<string, unknown>
         | undefined,
-      seenFlags: run.get("seenFlags", { as: "snapshot" }) as Record<
+      seenFlags: run.get("seenFlags", { as: "snapshot" }) as unknown as Record<
         string,
         unknown
       >,
       signal: run.get("signal", { as: "snapshot" }),
-      seenSignals: run.get("seenSignals", { as: "snapshot" }) as Record<
-        string,
-        unknown
-      >,
-      impulseQ: run.get("impulseQ", { as: "snapshot" }) as Record<
+      seenSignals: run.get("seenSignals", {
+        as: "snapshot",
+      }) as unknown as Record<string, unknown>,
+      impulseQ: run.get("impulseQ", { as: "snapshot" }) as unknown as Record<
         string,
         unknown
       >,
       backfillQ: { list: ["missing:expr"], map: { "missing:expr": true } },
     });
 
-    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+    const diagnostics = run.get("diagnostics", {
+      as: "snapshot",
+    }) as unknown as Array<{
       code: string;
       data?: Record<string, unknown>;
     }>;
@@ -2340,7 +2385,7 @@ describe("conformance/get-set", () => {
     run.impulse({ signals: ["sig:2"], removeFlags: ["2"], addFlags: ["2"] });
     run.set({ impulseQ: { config: { retain: 1 } } });
 
-    const snapshotA = run.get("*", { as: "snapshot" }) as Record<
+    const snapshotA = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
       unknown
     >;
@@ -2362,7 +2407,7 @@ describe("conformance/get-set", () => {
 
     const registeredByIdBefore = run.get("registeredById", {
       as: "snapshot",
-    }) as Map<string, unknown>;
+    }) as unknown as Map<string, unknown>;
     const registeredByIdBeforeEntries = [
       ...registeredByIdBefore.entries(),
     ].sort(([left], [right]) => left.localeCompare(right));
@@ -2372,14 +2417,14 @@ describe("conformance/get-set", () => {
 
     run.set(snapshotA);
 
-    const snapshotB = run.get("*", { as: "snapshot" }) as Record<
+    const snapshotB = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
       unknown
     >;
 
     const registeredByIdAfter = run.get("registeredById", {
       as: "snapshot",
-    }) as Map<string, unknown>;
+    }) as unknown as Map<string, unknown>;
     const registeredByIdAfterEntries = [...registeredByIdAfter.entries()].sort(
       ([left], [right]) => left.localeCompare(right),
     );
@@ -2409,7 +2454,10 @@ describe("conformance/get-set", () => {
     const run = createRuntime();
     run.add({ id: "e1", targets: [() => {}] });
 
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown> & {
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    > & {
       backfillQ?: unknown;
     };
     snap.backfillQ = { list: [1], map: { "1": true } };
@@ -2423,7 +2471,10 @@ describe("conformance/get-set", () => {
     run.onDiagnostic((d) => diagnostics.push(d.code));
 
     run.add({ id: "e1", targets: [() => {}] });
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown> & {
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    > & {
       backfillQ?: unknown;
     };
     snap.backfillQ = { list: ["e1", "e1"], map: { e1: true } };
@@ -2457,7 +2508,9 @@ describe("conformance/get-set/scope-projection", () => {
 
   it("SCOPE-01 — impulseQ scope semantics (pending ist applied+pending)", () => {
     const run = createRuntime();
-    const s = run.get("*", { as: "snapshot" }) as ScopeProjectionSnapshot;
+    const s = run.get("*", {
+      as: "snapshot",
+    }) as unknown as ScopeProjectionSnapshot;
     s.impulseQ = {
       config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
       q: {
@@ -2483,7 +2536,7 @@ describe("conformance/get-set/scope-projection", () => {
     const pending = run.get("impulseQ", {
       scope: "pending",
       as: "snapshot",
-    }) as ScopeProjectionSnapshot["impulseQ"];
+    }) as unknown as ScopeProjectionSnapshot["impulseQ"];
     const q0 = pending.q;
 
     expect(run.get("impulseQ", { scope: "applied", as: "snapshot" })).toEqual({
@@ -2501,7 +2554,9 @@ describe("conformance/get-set/scope-projection", () => {
 
   it("SCOPE-02 — flags scope semantics (applied vs pending vs pendingOnly)", () => {
     const run = createRuntime();
-    const s = run.get("*", { as: "snapshot" }) as ScopeProjectionSnapshot;
+    const s = run.get("*", {
+      as: "snapshot",
+    }) as unknown as ScopeProjectionSnapshot;
     s.impulseQ = {
       config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY },
       q: {
@@ -2527,15 +2582,15 @@ describe("conformance/get-set/scope-projection", () => {
     const applied = run.get("flags", {
       scope: "applied",
       as: "snapshot",
-    }) as FlagsSnapshot;
+    }) as unknown as FlagsSnapshot;
     const pending = run.get("flags", {
       scope: "pending",
       as: "snapshot",
-    }) as FlagsSnapshot;
+    }) as unknown as FlagsSnapshot;
     const pendingOnly = run.get("flags", {
       scope: "pendingOnly",
       as: "snapshot",
-    }) as FlagsSnapshot;
+    }) as unknown as FlagsSnapshot;
 
     expect(applied.list).toEqual(["a"]);
     expect(pending.list).toEqual(["a", "b"]);
@@ -2573,7 +2628,9 @@ describe("conformance/get-set/impulseQ-trim-maxBytes", () => {
 
   it("TRM02 — maxBytes trims applied entries even when retain is high", () => {
     const run = createRuntime();
-    const s = run.get("*", { as: "snapshot" }) as ImpulseQTrimSnapshot;
+    const s = run.get("*", {
+      as: "snapshot",
+    }) as unknown as ImpulseQTrimSnapshot;
     const big = "x".repeat(200);
 
     s.impulseQ = {
@@ -2607,7 +2664,7 @@ describe("conformance/get-set/impulseQ-trim-maxBytes", () => {
     const q = (
       run.get("impulseQ", {
         as: "snapshot",
-      }) as ImpulseQTrimSnapshot["impulseQ"]
+      }) as unknown as ImpulseQTrimSnapshot["impulseQ"]
     ).q;
 
     expect(q.cursor).toBeLessThan(2);
@@ -2616,7 +2673,9 @@ describe("conformance/get-set/impulseQ-trim-maxBytes", () => {
 
   it("TRM03 — maxBytes trim must not drop pending entries", () => {
     const run = createRuntime();
-    const s = run.get("*", { as: "snapshot" }) as ImpulseQTrimSnapshot;
+    const s = run.get("*", {
+      as: "snapshot",
+    }) as unknown as ImpulseQTrimSnapshot;
     const big = "x".repeat(200);
 
     s.impulseQ = {
@@ -2650,7 +2709,7 @@ describe("conformance/get-set/impulseQ-trim-maxBytes", () => {
     const q = (
       run.get("impulseQ", {
         as: "snapshot",
-      }) as ImpulseQTrimSnapshot["impulseQ"]
+      }) as unknown as ImpulseQTrimSnapshot["impulseQ"]
     ).q;
 
     expect(
@@ -2661,7 +2720,9 @@ describe("conformance/get-set/impulseQ-trim-maxBytes", () => {
 
   it("TRM04 — maxBytes removes oldest applied first (stable), keeps newest applied + pending", () => {
     const run = createRuntime();
-    const s = run.get("*", { as: "snapshot" }) as ImpulseQTrimSnapshot;
+    const s = run.get("*", {
+      as: "snapshot",
+    }) as unknown as ImpulseQTrimSnapshot;
     const big = "x".repeat(200);
     const small = "y";
 
@@ -2702,7 +2763,7 @@ describe("conformance/get-set/impulseQ-trim-maxBytes", () => {
     const q = (
       run.get("impulseQ", {
         as: "snapshot",
-      }) as ImpulseQTrimSnapshot["impulseQ"]
+      }) as unknown as ImpulseQTrimSnapshot["impulseQ"]
     ).q;
 
     expect(
@@ -2721,7 +2782,7 @@ describe("conformance/get-set/impulseQ-trim-maxBytes", () => {
     const run = createRuntime();
     const s = run.get("*", {
       as: "snapshot",
-    }) as unknown as ImpulseQTrimSnapshot & {
+    }) as unknown as unknown as ImpulseQTrimSnapshot & {
       impulseQ: {
         config: ImpulseQTrimSnapshot["impulseQ"]["config"] & {
           onTrim?: (info: {
@@ -2786,7 +2847,10 @@ describe("conformance/get-set/scope-projection-baseline-after-set", () => {
 
   it("BASE-01 — set(flagsTruth + impulseQ pending) must make scope projections consistent", () => {
     const run = createRuntime();
-    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const s = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     s.flagsTruth = { list: ["a"], map: { a: true } };
     s.flags = { list: ["a"], map: { a: true } };
@@ -2822,15 +2886,15 @@ describe("conformance/get-set/scope-projection-baseline-after-set", () => {
     const applied = run.get("flags", {
       scope: "applied",
       as: "snapshot",
-    }) as FlagsListSnapshot;
+    }) as unknown as FlagsListSnapshot;
     const pending = run.get("flags", {
       scope: "pending",
       as: "snapshot",
-    }) as FlagsListSnapshot;
+    }) as unknown as FlagsListSnapshot;
     const pendingOnly = run.get("flags", {
       scope: "pendingOnly",
       as: "snapshot",
-    }) as FlagsListSnapshot;
+    }) as unknown as FlagsListSnapshot;
 
     expect(applied.list).toEqual(["a"]);
     expect(pending.list).toEqual(["a", "b"]);
@@ -2839,7 +2903,10 @@ describe("conformance/get-set/scope-projection-baseline-after-set", () => {
 
   it("BASE-02 — set(flagsTruth only) must not break scope projections (empty impulseQ)", () => {
     const run = createRuntime();
-    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const s = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     s.flagsTruth = { list: ["a"], map: { a: true } };
     s.flags = { list: ["a"], map: { a: true } };
@@ -2861,15 +2928,15 @@ describe("conformance/get-set/scope-projection-baseline-after-set", () => {
     const applied = run.get("flags", {
       scope: "applied",
       as: "snapshot",
-    }) as FlagsListSnapshot;
+    }) as unknown as FlagsListSnapshot;
     const pending = run.get("flags", {
       scope: "pending",
       as: "snapshot",
-    }) as FlagsListSnapshot;
+    }) as unknown as FlagsListSnapshot;
     const pendingOnly = run.get("flags", {
       scope: "pendingOnly",
       as: "snapshot",
-    }) as FlagsListSnapshot;
+    }) as unknown as FlagsListSnapshot;
 
     expect(applied.list).toEqual(["a"]);
     expect(pending.list).toEqual(["a"]);
@@ -2880,7 +2947,10 @@ describe("conformance/get-set/scope-projection-baseline-after-set", () => {
 describe("conformance/get-set/scope-projection-signal-seenSignals", () => {
   it("SCOPE-03 — signal scope projection (applied vs pending vs pendingOnly)", () => {
     const run = createRuntime();
-    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const s = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     s.signal = "base";
     s.seenSignals = { list: [], map: {} };
@@ -2927,7 +2997,10 @@ describe("conformance/get-set/scope-projection-signal-seenSignals", () => {
 
   it("SCOPE-04 — signal projection when there is NO applied (cursor=0) preserves baseline for applied", () => {
     const run = createRuntime();
-    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const s = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     s.signal = "base";
     s.seenSignals = { list: [], map: {} };
@@ -2970,7 +3043,10 @@ describe("conformance/get-set/scope-projection-signal-seenSignals", () => {
 
   it("SCOPE-05 — seenSignals scope projection (stable-unique; applied vs pending vs pendingOnly)", () => {
     const run = createRuntime();
-    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const s = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     s.seenSignals = { list: ["seed"], map: { seed: true } };
     s.signal = "seed";
@@ -3003,15 +3079,15 @@ describe("conformance/get-set/scope-projection-signal-seenSignals", () => {
     const applied = run.get("seenSignals", {
       scope: "applied",
       as: "snapshot",
-    }) as { list: string[] };
+    }) as unknown as { list: string[] };
     const pending = run.get("seenSignals", {
       scope: "pending",
       as: "snapshot",
-    }) as { list: string[] };
+    }) as unknown as { list: string[] };
     const pendingOnly = run.get("seenSignals", {
       scope: "pendingOnly",
       as: "snapshot",
-    }) as { list: string[] };
+    }) as unknown as { list: string[] };
 
     expect(applied.list).toEqual(["seed", "a"]);
     expect(pending.list).toEqual(["seed", "a", "b"]);
@@ -3021,7 +3097,10 @@ describe("conformance/get-set/scope-projection-signal-seenSignals", () => {
 
   it("SCOPE-06 — pendingOnly seeds empty/undefined when there is NO pending segment", () => {
     const run = createRuntime();
-    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const s = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     s.signal = "base";
     s.seenSignals = { list: ["seed"], map: { seed: true } };
@@ -3054,7 +3133,7 @@ describe("conformance/get-set/scope-projection-signal-seenSignals", () => {
     const pendingOnly = run.get("seenSignals", {
       scope: "pendingOnly",
       as: "snapshot",
-    }) as { list: string[] };
+    }) as unknown as { list: string[] };
 
     expect(pendingOnly.list).toEqual([]);
   });

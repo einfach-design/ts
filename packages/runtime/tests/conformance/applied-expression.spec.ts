@@ -24,7 +24,10 @@ describe("conformance/applied-expression", () => {
 
     expect(calls).toBe(1);
 
-    const registeredById = run.get("registeredById") as Map<string, unknown>;
+    const registeredById = run.get("registeredById") as unknown as Map<
+      string,
+      unknown
+    >;
     expect(registeredById.has(expressionId)).toBe(false);
   });
 

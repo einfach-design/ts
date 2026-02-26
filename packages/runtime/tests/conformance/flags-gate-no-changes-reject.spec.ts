@@ -52,7 +52,7 @@ describe("conformance/flags-gate-no-changes-reject", () => {
       ],
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
 
@@ -84,7 +84,7 @@ describe("conformance/flags-gate-no-changes-reject", () => {
     );
     expect(registeredCalls).toHaveLength(0);
 
-    const registeredById = run.get("registeredById") as Map<
+    const registeredById = run.get("registeredById") as unknown as Map<
       string,
       {
         backfill?: { signal?: { debt?: number }; flags?: { debt?: number } };
@@ -98,7 +98,7 @@ describe("conformance/flags-gate-no-changes-reject", () => {
       registeredById.get("expr:flags:no-changes")?.backfill?.flags?.debt,
     ).toBe(2);
 
-    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
+    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };
@@ -129,7 +129,7 @@ describe("conformance/flags-gate-no-changes-reject", () => {
       ],
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
 
@@ -142,7 +142,9 @@ describe("conformance/flags-gate-no-changes-reject", () => {
 
     run.impulse({ signals: ["sig:need"], addFlags: ["flag:tick"] });
 
-    const changedFlags = run.get("changedFlags", { as: "snapshot" }) as {
+    const changedFlags = run.get("changedFlags", {
+      as: "snapshot",
+    }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };
@@ -168,7 +170,7 @@ describe("conformance/flags-gate-no-changes-reject", () => {
       expect.objectContaining({ inBackfillQ: false }),
     );
 
-    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
+    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };

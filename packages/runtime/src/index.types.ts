@@ -12,8 +12,9 @@ import type {
   FlagsView as MatchEngineFlagsView,
   MatchExpressionInput,
 } from "./match/matchExpression.js";
+import type { ImpulseQEntryCanonical } from "./canon/impulseEntry.js";
 import type { RuntimeTarget, RegisteredExpression } from "./runs/coreRun.js";
-import type { ScopeProjectionBaseline, RuntimeStore } from "./runtime/store.js";
+import type { ScopeProjectionBaseline } from "./runtime/store.js";
 import type { BackfillQSnapshot } from "./state/backfillQ.js";
 import type { Defaults } from "./state/defaults.js";
 import type { FlagsView } from "./state/flagsView.js";
@@ -97,27 +98,19 @@ export type RunGetKey =
 
 export type RunSetInput = Readonly<Record<string, unknown>>;
 
-type MutableDeep<T> = T extends readonly (infer U)[]
-  ? MutableDeep<U>[]
-  : T extends ReadonlyMap<infer K, infer V>
-    ? Map<MutableDeep<K>, MutableDeep<V>>
-    : T extends object
-      ? { -readonly [K in keyof T]: MutableDeep<T[K]> }
-      : T;
-
 export type RunGetReturnMap = {
   defaults: Defaults;
-  flags: MutableDeep<FlagsView>;
-  changedFlags: MutableDeep<FlagsView> | undefined;
-  seenFlags: MutableDeep<FlagsView>;
+  flags: FlagsView;
+  changedFlags: FlagsView | undefined;
+  seenFlags: FlagsView;
   signal: Signal | undefined;
-  seenSignals: MutableDeep<SeenSignals>;
-  scopeProjectionBaseline: MutableDeep<ScopeProjectionBaseline>;
-  impulseQ: MutableDeep<RuntimeStore["impulseQ"]>;
+  seenSignals: SeenSignals;
+  scopeProjectionBaseline: ScopeProjectionBaseline;
+  impulseQ: ReadonlyArray<ImpulseQEntryCanonical>;
   backfillQ: BackfillQSnapshot;
-  registeredQ: MutableDeep<RegisteredExpression>[];
-  registeredById: Map<string, MutableDeep<RegisteredExpression>>;
-  diagnostics: MutableDeep<Diagnostic>[];
+  registeredQ: ReadonlyArray<RegisteredExpression>;
+  registeredById: ReadonlyMap<string, RegisteredExpression>;
+  diagnostics: ReadonlyArray<Diagnostic>;
 };
 
 export type RunGetAllReturn = RunGetReturnMap & { "*": never };

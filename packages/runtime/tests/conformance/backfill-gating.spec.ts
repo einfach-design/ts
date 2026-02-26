@@ -28,7 +28,7 @@ describe("conformance/backfill-gating", () => {
       ],
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
 
@@ -45,7 +45,7 @@ describe("conformance/backfill-gating", () => {
     expect(backfillCalls[0]?.gate).toBe("flags");
 
     const after = (
-      run.get("registeredById") as Map<
+      run.get("registeredById") as unknown as Map<
         string,
         {
           backfill?: { signal?: { debt?: number }; flags?: { debt?: number } };
@@ -82,7 +82,7 @@ describe("conformance/backfill-gating", () => {
       ],
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
     snapshot.backfillQ = {
@@ -97,7 +97,7 @@ describe("conformance/backfill-gating", () => {
     expect(backfillCalls).toEqual([{ q: "backfill", gate: "signal" }]);
 
     const after = (
-      run.get("registeredById") as Map<
+      run.get("registeredById") as unknown as Map<
         string,
         {
           backfill?: { signal?: { debt?: number }; flags?: { debt?: number } };

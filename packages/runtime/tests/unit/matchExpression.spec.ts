@@ -8,10 +8,9 @@ import {
 
 const flags = (...list: string[]): FlagsView => ({
   list,
-  map: Object.fromEntries(list.map((flag) => [flag, true])) as Record<
-    string,
-    true
-  >,
+  map: Object.fromEntries(
+    list.map((flag) => [flag, true]),
+  ) as unknown as Record<string, true>,
 });
 
 const baseInput = (): MatchExpressionInput => ({

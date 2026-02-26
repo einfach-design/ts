@@ -28,7 +28,7 @@ describe("conformance/public-surface", () => {
   it("package.json dist export mapping is release-ready", () => {
     const packageJson = JSON.parse(
       readFileSync(fromRuntimePkgRoot("package.json"), "utf8"),
-    ) as {
+    ) as unknown as {
       exports?: Record<string, Record<string, string>>;
       files?: string[];
       types?: string;

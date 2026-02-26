@@ -11,7 +11,7 @@ import { createRuntime } from "../../src/index.js";
 function registeredById(
   run: ReturnType<typeof createRuntime>,
 ): Map<string, unknown> {
-  return run.get("registeredById") as Map<string, unknown>;
+  return run.get("registeredById") as unknown as Map<string, unknown>;
 }
 
 describe("conformance/use-case-coverage/defaults-overlay", () => {
@@ -73,10 +73,10 @@ describe("conformance/use-case-coverage/defaults-overlay", () => {
       targets: [() => callsB++],
     });
 
-    const exprA = registeredById(run).get("uc:A03:A") as {
+    const exprA = registeredById(run).get("uc:A03:A") as unknown as {
       runs: { max: number };
     };
-    const exprB = registeredById(run).get("uc:A03:B") as {
+    const exprB = registeredById(run).get("uc:A03:B") as unknown as {
       runs: { max: number };
     };
     expect(exprA.runs.max).toBe(3);
@@ -108,7 +108,7 @@ describe("conformance/use-case-coverage/defaults-overlay", () => {
     });
     run.set({ defaults: { methods: { when: { runs: { max: 2 } } } } });
 
-    const defaults = run.get("defaults", { as: "snapshot" }) as {
+    const defaults = run.get("defaults", { as: "snapshot" }) as unknown as {
       methods: {
         when: {
           backfill: { signal: { runs: { max: number } } };
@@ -131,8 +131,11 @@ describe("conformance/use-case-coverage/defaults-overlay", () => {
       targets: [() => undefined],
     });
     expect(
-      (registeredById(run).get("uc:A06:float") as { runs: { max: number } })
-        .runs.max,
+      (
+        registeredById(run).get("uc:A06:float") as unknown as {
+          runs: { max: number };
+        }
+      ).runs.max,
     ).toBe(1);
 
     run.when({
@@ -142,8 +145,11 @@ describe("conformance/use-case-coverage/defaults-overlay", () => {
       targets: [() => undefined],
     });
     expect(
-      (registeredById(run).get("uc:A06:zero") as { runs: { max: number } }).runs
-        .max,
+      (
+        registeredById(run).get("uc:A06:zero") as unknown as {
+          runs: { max: number };
+        }
+      ).runs.max,
     ).toBe(1);
 
     run.when({
@@ -153,8 +159,11 @@ describe("conformance/use-case-coverage/defaults-overlay", () => {
       targets: [() => undefined],
     });
     expect(
-      (registeredById(run).get("uc:A06:negative") as { runs: { max: number } })
-        .runs.max,
+      (
+        registeredById(run).get("uc:A06:negative") as unknown as {
+          runs: { max: number };
+        }
+      ).runs.max,
     ).toBe(1);
 
     expect(() =>
@@ -295,7 +304,8 @@ describe("conformance/use-case-coverage/impulse-delta", () => {
       (captured as { changedFlags: { list: string[] } }).changedFlags.list,
     ).toContain("mix");
     expect(
-      (run.get("flags", { as: "snapshot" }) as { list: string[] }).list,
+      (run.get("flags", { as: "snapshot" }) as unknown as { list: string[] })
+        .list,
     ).not.toContain("mix");
   });
 
@@ -373,7 +383,8 @@ describe("conformance/use-case-coverage/signals-registration", () => {
     expect(registeredById(run).has("uc:SREG01")).toBe(true);
     expect(registeredById(run).has("uc:SREG01:0")).toBe(false);
     expect(
-      (registeredById(run).get("uc:SREG01") as { signal?: string }).signal,
+      (registeredById(run).get("uc:SREG01") as unknown as { signal?: string })
+        .signal,
     ).toBeUndefined();
   });
 
@@ -389,13 +400,17 @@ describe("conformance/use-case-coverage/signals-registration", () => {
     expect(registeredById(run).has("uc:SREG02:0")).toBe(true);
     expect(registeredById(run).has("uc:SREG02:1")).toBe(true);
     expect(
-      (registeredById(run).get("uc:SREG02:0") as { signal?: string }).signal,
+      (registeredById(run).get("uc:SREG02:0") as unknown as { signal?: string })
+        .signal,
     ).toBe("a");
     expect(
-      (registeredById(run).get("uc:SREG02:1") as { signal?: string }).signal,
+      (registeredById(run).get("uc:SREG02:1") as unknown as { signal?: string })
+        .signal,
     ).toBe("b");
 
-    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+    const diagnostics = run.get("diagnostics", {
+      as: "snapshot",
+    }) as unknown as Array<{
       code: string;
       data?: { deduped?: string[] };
     }>;
@@ -440,7 +455,9 @@ describe("conformance/use-case-coverage/signals-registration", () => {
     expect(registeredById(run).has("uc:SREG04")).toBe(false);
     expect(registeredById(run).has("uc:SREG04:0")).toBe(false);
 
-    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+    const diagnostics = run.get("diagnostics", {
+      as: "snapshot",
+    }) as unknown as Array<{
       code: string;
     }>;
     expect(
@@ -461,7 +478,9 @@ describe("conformance/use-case-coverage/signals-registration", () => {
       }),
     ).toThrow("add.signals.invalid");
 
-    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+    const diagnostics = run.get("diagnostics", {
+      as: "snapshot",
+    }) as unknown as Array<{
       code: string;
       data?: { index?: number };
     }>;
@@ -486,7 +505,9 @@ describe("conformance/use-case-coverage/object-target-validation", () => {
       }),
     ).toThrow("add.objectTarget.missingEntrypoint");
 
-    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+    const diagnostics = run.get("diagnostics", {
+      as: "snapshot",
+    }) as unknown as Array<{
       code: string;
     }>;
     expect(
@@ -509,7 +530,9 @@ describe("conformance/use-case-coverage/object-target-validation", () => {
       }),
     ).toThrow("add.objectTarget.missingHandler");
 
-    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+    const diagnostics = run.get("diagnostics", {
+      as: "snapshot",
+    }) as unknown as Array<{
       code: string;
       data?: { signal?: string };
     }>;
@@ -533,7 +556,9 @@ describe("conformance/use-case-coverage/object-target-validation", () => {
       }),
     ).toThrow("add.objectTarget.nonCallableHandler");
 
-    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+    const diagnostics = run.get("diagnostics", {
+      as: "snapshot",
+    }) as unknown as Array<{
       code: string;
       data?: { signal?: string };
     }>;
@@ -557,7 +582,9 @@ describe("conformance/use-case-coverage/object-target-validation", () => {
       }),
     ).toThrow("add.objectTarget.missingHandler");
 
-    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+    const diagnostics = run.get("diagnostics", {
+      as: "snapshot",
+    }) as unknown as Array<{
       code: string;
       data?: { signal?: string };
     }>;
@@ -909,7 +936,7 @@ describe("conformance/use-case-coverage/required-flags-infinity", () => {
       targets: [() => undefined],
     });
 
-    const expression = registeredById(run).get("uc:INF") as {
+    const expression = registeredById(run).get("uc:INF") as unknown as {
       required: { flags: { max: number } };
     };
 
@@ -1063,7 +1090,7 @@ describe("conformance/use-case-coverage/payload-null-proto", () => {
   it("PAY05 — null-proto object payload must be snapshotted (no ref-leak)", () => {
     const run = createRuntime();
 
-    const payload = Object.create(null) as { n: number };
+    const payload = Object.create(null) as unknown as { n: number };
     payload.n = 1;
 
     const seen: number[] = [];
@@ -1092,7 +1119,7 @@ describe("conformance/use-case-coverage/payload-sparse-array", () => {
   it("PAY06 — sparse array payload snapshot must preserve holes (no densification)", () => {
     const run = createRuntime();
 
-    const payload = new Array(3) as unknown[];
+    const payload = new Array(3) as unknown as unknown[];
     payload[1] = "x";
 
     let seenHas0 = true;
@@ -1202,7 +1229,7 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
   it("SET-BASELINE-01 — trimming applied entries must not double-apply into scopeProjectionBaseline", () => {
     const run = createRuntime();
 
-    const hydration = run.get("*", { as: "snapshot" }) as Record<
+    const hydration = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
       unknown
     >;
@@ -1245,7 +1272,7 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     run.set(hydration as never);
 
     const baseline = (
-      run.get("scopeProjectionBaseline", { as: "snapshot" }) as {
+      run.get("scopeProjectionBaseline", { as: "snapshot" }) as unknown as {
         flags: { list: string[] };
       }
     ).flags;
@@ -1255,7 +1282,7 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
   it("SET-BASELINE-02 — hydration without scopeProjectionBaseline preserves existing baseline on non-pristine runtime", () => {
     const run = createRuntime();
 
-    const h0 = run.get("*", { as: "snapshot" }) as {
+    const h0 = run.get("*", { as: "snapshot" }) as unknown as {
       scopeProjectionBaseline?: unknown;
     };
     h0.scopeProjectionBaseline = {
@@ -1269,7 +1296,7 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
     run.impulse({ signals: ["non-pristine"] } as never);
 
-    const h1 = run.get("*", { as: "snapshot" }) as {
+    const h1 = run.get("*", { as: "snapshot" }) as unknown as {
       scopeProjectionBaseline?: unknown;
       impulseQ?: unknown;
     };
@@ -1300,7 +1327,7 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
     const baseline = run.get("scopeProjectionBaseline", {
       as: "snapshot",
-    }) as {
+    }) as unknown as {
       flags: { list: string[]; map: Record<string, true> };
     };
     expect(baseline.flags.list).toEqual(["BASE"]);
@@ -1311,7 +1338,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     const run = createRuntime();
     run.when({ signal: "s", targets: [() => undefined] } as never);
 
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     const rehydrated = createRuntime();
     expect(() => rehydrated.set(snap as never)).not.toThrow();
@@ -1319,7 +1349,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
   it("HYDRATE-NEG-SPB-01 — scopeProjectionBaseline must be a record object", () => {
     const run = createRuntime();
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     snap.scopeProjectionBaseline = "nope";
 
@@ -1339,7 +1372,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
   it("HYDRATE-NEG-SPB-02 — scopeProjectionBaseline.flags must be flagsView", () => {
     const run = createRuntime();
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     const scopeProjectionBaseline = snap.scopeProjectionBaseline as Record<
       string,
@@ -1358,7 +1394,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
   it("HYDRATE-NEG-SPB-03 — scopeProjectionBaseline.seenFlags must be flagsView", () => {
     const run = createRuntime();
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     const scopeProjectionBaseline = snap.scopeProjectionBaseline as Record<
       string,
@@ -1377,7 +1416,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
   it("HYDRATE-NEG-SIG-01 — signal must be string or undefined", () => {
     const run = createRuntime();
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     snap.signal = 123;
 
@@ -1393,7 +1435,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
   it("HYDRATE-NEG-SS-01 — seenSignals must be a {list,map} record", () => {
     const run = createRuntime();
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     snap.seenSignals = { list: "nope", map: {} };
 
@@ -1411,7 +1456,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
   it("HYDRATE-NEG-FV-01 — flags views must be valid (list array, map record)", () => {
     const run = createRuntime();
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     snap.flags = { list: {}, map: {} };
 
@@ -1425,7 +1473,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     const run = createRuntime();
     run.when({ signal: "s", targets: [() => undefined] } as never);
 
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     const rehydrated = createRuntime();
     expect(() => rehydrated.set(snap)).not.toThrow();
@@ -1433,7 +1484,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
   it("HYDRATE-NEG-01 — registeredQ must be an array", () => {
     const run = createRuntime();
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     snap.registeredQ = {};
 
@@ -1451,7 +1505,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
   it("HYDRATE-NEG-02 — registeredQ entries must have string id", () => {
     const run = createRuntime();
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     snap.registeredQ = [{ id: 1 }];
 
@@ -1463,7 +1520,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
   it("HYDRATE-NEG-03 — registeredQ ids must be unique non-empty", () => {
     const run = createRuntime();
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     snap.registeredQ = [{ id: "x" }, { id: "x" }];
 
@@ -1472,7 +1532,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
       "set.hydration.registeredQInvalid",
     );
 
-    const snap2 = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap2 = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
     snap2.registeredQ = [{ id: "   " }];
 
     const rehydrated2 = createRuntime();
@@ -1483,7 +1546,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
   it("HYDRATE-NEG-04 — diagnostics must be an array", () => {
     const run = createRuntime();
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     snap.diagnostics = {};
 
@@ -1501,7 +1567,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
   it("HYDRATE-NEG-05 — diagnostics entries must have non-empty string code", () => {
     const run = createRuntime();
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     snap.diagnostics = [{ code: "" }];
 
@@ -1510,7 +1579,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
       "set.hydration.diagnosticsInvalid",
     );
 
-    const snap2 = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap2 = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
     snap2.diagnostics = [{ msg: "x" }];
 
     const rehydrated2 = createRuntime();
@@ -1521,7 +1593,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
   it("HYDRATE-NEG-BF-01 — backfillQ must be a record object", () => {
     const run = createRuntime();
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     snap.backfillQ = "nope";
 
@@ -1539,7 +1614,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
   it("HYDRATE-NEG-BF-02 — backfillQ.q must be a record object", () => {
     const run = createRuntime();
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     snap.backfillQ = { config: { retain: true }, q: "nope" };
 
@@ -1557,7 +1635,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
   it("HYDRATE-NEG-BF-03 — backfillQ.q.entries must be an array", () => {
     const run = createRuntime();
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     snap.backfillQ = {
       config: { retain: true },
@@ -1578,7 +1659,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
   it("HYDRATE-NEG-BF-04 — backfillQ.q.cursor must be a number", () => {
     const run = createRuntime();
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
 
     snap.backfillQ = {
       config: { retain: true },
@@ -1601,7 +1685,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     const run = createRuntime();
     run.when({ signal: "s", targets: [() => undefined] } as never);
 
-    const snap = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const snap = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
     snap.registeredById = 123;
 
     const rehydrated = createRuntime();
@@ -1611,7 +1698,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
   it("SET-TRIM-BASELINE-03 — pristine hydration + trim must not double-apply removed applied entries into scopeProjectionBaseline", () => {
     const run = createRuntime();
 
-    const h = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const h = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
     delete (h as { scopeProjectionBaseline?: unknown }).scopeProjectionBaseline;
 
     h.impulseQ = {
@@ -1643,7 +1733,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
     run.set(h as never);
 
-    const base = run.get("scopeProjectionBaseline", { as: "snapshot" }) as {
+    const base = run.get("scopeProjectionBaseline", {
+      as: "snapshot",
+    }) as unknown as {
       flags: { list: string[] };
     };
     expect(base.flags.list.sort()).toEqual(["fa", "fb"]);
@@ -1652,7 +1744,10 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
   it("SET-TRIM-BASELINE-04 — repeating same hydration does not grow baseline further", () => {
     const run = createRuntime();
 
-    const h = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const h = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
     delete (h as { scopeProjectionBaseline?: unknown }).scopeProjectionBaseline;
 
     h.impulseQ = {
@@ -1684,17 +1779,24 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
 
     run.set(h as never);
 
-    const b1 = run.get("scopeProjectionBaseline", { as: "snapshot" }) as {
+    const b1 = run.get("scopeProjectionBaseline", {
+      as: "snapshot",
+    }) as unknown as {
       flags: { list: string[] };
     };
     expect(b1.flags.list.sort()).toEqual(["fa", "fb"]);
 
-    const h2 = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const h2 = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
     delete (h2 as { scopeProjectionBaseline?: unknown })
       .scopeProjectionBaseline;
     run.set(h2 as never);
 
-    const b2 = run.get("scopeProjectionBaseline", { as: "snapshot" }) as {
+    const b2 = run.get("scopeProjectionBaseline", {
+      as: "snapshot",
+    }) as unknown as {
       flags: { list: string[] };
     };
     expect(b2.flags.list.sort()).toEqual(["fa", "fb"]);
@@ -1713,7 +1815,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
       impulseQ: { config: { retain: 0, maxBytes: 1 } },
     } as never);
 
-    const base = run.get("scopeProjectionBaseline", { as: "snapshot" }) as {
+    const base = run.get("scopeProjectionBaseline", {
+      as: "snapshot",
+    }) as unknown as {
       flags: { list: string[] };
     };
     expect(base.flags.list.sort()).toEqual(["fa", "fb"]);
@@ -1729,13 +1833,17 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     run.impulse({ addFlags: ["fb"], signals: ["b"] });
 
     run.set({ impulseQ: { config: { retain: 0, maxBytes: 1 } } } as never);
-    const b1 = run.get("scopeProjectionBaseline", { as: "snapshot" }) as {
+    const b1 = run.get("scopeProjectionBaseline", {
+      as: "snapshot",
+    }) as unknown as {
       flags: { list: string[] };
     };
     expect(b1.flags.list.sort()).toEqual(["fa", "fb"]);
 
     run.set({ impulseQ: { config: { retain: 0, maxBytes: 1 } } } as never);
-    const b2 = run.get("scopeProjectionBaseline", { as: "snapshot" }) as {
+    const b2 = run.get("scopeProjectionBaseline", {
+      as: "snapshot",
+    }) as unknown as {
       flags: { list: string[] };
     };
     expect(b2.flags.list.sort()).toEqual(["fa", "fb"]);
@@ -1969,7 +2077,7 @@ describe("conformance/use-case-coverage/add-input-object-detach", () => {
 
     runs.max = 99;
 
-    const reg = registeredById(run).get("uc:MIN-REF-03") as {
+    const reg = registeredById(run).get("uc:MIN-REF-03") as unknown as {
       backfill: {
         signal: { debt: number; runs: { max: number } };
         flags: { debt: number; runs: { max: number } };

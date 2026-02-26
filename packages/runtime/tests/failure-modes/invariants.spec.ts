@@ -29,7 +29,7 @@ describe("failure-modes/invariants", () => {
 
     run.impulse({ signals: ["applied-signal"], addFlags: ["a"] });
 
-    const hydration = run.get("*", { as: "snapshot" }) as {
+    const hydration = run.get("*", { as: "snapshot" }) as unknown as {
       impulseQ: {
         q: { entries: Array<Record<string, unknown>>; cursor: number };
       };
@@ -66,7 +66,7 @@ describe("failure-modes/invariants", () => {
       (
         run.get("impulseQ", {
           scope: "applied",
-        }) as { q: { entries: unknown[]; cursor: number } }
+        }) as unknown as { q: { entries: unknown[]; cursor: number } }
       ).q,
     ).toEqual({ entries: [hydration.impulseQ.q.entries[0]], cursor: 1 });
 
@@ -74,7 +74,7 @@ describe("failure-modes/invariants", () => {
       (
         run.get("impulseQ", {
           scope: "pendingOnly",
-        }) as { q: { entries: unknown[]; cursor: number } }
+        }) as unknown as { q: { entries: unknown[]; cursor: number } }
       ).q,
     ).toEqual({ entries: [hydration.impulseQ.q.entries[1]], cursor: 0 });
   });
@@ -84,7 +84,7 @@ describe("failure-modes/invariants", () => {
 
     run.impulse({ signals: ["applied"], addFlags: ["a"] });
 
-    const hydration = run.get("*", { as: "snapshot" }) as {
+    const hydration = run.get("*", { as: "snapshot" }) as unknown as {
       impulseQ: {
         q: { entries: Array<Record<string, unknown>>; cursor: number };
       };
@@ -124,10 +124,10 @@ describe("failure-modes/invariants", () => {
 
     const appliedQueue = run.get("impulseQ", {
       scope: "applied",
-    }) as { q: { entries: unknown[]; cursor: number } };
+    }) as unknown as { q: { entries: unknown[]; cursor: number } };
     const pendingQueue = run.get("impulseQ", {
       scope: "pendingOnly",
-    }) as { q: { entries: unknown[]; cursor: number } };
+    }) as unknown as { q: { entries: unknown[]; cursor: number } };
 
     expect(appliedQueue.q.entries).toEqual([]);
     expect(appliedQueue.q.cursor).toBe(0);
@@ -239,7 +239,10 @@ describe("failure-modes/invariants", () => {
     expect(deployments).toBe(1);
     expect(runsMaxDiagnostics).toHaveLength(1);
 
-    const registeredById = run.get("registeredById") as Map<string, unknown>;
+    const registeredById = run.get("registeredById") as unknown as Map<
+      string,
+      unknown
+    >;
     expect(registeredById.has("expr:runs-max")).toBe(false);
   });
 });

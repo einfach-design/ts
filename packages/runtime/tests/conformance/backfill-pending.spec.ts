@@ -17,7 +17,7 @@ describe("conformance/backfill-pending", () => {
       targets: [() => {}],
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
 
@@ -29,7 +29,7 @@ describe("conformance/backfill-pending", () => {
     run.set(snapshot);
     run.impulse({ signals: ["sig:need"] });
 
-    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
+    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };
@@ -42,7 +42,7 @@ describe("conformance/backfill-pending", () => {
       new Set(Object.keys(backfillQ.map)),
     );
 
-    const registeredById = run.get("registeredById") as Map<
+    const registeredById = run.get("registeredById") as unknown as Map<
       string,
       {
         backfill?: { signal?: { debt?: number }; flags?: { debt?: number } };
@@ -68,7 +68,9 @@ describe("conformance/backfill-pending", () => {
       targets: [() => {}],
     });
 
-    const beforeRemove = run.get("backfillQ", { as: "snapshot" }) as {
+    const beforeRemove = run.get("backfillQ", {
+      as: "snapshot",
+    }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };
@@ -76,7 +78,7 @@ describe("conformance/backfill-pending", () => {
 
     removeFirst();
 
-    const afterRemove = run.get("backfillQ", { as: "snapshot" }) as {
+    const afterRemove = run.get("backfillQ", { as: "snapshot" }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };
@@ -109,7 +111,7 @@ describe("conformance/backfill-pending", () => {
 
     run.impulse({ signals: ["sig:need"] });
 
-    const afterReAdd = run.get("backfillQ", { as: "snapshot" }) as {
+    const afterReAdd = run.get("backfillQ", { as: "snapshot" }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };

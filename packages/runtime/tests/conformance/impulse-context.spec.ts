@@ -35,7 +35,7 @@ describe("conformance/impulse-context", () => {
       ],
     });
 
-    const hydration = run.get("*", { as: "snapshot" }) as {
+    const hydration = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
     hydration.backfillQ = {
