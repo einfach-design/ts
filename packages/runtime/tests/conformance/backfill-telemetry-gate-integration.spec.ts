@@ -94,7 +94,7 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
       ],
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
 
@@ -163,7 +163,7 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
     expect(drainRegisteredCalls[0]!.inBackfillQ).toBe(false);
     expect(typeof drainRegisteredCalls[0]!.inBackfillQ).toBe("boolean");
 
-    const registeredById = run.get("registeredById") as Map<
+    const registeredById = run.get("registeredById") as unknown as Map<
       string,
       {
         backfill?: { signal?: { debt?: number }; flags?: { debt?: number } };
@@ -192,7 +192,7 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
       registeredById.get("expr:integration:drain")?.backfill?.flags?.debt,
     ).toBe(0);
 
-    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
+    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };

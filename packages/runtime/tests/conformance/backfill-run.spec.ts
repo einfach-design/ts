@@ -11,7 +11,7 @@ describe("conformance/backfill-run", () => {
       targets: [() => {}],
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
 
@@ -24,7 +24,7 @@ describe("conformance/backfill-run", () => {
     run.impulse({ addFlags: ["tick"] });
 
     const expression = (
-      run.get("registeredById") as Map<
+      run.get("registeredById") as unknown as Map<
         string,
         {
           backfill?: { signal?: { debt?: number } };
@@ -53,7 +53,7 @@ describe("conformance/backfill-run", () => {
       targets: [() => {}],
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
 
@@ -66,7 +66,7 @@ describe("conformance/backfill-run", () => {
     run.impulse({ signals: ["sig:need"] });
 
     const expression = (
-      run.get("registeredById") as Map<
+      run.get("registeredById") as unknown as Map<
         string,
         {
           backfill?: { signal?: { debt?: number }; flags?: { debt?: number } };
@@ -76,7 +76,7 @@ describe("conformance/backfill-run", () => {
 
     expect(expression?.backfill?.signal?.debt).toBe(0);
     expect(expression?.backfill?.flags?.debt).toBe(1);
-    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
+    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };
@@ -100,7 +100,7 @@ describe("conformance/backfill-run", () => {
       targets: [() => {}],
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
 
@@ -113,7 +113,7 @@ describe("conformance/backfill-run", () => {
     run.impulse({ addFlags: ["tick"] });
 
     const expression = (
-      run.get("registeredById") as Map<
+      run.get("registeredById") as unknown as Map<
         string,
         {
           backfill?: { signal?: { debt?: number } };

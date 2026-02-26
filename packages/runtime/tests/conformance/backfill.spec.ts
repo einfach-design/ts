@@ -58,7 +58,7 @@ describe("conformance/backfill", () => {
       ],
     });
 
-    const snapshot = run.get("*") as {
+    const snapshot = run.get("*") as unknown as {
       defaults: unknown;
       flags: unknown;
       changedFlags: unknown;
@@ -83,10 +83,12 @@ describe("conformance/backfill", () => {
 
     const registeredByIdAfterFirstBackfillRun = run.get(
       "registeredById",
-    ) as Map<string, unknown>;
+    ) as unknown as Map<string, unknown>;
     expect(registeredByIdAfterFirstBackfillRun.has(expressionId)).toBe(false);
 
-    const registeredAfterFirstBackfillRun = run.get("registeredQ") as Array<{
+    const registeredAfterFirstBackfillRun = run.get(
+      "registeredQ",
+    ) as unknown as Array<{
       id: string;
       tombstone?: true;
       backfill?: { signal?: { runs?: { used: number; max: number } } };

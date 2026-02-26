@@ -105,7 +105,9 @@ describe("conformance/public-method-matrix", () => {
     });
 
     expect(scoped).toEqual(plain);
-    const diagnostics = run.get("diagnostics") as Array<{ code: string }>;
+    const diagnostics = run.get("diagnostics") as unknown as Array<{
+      code: string;
+    }>;
     expect(diagnostics).toEqual([]);
   });
 
@@ -118,7 +120,9 @@ describe("conformance/public-method-matrix", () => {
     });
 
     run.set({ addFlags: ["a"], removeFlags: [] });
-    expect((run.get("flags") as { list: string[] }).list).toContain("a");
+    expect((run.get("flags") as unknown as { list: string[] }).list).toContain(
+      "a",
+    );
 
     run.set({ signals: ["x", "y"] });
     expect(run.get("signal")).toBe("y");
@@ -127,10 +131,11 @@ describe("conformance/public-method-matrix", () => {
       impulseQ: { config: { retain: 1, maxBytes: Number.POSITIVE_INFINITY } },
     });
     expect(
-      (run.get("impulseQ") as { config: { retain: number } }).config.retain,
+      (run.get("impulseQ") as unknown as { config: { retain: number } }).config
+        .retain,
     ).toBe(1);
 
-    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
       unknown
     >;
@@ -288,7 +293,9 @@ describe("conformance/public-method-matrix", () => {
     expect(fnCalls).toBeGreaterThan(0);
 
     expect(() => run.impulse({ signals: "bad" } as never)).not.toThrow();
-    const diagnostics = run.get("diagnostics") as Array<{ code: string }>;
+    const diagnostics = run.get("diagnostics") as unknown as Array<{
+      code: string;
+    }>;
     expect(diagnostics.some((x) => x.code === "impulse.input.invalid")).toBe(
       true,
     );

@@ -61,7 +61,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
       ],
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
     snapshot.backfillQ = {
@@ -108,7 +108,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
       ],
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
 
@@ -139,7 +139,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
     );
     expect(typeof registeredCalls[0]!.inBackfillQ).toBe("boolean");
 
-    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
+    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };
@@ -165,7 +165,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
       ],
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
 
@@ -200,7 +200,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
     );
     expect(typeof registeredCalls[0]!.inBackfillQ).toBe("boolean");
 
-    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
+    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };
@@ -227,7 +227,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
       ],
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
 
@@ -238,7 +238,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
 
     run.set(snapshot);
 
-    const registeredByIdBefore = run.get("registeredById") as Map<
+    const registeredByIdBefore = run.get("registeredById") as unknown as Map<
       string,
       {
         backfill?: {
@@ -268,7 +268,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
       true,
     );
 
-    const registeredById = run.get("registeredById") as Map<
+    const registeredById = run.get("registeredById") as unknown as Map<
       string,
       {
         backfill?: { signal?: { debt?: number }; flags?: { debt?: number } };
@@ -277,7 +277,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
     expect(registeredById.get(pendingId)?.backfill?.signal?.debt).toBe(0);
     expect(registeredById.get(pendingId)?.backfill?.flags?.debt).toBe(0);
 
-    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
+    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };
@@ -314,7 +314,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
     expect(backfillCalls.every((c) => c.inBackfillQ === false)).toBe(true);
     expect(registeredCalls).toEqual([]);
 
-    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as {
+    const backfillQ = run.get("backfillQ", { as: "snapshot" }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };
@@ -380,7 +380,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
       ],
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as {
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as {
       backfillQ: { list: string[]; map: Record<string, true> };
     } & Record<string, unknown>;
 
@@ -392,7 +392,9 @@ describe("conformance/telemetry-backfill-relevant", () => {
     run.set(snapshot);
     run.impulse({ signals: ["sig:need"] });
 
-    const beforeTelemetryRead = run.get("backfillQ", { as: "snapshot" }) as {
+    const beforeTelemetryRead = run.get("backfillQ", {
+      as: "snapshot",
+    }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };
@@ -405,7 +407,9 @@ describe("conformance/telemetry-backfill-relevant", () => {
       true,
     );
 
-    const afterTelemetryRead = run.get("backfillQ", { as: "snapshot" }) as {
+    const afterTelemetryRead = run.get("backfillQ", {
+      as: "snapshot",
+    }) as unknown as {
       list: string[];
       map: Record<string, true>;
     };

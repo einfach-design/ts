@@ -174,7 +174,7 @@ describe("processing/trim", () => {
 
     run.impulse({ signals: ["applied"], addFlags: ["a"] });
 
-    const hydration = run.get("*", { as: "snapshot" }) as {
+    const hydration = run.get("*", { as: "snapshot" }) as unknown as {
       impulseQ: {
         q: { entries: Array<Record<string, unknown>>; cursor: number };
       };

@@ -20,14 +20,14 @@ describe("conformance/deferred-trim-reentrancy", () => {
 
     run.impulse({ livePayload: "x".repeat(200) });
 
-    const q = run.get("impulseQ", { as: "snapshot" }) as {
+    const q = run.get("impulseQ", { as: "snapshot" }) as unknown as {
       q: { cursor: number; entries: Array<{ addFlags: string[] }> };
     };
 
     const appliedFlags = run.get("flags", {
       scope: "applied",
       as: "snapshot",
-    }) as { list: string[] };
+    }) as unknown as { list: string[] };
     expect(appliedFlags.list).not.toContain("trimReenter");
     expect(q.q.cursor).toBe(0);
     expect(q.q.entries).toHaveLength(1);
@@ -51,14 +51,14 @@ describe("conformance/deferred-trim-reentrancy", () => {
 
     run.impulse({ livePayload: "x".repeat(200) });
 
-    const q = run.get("impulseQ", { as: "snapshot" }) as {
+    const q = run.get("impulseQ", { as: "snapshot" }) as unknown as {
       q: { cursor: number; entries: Array<{ addFlags: string[] }> };
     };
 
     const appliedFlags = run.get("flags", {
       scope: "applied",
       as: "snapshot",
-    }) as { list: string[] };
+    }) as unknown as { list: string[] };
     expect(appliedFlags.list).not.toContain("trimReenterDeferred");
     expect(q.q.cursor).toBe(0);
     expect(q.q.entries).toHaveLength(1);
@@ -94,14 +94,14 @@ describe("conformance/deferred-trim-reentrancy", () => {
 
     run.impulse({ livePayload: "x".repeat(200) });
 
-    const q = run.get("impulseQ", { as: "snapshot" }) as {
+    const q = run.get("impulseQ", { as: "snapshot" }) as unknown as {
       q: { cursor: number; entries: Array<{ addFlags: string[] }> };
     };
 
     const appliedFlags = run.get("flags", {
       scope: "applied",
       as: "snapshot",
-    }) as { list: string[] };
+    }) as unknown as { list: string[] };
     expect(appliedFlags.list).not.toContain("diagReenter");
     expect(q.q.cursor).toBe(0);
     expect(q.q.entries).toHaveLength(1);

@@ -27,7 +27,7 @@ describe("conformance/runtime", () => {
       removeFlags: ["y"],
     } as Record<string, unknown>);
 
-    const flags = run.get("flags") as unknown;
+    const flags = run.get("flags") as unknown as unknown;
 
     const listValue =
       flags && typeof flags === "object"
@@ -58,13 +58,13 @@ describe("conformance/runtime", () => {
           captured = {
             i: (i && typeof i === "object"
               ? (i as Record<string, unknown>)
-              : {}) as Record<string, unknown>,
+              : {}) as unknown as Record<string, unknown>,
             a: (a && typeof a === "object"
               ? (a as Record<string, unknown>)
-              : {}) as Record<string, unknown>,
+              : {}) as unknown as Record<string, unknown>,
             r: (r && typeof r === "object"
               ? (r as Record<string, unknown>)
-              : {}) as Record<string, unknown>,
+              : {}) as unknown as Record<string, unknown>,
           };
         },
       ],
@@ -100,7 +100,7 @@ describe("conformance/runtime", () => {
       id: "expr:e2",
       targets: [
         (i: unknown) => {
-          calls.push((i ?? {}) as Record<string, unknown>);
+          calls.push((i ?? {}) as unknown as Record<string, unknown>);
         },
       ],
     });
@@ -140,10 +140,9 @@ describe("conformance/runtime", () => {
 
     run.impulse({ addFlags: ["a"] });
 
-    const registeredByIdAfterFirstDeploy = run.get("registeredById") as Map<
-      string,
-      unknown
-    >;
+    const registeredByIdAfterFirstDeploy = run.get(
+      "registeredById",
+    ) as unknown as Map<string, unknown>;
     expect(registeredByIdAfterFirstDeploy.has(expressionId)).toBe(false);
 
     run.impulse({ addFlags: ["b"] });
@@ -151,13 +150,12 @@ describe("conformance/runtime", () => {
     // Spec §7.4: once used >= max, expression must not deploy again.
     expect(calls).toEqual(["hit"]);
 
-    const registeredByIdAfterSecondImpulse = run.get("registeredById") as Map<
-      string,
-      unknown
-    >;
+    const registeredByIdAfterSecondImpulse = run.get(
+      "registeredById",
+    ) as unknown as Map<string, unknown>;
     expect(registeredByIdAfterSecondImpulse.has(expressionId)).toBe(false);
 
-    const registeredQ = run.get("registeredQ") as Array<{
+    const registeredQ = run.get("registeredQ") as unknown as Array<{
       id: string;
       tombstone?: true;
     }>;
@@ -194,7 +192,7 @@ describe("conformance/runtime", () => {
       targets: [() => undefined],
     });
 
-    const registeredById = run.get("registeredById") as Map<
+    const registeredById = run.get("registeredById") as unknown as Map<
       string,
       {
         required?: { flags?: { min?: number; max?: number; changed?: number } };
@@ -214,7 +212,7 @@ describe("conformance/runtime", () => {
       targets: [() => undefined],
     });
 
-    const registeredById = run.get("registeredById") as Map<
+    const registeredById = run.get("registeredById") as unknown as Map<
       string,
       { required?: unknown }
     >;
@@ -354,7 +352,10 @@ describe("conformance/runtime", () => {
     run.impulse({ signals: ["s2"] });
 
     const expression = (
-      run.get("registeredById") as Map<string, { runs?: { used: number } }>
+      run.get("registeredById") as unknown as Map<
+        string,
+        { runs?: { used: number } }
+      >
     ).get("expr:no-attempt");
     expect(expression?.runs?.used).toBe(0);
   });

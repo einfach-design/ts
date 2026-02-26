@@ -27,9 +27,9 @@ describe("runtime/golden-path", () => {
       targets: [
         (i: unknown, a: unknown, r: unknown) => {
           calls.push({
-            i: (i ?? {}) as TargetImpulseArg,
-            a: (a ?? {}) as TargetExpressionArg,
-            r: (r ?? {}) as TargetRuntimeArg,
+            i: (i ?? {}) as unknown as TargetImpulseArg,
+            a: (a ?? {}) as unknown as TargetExpressionArg,
+            r: (r ?? {}) as unknown as TargetRuntimeArg,
           });
         },
       ],

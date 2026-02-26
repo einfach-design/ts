@@ -24,7 +24,7 @@ describe("conformance/trim", () => {
     const registryQBefore = run.get("registeredQ", { as: "snapshot" });
     const registryByIdBefore = run.get("registeredById", {
       as: "snapshot",
-    }) as Map<string, unknown>;
+    }) as unknown as Map<string, unknown>;
     const registryByIdBeforeEntries = [...registryByIdBefore.entries()].sort(
       ([left], [right]) => left.localeCompare(right),
     );
@@ -86,7 +86,7 @@ describe("conformance/trim", () => {
 
     const registryByIdAfter = run.get("registeredById", {
       as: "snapshot",
-    }) as Map<string, unknown>;
+    }) as unknown as Map<string, unknown>;
     expect(
       [...registryByIdAfter.entries()].sort(([l], [r]) => l.localeCompare(r)),
     ).toEqual(registryByIdBeforeEntries);
@@ -135,7 +135,7 @@ describe("conformance/trim", () => {
     }).toEqual(pendingOnlyBefore);
     const baselineAfter = run.get("scopeProjectionBaseline", {
       as: "snapshot",
-    }) as {
+    }) as unknown as {
       flags: unknown;
       changedFlags: unknown;
       seenFlags: unknown;

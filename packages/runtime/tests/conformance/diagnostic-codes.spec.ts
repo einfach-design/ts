@@ -307,7 +307,9 @@ describe("conformance/diagnostic-codes", () => {
       }),
     ).not.toThrow();
 
-    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+    const diagnostics = run.get("diagnostics", {
+      as: "snapshot",
+    }) as unknown as Array<{
       code: string;
       data?: { deduped?: string[] };
     }>;
@@ -414,7 +416,9 @@ describe("conformance/diagnostic-codes", () => {
       }),
     ).toThrow("add.onError.invalid");
 
-    const diagnostics = run.get("diagnostics", { as: "snapshot" }) as Array<{
+    const diagnostics = run.get("diagnostics", {
+      as: "snapshot",
+    }) as unknown as Array<{
       code: string;
     }>;
 
@@ -660,7 +664,7 @@ describe("conformance/diagnostic-codes", () => {
       codes.push(diagnostic.code);
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
       unknown
     >;
@@ -743,7 +747,7 @@ describe("conformance/diagnostic-codes", () => {
       codes.push(diagnostic.code);
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
       unknown
     >;
@@ -761,7 +765,7 @@ describe("conformance/diagnostic-codes", () => {
       codes.push(diagnostic.code);
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
       unknown
     >;
@@ -779,7 +783,7 @@ describe("conformance/diagnostic-codes", () => {
       codes.push(diagnostic.code);
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
       unknown
     >;
@@ -885,7 +889,7 @@ describe("conformance/diagnostic-codes", () => {
       codes.push(diagnostic.code);
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
       unknown
     >;
@@ -904,7 +908,7 @@ describe("conformance/diagnostic-codes", () => {
       codes.push(diagnostic.code);
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
       unknown
     >;
@@ -926,7 +930,7 @@ describe("conformance/diagnostic-codes", () => {
       codes.push(diagnostic.code);
     });
 
-    const snapshot = run.get("*", { as: "snapshot" }) as Record<
+    const snapshot = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
       unknown
     >;
@@ -975,7 +979,10 @@ describe("conformance/diagnostic-codes", () => {
       codes.push(diagnostic.code);
     });
 
-    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const s = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
     s.flags = [];
 
     expect(() => run.set(s)).toThrow("set.hydration.flagsViewInvalid");
@@ -990,7 +997,10 @@ describe("conformance/diagnostic-codes", () => {
       codes.push(diagnostic.code);
     });
 
-    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const s = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
     s.seenSignals = [];
 
     expect(() => run.set(s)).toThrow("set.hydration.seenSignalsInvalid");
@@ -1005,7 +1015,10 @@ describe("conformance/diagnostic-codes", () => {
       codes.push(diagnostic.code);
     });
 
-    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown> & {
+    const s = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    > & {
       flags: { list: string[]; map: Record<string, true> };
     };
     s.flags = { list: ["dup", "dup"], map: { dup: true } };
@@ -1022,7 +1035,10 @@ describe("conformance/diagnostic-codes", () => {
       codes.push(diagnostic.code);
     });
 
-    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown> & {
+    const s = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    > & {
       seenSignals: { list: string[]; map: Record<string, true> };
     };
     s.seenSignals = { list: ["dup", "dup"], map: { dup: true } };
@@ -1039,7 +1055,10 @@ describe("conformance/diagnostic-codes", () => {
       codes.push(diagnostic.code);
     });
 
-    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const s = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
     s.signal = 123;
 
     expect(() => run.set(s)).toThrow("set.hydration.signalInvalid");
@@ -1054,7 +1073,10 @@ describe("conformance/diagnostic-codes", () => {
       codes.push(diagnostic.code);
     });
 
-    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    const s = run.get("*", { as: "snapshot" }) as unknown as Record<
+      string,
+      unknown
+    >;
     s.backfillQ = null;
 
     expect(() => run.set(s)).toThrow("set.hydration.backfillQInvalid");

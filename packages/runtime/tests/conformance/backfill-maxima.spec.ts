@@ -18,7 +18,9 @@ describe("conformance/backfill-maxima", () => {
 
     run.impulse({ addFlags: ["tick"] });
 
-    const byId = run.get("registeredById", { as: "unsafeAlias" }) as Map<
+    const byId = run.get("registeredById", {
+      as: "unsafeAlias",
+    }) as unknown as Map<
       string,
       {
         backfill?: {
@@ -35,7 +37,7 @@ describe("conformance/backfill-maxima", () => {
     }
 
     const after = (
-      run.get("registeredById") as Map<
+      run.get("registeredById") as unknown as Map<
         string,
         {
           backfill?: {

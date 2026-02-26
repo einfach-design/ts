@@ -17,7 +17,9 @@ describe("conformance/useFixedFlags", () => {
         (i, _a, runtimeCore) => {
           seen.push({
             flags: i.flags.list,
-            liveFlags: (runtimeCore.get("flags") as { list: string[] }).list,
+            liveFlags: (
+              runtimeCore.get("flags") as unknown as { list: string[] }
+            ).list,
           });
         },
       ],
