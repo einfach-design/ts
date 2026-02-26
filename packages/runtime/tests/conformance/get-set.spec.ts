@@ -14,7 +14,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { createRuntime } from "../../src/index.js";
-import type { RunGetKey } from "../../src/index.types.js";
+import type { Diagnostic, RunGetKey } from "../../src/index.types.js";
 
 type ScopeProjectionBaselineSnapshot = {
   flags: { list: string[]; map: Record<string, boolean> };
@@ -22,6 +22,14 @@ type ScopeProjectionBaselineSnapshot = {
   seenFlags: { list: string[]; map: Record<string, boolean> };
   signal: string | undefined;
   seenSignals: { list: string[]; map: Record<string, boolean> };
+};
+
+const collectDiagnostics = (run: {
+  onDiagnostic: (cb: (diagnostic: Diagnostic) => void) => () => void;
+}): Diagnostic[] => {
+  const events: Diagnostic[] = [];
+  run.onDiagnostic((diagnostic) => events.push(diagnostic));
+  return events;
 };
 
 describe("conformance/get-set", () => {
@@ -2379,6 +2387,111 @@ describe("conformance/get-set", () => {
     expect(events.some((e) => e.code === "get.as.unsafeAlias.forbidden")).toBe(
       true,
     );
+  });
+
+  it("UA-TELEMETRY-01 — unsafeAlias.used includes key + scope when provided", () => {
+    const run = createRuntime({ allowUnsafeAlias: true });
+    const events = collectDiagnostics(run);
+
+    run.get("flags", { as: "unsafeAlias", scope: "s1" } as never);
+
+    const unsafeAliasEvents = events.filter(
+      (event) => event.code === "runtime.get.unsafeAlias.used",
+    );
+    expect(unsafeAliasEvents).toHaveLength(1);
+    expect(unsafeAliasEvents[0]?.data?.key).toBe("flags");
+    expect(unsafeAliasEvents[0]?.data?.scope).toBe("s1");
+  });
+
+  it("UA-TELEMETRY-02 — unsafeAlias.forbidden emits with key+scope and throws (dev)", () => {
+    const run = createRuntime();
+    const events = collectDiagnostics(run);
+
+    expect(() =>
+      run.get("flags", { as: "unsafeAlias", scope: "s2" } as never),
+    ).toThrow("get.as.unsafeAlias.forbidden");
+
+    const forbiddenEvents = events.filter(
+      (event) => event.code === "get.as.unsafeAlias.forbidden",
+    );
+    expect(forbiddenEvents).toHaveLength(1);
+    expect(forbiddenEvents[0]?.severity).toBe("error");
+    expect(forbiddenEvents[0]?.data?.key).toBe("flags");
+    expect(forbiddenEvents[0]?.data?.scope).toBe("s2");
+  });
+
+  it("REF-TELEMETRY-01 — reference top-level fallback emits key+scope+valueKind", () => {
+    const run = createRuntime({ allowUnsafeAlias: true });
+    const events = collectDiagnostics(run);
+
+    const alias = run.get("flags", { as: "unsafeAlias" }) as unknown as {
+      map: Record<string, unknown>;
+    };
+    alias.map = {};
+    alias.map.__opaqueDate = new Date("2020-01-01T00:00:00.000Z");
+
+    const ref = run.get("flags", {
+      as: "reference",
+    }) as unknown as {
+      map: { __opaqueDate: Date };
+    };
+    expect(() => ref.map.__opaqueDate.setUTCFullYear(2021)).toThrow(
+      "runtime.readonly",
+    );
+
+    const fallbackEvents = events.filter(
+      (event) =>
+        event.code === "runtime.get.reference.fallbackSnapshot" &&
+        event.data?.valueKind === "Date",
+    );
+    expect(fallbackEvents).toHaveLength(1);
+    const event = fallbackEvents[0]!;
+    expect(event.data?.key).toBe("flags");
+    expect(event.data?.scope).toBeUndefined();
+    expect(event.data?.valueKind).toBe("Date");
+    expect(
+      typeof event.data?.valueKind === "string" &&
+        event.data.valueKind.length > 0,
+    ).toBe(true);
+    expect(typeof event.data).toBe("object");
+    expect(
+      Object.keys((event.data ?? {}) as Record<string, unknown>).sort(),
+    ).toEqual(["key", "valueKind"]);
+  });
+
+  it("REF-TELEMETRY-02 — reference nested fallback includes key+scope and dedups", () => {
+    const run = createRuntime({ allowUnsafeAlias: true });
+    const events = collectDiagnostics(run);
+
+    const alias = run.get("flags", { as: "unsafeAlias" }) as unknown as {
+      map: Record<string, unknown>;
+    };
+    alias.map = {};
+    alias.map.fn = () => 1;
+
+    const ref = run.get("flags", {
+      as: "reference",
+    }) as unknown as {
+      map: { fn: (...args: unknown[]) => unknown };
+    };
+
+    expect(() => ref.map.fn()).toThrow("runtime.readonly");
+    expect(() => ref.map.fn()).toThrow("runtime.readonly");
+
+    const fallbackEvents = events.filter(
+      (event) =>
+        event.code === "runtime.get.reference.fallbackSnapshot" &&
+        event.data?.valueKind === "Function",
+    );
+    expect(fallbackEvents).toHaveLength(1);
+    const event = fallbackEvents[0]!;
+    expect(event.data?.key).toBe("flags");
+    expect(event.data?.scope).toBeUndefined();
+    expect(event.data?.valueKind).toBe("Function");
+    expect(typeof event.data).toBe("object");
+    expect(
+      Object.keys((event.data ?? {}) as Record<string, unknown>).sort(),
+    ).toEqual(["key", "valueKind"]);
   });
 
   it("A11 — hydration reports unresolved backfill ids and drops them", () => {
