@@ -429,7 +429,7 @@ export function runSet(
     diagnostics.emit({
       code: "set.flags.deltaInvalid",
       message:
-        "addFlags/removeFlags must be an array of strings or a FlagsView ({ list, map }).",
+        "addFlags/removeFlags must be an array of non-empty strings (trimmed) or a FlagsView ({ list, map }).",
       severity: "error",
       data: {
         field,
@@ -444,7 +444,18 @@ export function runSet(
     value: unknown,
   ): string[] => {
     if (Array.isArray(value)) {
-      return value.map((entry) => String(entry));
+      return value.map((entry) => {
+        if (typeof entry !== "string") {
+          return emitFlagDeltaInvalid(field, value);
+        }
+
+        const token = entry.trim();
+        if (token.length === 0) {
+          emitFlagDeltaInvalid(field, value);
+        }
+
+        return token;
+      });
     }
 
     if (isRecordObject(value)) {
@@ -454,9 +465,18 @@ export function runSet(
         hasOwn(value, "map") &&
         isRecordObject(value.map)
       ) {
-        const normalizedList = (value.list as unknown[]).map((entry) =>
-          String(entry),
-        );
+        const normalizedList = (value.list as unknown[]).map((entry) => {
+          if (typeof entry !== "string") {
+            return emitFlagDeltaInvalid(field, value);
+          }
+
+          const token = entry.trim();
+          if (token.length === 0) {
+            emitFlagDeltaInvalid(field, value);
+          }
+
+          return token;
+        });
         const canonical = createFlagsView(normalizedList);
         const incomingMap = value.map as Record<string, unknown>;
 

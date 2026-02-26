@@ -37,6 +37,42 @@ export type ImpulseEntryCanonicalization = Readonly<{
   onError: RuntimeOnError | undefined;
 }>;
 
+const readStringList = (
+  value: unknown,
+  options?: { dedupeOnTrim?: boolean; normalizeOutput?: boolean },
+): readonly string[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const dedupeOnTrim = options?.dedupeOnTrim === true;
+  const normalizeOutput = options?.normalizeOutput === true;
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  for (const item of value) {
+    if (typeof item !== "string") {
+      return undefined;
+    }
+
+    const token = item.trim();
+    if (token.length === 0) {
+      return undefined;
+    }
+
+    if (dedupeOnTrim) {
+      if (seen.has(token)) {
+        return undefined;
+      }
+      seen.add(token);
+    }
+
+    out.push(normalizeOutput ? token : item);
+  }
+
+  return out;
+};
+
 const isFlagsView = (value: unknown): value is FlagsView => {
   if (!isObjectNonNull(value)) {
     return false;
@@ -49,13 +85,15 @@ const isFlagsView = (value: unknown): value is FlagsView => {
     return false;
   }
 
-  const seen = new Set<string>();
-  for (const item of list) {
-    if (typeof item !== "string" || seen.has(item)) {
-      return false;
-    }
-    seen.add(item);
+  const normalizedList = readStringList(list, {
+    dedupeOnTrim: true,
+    normalizeOutput: true,
+  });
+  if (normalizedList === undefined) {
+    return false;
   }
+
+  const seen = new Set(normalizedList);
 
   const mapKeys = Object.keys(map);
   if (mapKeys.length !== seen.size) {
@@ -140,27 +178,24 @@ export function canonImpulseEntry(
     ? onErrorCandidate
     : undefined;
 
-  const signals = hasOwn(source, "signals") ? source.signals : [];
-  if (
-    !Array.isArray(signals) ||
-    !signals.every((signal) => typeof signal === "string")
-  ) {
+  const signals = readStringList(
+    hasOwn(source, "signals") ? source.signals : [],
+  );
+  if (signals === undefined) {
     return { entry: undefined, onError };
   }
 
-  const addFlags = hasOwn(source, "addFlags") ? source.addFlags : [];
-  if (
-    !Array.isArray(addFlags) ||
-    !addFlags.every((flag) => typeof flag === "string")
-  ) {
+  const addFlags = readStringList(
+    hasOwn(source, "addFlags") ? source.addFlags : [],
+  );
+  if (addFlags === undefined) {
     return { entry: undefined, onError };
   }
 
-  const removeFlags = hasOwn(source, "removeFlags") ? source.removeFlags : [];
-  if (
-    !Array.isArray(removeFlags) ||
-    !removeFlags.every((flag) => typeof flag === "string")
-  ) {
+  const removeFlags = readStringList(
+    hasOwn(source, "removeFlags") ? source.removeFlags : [],
+  );
+  if (removeFlags === undefined) {
     return { entry: undefined, onError };
   }
 
