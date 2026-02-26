@@ -114,20 +114,27 @@ describe("conformance/public-method-matrix", () => {
   it("run.set matrix: hydration + allowed patch fields + forbidden shapes", () => {
     const run = createRuntime();
 
-    run.set({ defaults: { gate: { signal: { value: false } } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      defaults: { gate: { signal: { value: false } } },
+    });
     expect(run.get("defaults")).toMatchObject({
       gate: { signal: { value: false } },
     });
 
-    run.set({ addFlags: ["a"], removeFlags: [] });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      addFlags: ["a"],
+      removeFlags: [],
+    });
     expect((run.get("flags") as unknown as { list: string[] }).list).toContain(
       "a",
     );
 
-    run.set({ signals: ["x", "y"] });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      signals: ["x", "y"],
+    });
     expect(run.get("signal")).toBe("y");
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: { config: { retain: 1, maxBytes: Number.POSITIVE_INFINITY } },
     });
     expect(
@@ -140,14 +147,18 @@ describe("conformance/public-method-matrix", () => {
       unknown
     >;
     const clone = createRuntime();
-    clone.set(snapshot);
+    (clone.set as (patch: Record<string, unknown>) => void)(snapshot);
     expect(clone.get("flags")).toEqual(run.get("flags"));
 
-    expect(() => run.set({ signal: "forbidden" })).toThrow(
-      "set.patch.forbidden",
-    );
     expect(() =>
-      run.set({ flags: { list: "nope", map: {} } as never }),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        signal: "forbidden",
+      }),
+    ).toThrow("set.patch.forbidden");
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)({
+        flags: { list: "nope", map: {} } as never,
+      }),
     ).toThrow("set.flags.invalid");
   });
 

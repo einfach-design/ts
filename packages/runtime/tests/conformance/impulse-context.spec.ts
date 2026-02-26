@@ -42,7 +42,7 @@ describe("conformance/impulse-context", () => {
       list: ["expr:producer"],
       map: { "expr:producer": true },
     };
-    run.set(hydration);
+    (run.set as (patch: Record<string, unknown>) => void)(hydration);
 
     run.add({
       id: "expr:e1",

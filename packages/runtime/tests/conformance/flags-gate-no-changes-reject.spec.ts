@@ -61,7 +61,10 @@ describe("conformance/flags-gate-no-changes-reject", () => {
       map: { "expr:flags:no-changes": true },
     };
 
-    run.set({ ...snapshot, flags: createFlagsView([]) });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      ...snapshot,
+      flags: createFlagsView([]),
+    });
 
     run.impulse({ signals: ["sig:need"] });
 
@@ -138,7 +141,10 @@ describe("conformance/flags-gate-no-changes-reject", () => {
       map: { "expr:flags:changed": true },
     };
 
-    run.set({ ...snapshot, flags: createFlagsView([]) });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      ...snapshot,
+      flags: createFlagsView([]),
+    });
 
     run.impulse({ signals: ["sig:need"], addFlags: ["flag:tick"] });
 

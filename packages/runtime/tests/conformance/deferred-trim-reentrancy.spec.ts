@@ -6,7 +6,7 @@ describe("conformance/deferred-trim-reentrancy", () => {
   it("onTrim reentrancy can enqueue but must not drain", () => {
     const run = createRuntime();
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: {
         config: {
           retain: 0,
@@ -37,7 +37,7 @@ describe("conformance/deferred-trim-reentrancy", () => {
   it("deferred maxBytes trim reentrancy enqueues but must not drain", () => {
     const run = createRuntime();
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: {
         config: {
           retain: true,
@@ -80,7 +80,7 @@ describe("conformance/deferred-trim-reentrancy", () => {
       }
     });
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: {
         config: {
           retain: true,

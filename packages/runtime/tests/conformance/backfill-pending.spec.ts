@@ -26,7 +26,7 @@ describe("conformance/backfill-pending", () => {
       map: { [expressionId]: true },
     };
 
-    run.set(snapshot);
+    (run.set as (patch: Record<string, unknown>) => void)(snapshot);
     run.impulse({ signals: ["sig:need"] });
 
     const backfillQ = run.get("backfillQ", { as: "snapshot" }) as unknown as {

@@ -20,7 +20,7 @@ describe("conformance/backfill-run", () => {
       map: { "expr:pending": true },
     };
 
-    run.set(snapshot);
+    (run.set as (patch: Record<string, unknown>) => void)(snapshot);
     run.impulse({ addFlags: ["tick"] });
 
     const expression = (
@@ -62,7 +62,7 @@ describe("conformance/backfill-run", () => {
       map: { "expr:pending-gt-zero": true },
     };
 
-    run.set(snapshot);
+    (run.set as (patch: Record<string, unknown>) => void)(snapshot);
     run.impulse({ signals: ["sig:need"] });
 
     const expression = (
@@ -109,7 +109,7 @@ describe("conformance/backfill-run", () => {
       map: { "expr:done": true },
     };
 
-    run.set(snapshot);
+    (run.set as (patch: Record<string, unknown>) => void)(snapshot);
     run.impulse({ addFlags: ["tick"] });
 
     const expression = (

@@ -40,7 +40,9 @@ describe("unit/structuredClone-fallback", () => {
       const methodsOn = methods.on as { runs: { max: number } };
 
       const rehydrated = createRuntime();
-      expect(() => rehydrated.set(snap)).not.toThrow();
+      expect(() =>
+        (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+      ).not.toThrow();
 
       methodsOn.runs.max = 999;
 

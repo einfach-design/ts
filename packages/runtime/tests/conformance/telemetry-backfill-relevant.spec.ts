@@ -69,7 +69,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
       map: { "expr:drained": true },
     };
 
-    run.set(snapshot);
+    (run.set as (patch: Record<string, unknown>) => void)(snapshot);
 
     run.impulse({ addFlags: ["tick"] });
 
@@ -117,7 +117,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
       map: { "expr:drain-countercase": true },
     };
 
-    run.set(snapshot);
+    (run.set as (patch: Record<string, unknown>) => void)(snapshot);
 
     run.impulse({
       signals: ["sig:ready"],
@@ -174,7 +174,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
       map: { "expr:pending": true },
     };
 
-    run.set(snapshot);
+    (run.set as (patch: Record<string, unknown>) => void)(snapshot);
 
     run.impulse({ signals: ["sig:need"], addFlags: ["flag:up"] });
 
@@ -236,7 +236,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
       map: { [pendingId]: true },
     };
 
-    run.set(snapshot);
+    (run.set as (patch: Record<string, unknown>) => void)(snapshot);
 
     const registeredByIdBefore = run.get("registeredById") as unknown as Map<
       string,
@@ -389,7 +389,7 @@ describe("conformance/telemetry-backfill-relevant", () => {
       map: { [expressionId]: true },
     };
 
-    run.set(snapshot);
+    (run.set as (patch: Record<string, unknown>) => void)(snapshot);
     run.impulse({ signals: ["sig:need"] });
 
     const beforeTelemetryRead = run.get("backfillQ", {

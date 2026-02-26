@@ -185,9 +185,11 @@ describe("processing/trim", () => {
       { signals: ["pending"], addFlags: ["b"], removeFlags: [] },
     ];
     hydration.impulseQ.q.cursor = 1;
-    run.set(hydration);
+    (run.set as (patch: Record<string, unknown>) => void)(hydration);
 
-    run.set({ impulseQ: { config: { retain: 0 } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: 0 } },
+    });
 
     expect(run.get("flags", { scope: "applied", as: "snapshot" })).toEqual({
       list: ["a"],

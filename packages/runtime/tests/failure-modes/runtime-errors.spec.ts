@@ -152,7 +152,9 @@ describe("failure-modes/runtime-errors", () => {
       ];
       hydration.impulseQ.q.cursor = 0;
 
-      expect(() => run.set(hydration)).toThrow("set.impulseQ.entryInvalid");
+      expect(() =>
+        (run.set as (patch: Record<string, unknown>) => void)(hydration),
+      ).toThrow("set.impulseQ.entryInvalid");
       expect(codes).toContain("set.impulseQ.entryInvalid");
     });
   });
@@ -161,7 +163,9 @@ describe("failure-modes/runtime-errors", () => {
     it("validates report/swallow/throw/fn matrix for trim callback errors", () => {
       const primeRuntime = () => {
         const run = createRuntime();
-        run.set({ impulseQ: { config: { retain: true } } });
+        (run.set as (patch: Record<string, unknown>) => void)({
+          impulseQ: { config: { retain: true } },
+        });
         run.impulse({ addFlags: ["seed"] });
         return run;
       };
@@ -176,7 +180,7 @@ describe("failure-modes/runtime-errors", () => {
       });
 
       expect(() =>
-        reportRun.set({
+        (reportRun.set as (patch: Record<string, unknown>) => void)({
           impulseQ: {
             config: {
               onError: "report",
@@ -204,7 +208,7 @@ describe("failure-modes/runtime-errors", () => {
       });
 
       expect(() =>
-        swallowRun.set({
+        (swallowRun.set as (patch: Record<string, unknown>) => void)({
           impulseQ: {
             config: {
               onError: "swallow",
@@ -227,7 +231,7 @@ describe("failure-modes/runtime-errors", () => {
 
       const throwRun = primeRuntime();
       expect(() =>
-        throwRun.set({
+        (throwRun.set as (patch: Record<string, unknown>) => void)({
           impulseQ: {
             config: {
               onError: "throw",
@@ -243,7 +247,7 @@ describe("failure-modes/runtime-errors", () => {
       const fnSeen: unknown[] = [];
       const fnRun = primeRuntime();
       expect(() =>
-        fnRun.set({
+        (fnRun.set as (patch: Record<string, unknown>) => void)({
           impulseQ: {
             config: {
               onError: (error: unknown) => {
@@ -261,7 +265,7 @@ describe("failure-modes/runtime-errors", () => {
 
       const fnThrowRun = primeRuntime();
       expect(() =>
-        fnThrowRun.set({
+        (fnThrowRun.set as (patch: Record<string, unknown>) => void)({
           impulseQ: {
             config: {
               onError: () => {
@@ -291,7 +295,9 @@ describe("failure-modes/runtime-errors", () => {
       };
 
       const reportRun = setupWithThrowingListener();
-      reportRun.set({ impulseQ: { config: { onError: "report" } } });
+      (reportRun.set as (patch: Record<string, unknown>) => void)({
+        impulseQ: { config: { onError: "report" } },
+      });
       const reportDiagnostics: Array<{
         code: string;
         data?: Record<string, unknown>;
@@ -314,7 +320,9 @@ describe("failure-modes/runtime-errors", () => {
       );
 
       const swallowRun = setupWithThrowingListener();
-      swallowRun.set({ impulseQ: { config: { onError: "swallow" } } });
+      (swallowRun.set as (patch: Record<string, unknown>) => void)({
+        impulseQ: { config: { onError: "swallow" } },
+      });
       const swallowDiagnostics: Array<{ code: string; data?: unknown }> = [];
       swallowRun.onDiagnostic((diagnostic) => {
         swallowDiagnostics.push(diagnostic);
@@ -334,7 +342,9 @@ describe("failure-modes/runtime-errors", () => {
       );
 
       const throwRun = setupWithThrowingListener();
-      throwRun.set({ impulseQ: { config: { onError: "throw" } } });
+      (throwRun.set as (patch: Record<string, unknown>) => void)({
+        impulseQ: { config: { onError: "throw" } },
+      });
       expect(() =>
         throwRun.get(
           "definitely.invalid.key" as unknown as Exclude<RunGetKey, "*">,
@@ -343,7 +353,7 @@ describe("failure-modes/runtime-errors", () => {
 
       const fnSeen: unknown[] = [];
       const fnRun = setupWithThrowingListener();
-      fnRun.set({
+      (fnRun.set as (patch: Record<string, unknown>) => void)({
         impulseQ: {
           config: {
             onError: (error: unknown) => {
@@ -360,7 +370,7 @@ describe("failure-modes/runtime-errors", () => {
       expect(fnSeen).toHaveLength(1);
 
       const fnThrowRun = setupWithThrowingListener();
-      fnThrowRun.set({
+      (fnThrowRun.set as (patch: Record<string, unknown>) => void)({
         impulseQ: {
           config: {
             onError: () => {
@@ -476,7 +486,7 @@ describe("failure-modes/runtime-errors", () => {
     const run = createRuntime();
     const seen: unknown[] = [];
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: {
         config: {
           onError: (error: unknown) => {

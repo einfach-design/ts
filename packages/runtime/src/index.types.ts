@@ -96,7 +96,7 @@ export type RunGetKey =
   | "registeredById"
   | "diagnostics";
 
-export type RunSetInput = Readonly<Record<string, unknown>>;
+export type RunSetInput = ScopeProjectionBaseline;
 
 export type RunGetReturnMap = {
   defaults: Defaults;

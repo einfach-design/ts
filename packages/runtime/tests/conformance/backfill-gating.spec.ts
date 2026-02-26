@@ -37,7 +37,10 @@ describe("conformance/backfill-gating", () => {
       map: { "expr:flags-only": true },
     };
 
-    run.set({ ...snapshot, flags: createFlagsView(["must"]) });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      ...snapshot,
+      flags: createFlagsView(["must"]),
+    });
     run.impulse({ addFlags: ["tick"] });
 
     const backfillCalls = calls.filter((x) => x.q === "backfill");
@@ -90,7 +93,10 @@ describe("conformance/backfill-gating", () => {
       map: { "expr:signal-primary": true },
     };
 
-    run.set({ ...snapshot, flags: createFlagsView([]) });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      ...snapshot,
+      flags: createFlagsView([]),
+    });
     run.impulse({ signals: ["sig:ok"] });
 
     const backfillCalls = calls.filter((x) => x.q === "backfill");

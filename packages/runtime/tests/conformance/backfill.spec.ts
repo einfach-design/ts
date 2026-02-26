@@ -70,7 +70,7 @@ describe("conformance/backfill", () => {
       registeredQ: unknown;
     };
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       ...snapshot,
       backfillQ: {
         list: [expressionId],
