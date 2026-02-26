@@ -24,7 +24,6 @@ export type {
   ImpulseQEntryCanonical,
   ImpulseOpts,
   RegisteredExpression,
-  RegistryExpression,
   MatchExpressionOpts,
   RunGetAllReturn,
   RunGetKey,

@@ -27,9 +27,9 @@ type ScopeProjectionBaselineSnapshot = {
 describe("conformance/get-set", () => {
   it("A1 — get(unknown) must throw (Spec §4.1)", () => {
     const run = createRuntime();
-    expect(() => run.get("unknown-key" as unknown as RunGetKey)).toThrow(
-      "get.key.invalid",
-    );
+    expect(() =>
+      run.get("unknown-key" as unknown as Exclude<RunGetKey, "*">),
+    ).toThrow("get.key.invalid");
   });
 
   it("A1x — snapshot get does not leak null-proto flag maps by reference", () => {

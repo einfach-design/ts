@@ -17,7 +17,6 @@ import type { ScopeProjectionBaseline, RuntimeStore } from "./runtime/store.js";
 import type { BackfillQSnapshot } from "./state/backfillQ.js";
 import type { Defaults } from "./state/defaults.js";
 import type { FlagsView } from "./state/flagsView.js";
-import type { RegistryExpression } from "./state/registry.js";
 import type { Signal, SeenSignals } from "./state/signals.js";
 
 export type { FlagsView } from "./state/flagsView.js";
@@ -26,7 +25,6 @@ export type { BackfillQSnapshot } from "./state/backfillQ.js";
 export type { RegisteredExpression } from "./runs/coreRun.js";
 export type { ScopeProjectionBaseline } from "./runtime/store.js";
 export type { ImpulseQEntryCanonical } from "./canon/impulseEntry.js";
-export type { RegistryExpression } from "./state/registry.js";
 
 export type RunScope = "applied" | "pending" | "pendingOnly";
 
@@ -117,7 +115,7 @@ export type RunGetReturnMap = {
   scopeProjectionBaseline: MutableDeep<ScopeProjectionBaseline>;
   impulseQ: MutableDeep<RuntimeStore["impulseQ"]>;
   backfillQ: BackfillQSnapshot;
-  registeredQ: MutableDeep<RegisteredExpression & RegistryExpression>[];
+  registeredQ: MutableDeep<RegisteredExpression>[];
   registeredById: Map<string, MutableDeep<RegisteredExpression>>;
   diagnostics: MutableDeep<Diagnostic>[];
 };
@@ -171,20 +169,6 @@ export type RunTime = Readonly<{
       scope?: RunScope;
     },
   ): RunGetReturnMap[K];
-  get(
-    key: RunGetKey | undefined,
-    opts?: {
-      as?: "snapshot" | "reference" | "unsafeAlias";
-      scope?: RunScope;
-    },
-  ): RunGetAllReturn | RunGetReturnMap[Exclude<RunGetKey, "*">];
-  get(
-    key: undefined,
-    opts?: {
-      as?: "snapshot" | "reference" | "unsafeAlias";
-      scope?: RunScope;
-    },
-  ): RunGetAllReturn;
   set: (patch: RunSetInput) => void;
   matchExpression: (opts: MatchExpressionOpts) => boolean;
   onDiagnostic: (handler: (diagnostic: Diagnostic) => void) => () => void;

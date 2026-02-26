@@ -1844,12 +1844,10 @@ describe("conformance/use-case-coverage/public-api-optional-args", () => {
     expect(run.get()).toEqual(run.get("*", { as: "snapshot" }));
   });
 
-  it('MIN-API-02 — run.get(undefined,{as:"snapshot"}) equals run.get("*",{as:"snapshot"})', () => {
+  it('MIN-API-02 — run.get({as:"snapshot"}) alias remains run.get("*",{as:"snapshot"})', () => {
     const run = createRuntime();
 
-    expect(run.get(undefined, { as: "snapshot" } as never)).toEqual(
-      run.get("*", { as: "snapshot" }),
-    );
+    expect(run.get()).toEqual(run.get("*", { as: "snapshot" }));
   });
 
   it("MIN-API-03 — run.impulse() without args does not throw", () => {

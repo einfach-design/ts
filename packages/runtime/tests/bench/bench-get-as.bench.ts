@@ -93,7 +93,10 @@ const selectedKeys = filterByEnv<BenchKey>(
           runBenchWithMemDelta(
             `${scenario}:${keyLabel}:referenceRaw`,
             () => {
-              const value = run.get(runtimeKey, { as: "reference" });
+              const value =
+                runtimeKey === "*"
+                  ? run.get("*", { as: "reference" })
+                  : run.get(runtimeKey, { as: "reference" });
               void value;
             },
             { iters: config.iters },
@@ -104,9 +107,10 @@ const selectedKeys = filterByEnv<BenchKey>(
           runBenchWithMemDelta(
             `${scenario}:${keyLabel}:referenceReadonlyView`,
             () => {
-              const value = readonlyView(
-                run.get(runtimeKey, { as: "reference" }),
-              );
+              const value =
+                runtimeKey === "*"
+                  ? readonlyView(run.get("*", { as: "reference" }))
+                  : readonlyView(run.get(runtimeKey, { as: "reference" }));
               void value;
             },
             { iters: config.iters },
@@ -117,7 +121,10 @@ const selectedKeys = filterByEnv<BenchKey>(
           runBenchWithMemDelta(
             `${scenario}:${keyLabel}:snapshot`,
             () => {
-              const value = run.get(runtimeKey, { as: "snapshot" });
+              const value =
+                runtimeKey === "*"
+                  ? run.get("*", { as: "snapshot" })
+                  : run.get(runtimeKey, { as: "snapshot" });
               void value;
             },
             { iters: config.iters },
