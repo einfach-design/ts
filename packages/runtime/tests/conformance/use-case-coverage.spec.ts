@@ -17,7 +17,9 @@ function registeredById(
 describe("conformance/use-case-coverage/defaults-overlay", () => {
   it("A01 — run.when uses defaults.methods.when.runs.max", () => {
     const run = createRuntime();
-    run.set({ defaults: { methods: { when: { runs: { max: 2 } } } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      defaults: { methods: { when: { runs: { max: 2 } } } },
+    });
 
     let calls = 0;
     run.when({ id: "uc:A01", flags: { xyz: false }, targets: [() => calls++] });
@@ -34,7 +36,9 @@ describe("conformance/use-case-coverage/defaults-overlay", () => {
 
   it("A02 — call override beats defaults", () => {
     const run = createRuntime();
-    run.set({ defaults: { methods: { when: { runs: { max: 5 } } } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      defaults: { methods: { when: { runs: { max: 5 } } } },
+    });
 
     let calls = 0;
     run.when({
@@ -57,7 +61,9 @@ describe("conformance/use-case-coverage/defaults-overlay", () => {
   it("A03 — defaults are non-retroactive", () => {
     const run = createRuntime();
 
-    run.set({ defaults: { methods: { when: { runs: { max: 3 } } } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      defaults: { methods: { when: { runs: { max: 3 } } } },
+    });
     let callsA = 0;
     run.when({
       id: "uc:A03:A",
@@ -65,7 +71,9 @@ describe("conformance/use-case-coverage/defaults-overlay", () => {
       targets: [() => callsA++],
     });
 
-    run.set({ defaults: { methods: { when: { runs: { max: 1 } } } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      defaults: { methods: { when: { runs: { max: 1 } } } },
+    });
     let callsB = 0;
     run.when({
       id: "uc:A03:B",
@@ -101,12 +109,14 @@ describe("conformance/use-case-coverage/defaults-overlay", () => {
   it("A04 — deep-merge semantics in defaults.methods.when", () => {
     const run = createRuntime();
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       defaults: {
         methods: { when: { backfill: { signal: { runs: { max: 3 } } } } },
       },
     });
-    run.set({ defaults: { methods: { when: { runs: { max: 2 } } } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      defaults: { methods: { when: { runs: { max: 2 } } } },
+    });
 
     const defaults = run.get("defaults", { as: "snapshot" }) as unknown as {
       methods: {
@@ -1208,7 +1218,7 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
       targets: [() => afterTrimCalls++],
     });
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: {
         config: {
           maxBytes: 0,
@@ -1269,7 +1279,7 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
       seenSignals: { list: [], map: {} },
     };
 
-    run.set(hydration as never);
+    (run.set as (patch: Record<string, unknown>) => void)(hydration as never);
 
     const baseline = (
       run.get("scopeProjectionBaseline", { as: "snapshot" }) as unknown as {
@@ -1292,7 +1302,7 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
       signal: undefined,
       seenSignals: { list: [], map: {} },
     };
-    run.set(h0 as never);
+    (run.set as (patch: Record<string, unknown>) => void)(h0 as never);
 
     run.impulse({ signals: ["non-pristine"] } as never);
 
@@ -1323,7 +1333,7 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
       },
     };
 
-    run.set(h1 as never);
+    (run.set as (patch: Record<string, unknown>) => void)(h1 as never);
 
     const baseline = run.get("scopeProjectionBaseline", {
       as: "snapshot",
@@ -1344,7 +1354,11 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     >;
 
     const rehydrated = createRuntime();
-    expect(() => rehydrated.set(snap as never)).not.toThrow();
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(
+        snap as never,
+      ),
+    ).not.toThrow();
   });
 
   it("HYDRATE-NEG-SPB-01 — scopeProjectionBaseline must be a record object", () => {
@@ -1360,9 +1374,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     const diags: Array<{ code?: string }> = [];
     rehydrated.onDiagnostic((d) => diags.push(d));
 
-    expect(() => rehydrated.set(snap)).toThrow(
-      "set.hydration.scopeProjectionBaselineInvalid",
-    );
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+    ).toThrow("set.hydration.scopeProjectionBaselineInvalid");
     expect(
       diags.some(
         (d) => d.code === "set.hydration.scopeProjectionBaselineInvalid",
@@ -1387,9 +1401,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     };
 
     const rehydrated = createRuntime();
-    expect(() => rehydrated.set(snap)).toThrow(
-      "set.hydration.flagsViewInvalid",
-    );
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+    ).toThrow("set.hydration.flagsViewInvalid");
   });
 
   it("HYDRATE-NEG-SPB-03 — scopeProjectionBaseline.seenFlags must be flagsView", () => {
@@ -1409,9 +1423,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     };
 
     const rehydrated = createRuntime();
-    expect(() => rehydrated.set(snap)).toThrow(
-      "set.hydration.flagsViewInvalid",
-    );
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+    ).toThrow("set.hydration.flagsViewInvalid");
   });
 
   it("HYDRATE-NEG-SIG-01 — signal must be string or undefined", () => {
@@ -1427,7 +1441,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     const diags: Array<{ code?: string }> = [];
     rehydrated.onDiagnostic((d) => diags.push(d));
 
-    expect(() => rehydrated.set(snap)).toThrow("set.hydration.signalInvalid");
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+    ).toThrow("set.hydration.signalInvalid");
     expect(diags.some((d) => d.code === "set.hydration.signalInvalid")).toBe(
       true,
     );
@@ -1446,9 +1462,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     const diags: Array<{ code?: string }> = [];
     rehydrated.onDiagnostic((d) => diags.push(d));
 
-    expect(() => rehydrated.set(snap)).toThrow(
-      "set.hydration.seenSignalsInvalid",
-    );
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+    ).toThrow("set.hydration.seenSignalsInvalid");
     expect(
       diags.some((d) => d.code === "set.hydration.seenSignalsInvalid"),
     ).toBe(true);
@@ -1464,9 +1480,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     snap.flags = { list: {}, map: {} };
 
     const rehydrated = createRuntime();
-    expect(() => rehydrated.set(snap)).toThrow(
-      "set.hydration.flagsViewInvalid",
-    );
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+    ).toThrow("set.hydration.flagsViewInvalid");
   });
 
   it('HYDRATE-POS-01 — set(get("*",{as:"snapshot"})) still works', () => {
@@ -1479,7 +1495,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     >;
 
     const rehydrated = createRuntime();
-    expect(() => rehydrated.set(snap)).not.toThrow();
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+    ).not.toThrow();
   });
 
   it("HYDRATE-NEG-01 — registeredQ must be an array", () => {
@@ -1495,9 +1513,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     const diags: Array<{ code?: string }> = [];
     rehydrated.onDiagnostic((d) => diags.push(d));
 
-    expect(() => rehydrated.set(snap)).toThrow(
-      "set.hydration.registeredQInvalid",
-    );
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+    ).toThrow("set.hydration.registeredQInvalid");
     expect(
       diags.some((d) => d.code === "set.hydration.registeredQInvalid"),
     ).toBe(true);
@@ -1513,9 +1531,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     snap.registeredQ = [{ id: 1 }];
 
     const rehydrated = createRuntime();
-    expect(() => rehydrated.set(snap)).toThrow(
-      "set.hydration.registeredQInvalid",
-    );
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+    ).toThrow("set.hydration.registeredQInvalid");
   });
 
   it("HYDRATE-NEG-03 — registeredQ ids must be unique non-empty", () => {
@@ -1528,9 +1546,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     snap.registeredQ = [{ id: "x" }, { id: "x" }];
 
     const rehydrated = createRuntime();
-    expect(() => rehydrated.set(snap)).toThrow(
-      "set.hydration.registeredQInvalid",
-    );
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+    ).toThrow("set.hydration.registeredQInvalid");
 
     const snap2 = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
@@ -1539,9 +1557,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     snap2.registeredQ = [{ id: "   " }];
 
     const rehydrated2 = createRuntime();
-    expect(() => rehydrated2.set(snap2)).toThrow(
-      "set.hydration.registeredQInvalid",
-    );
+    expect(() =>
+      (rehydrated2.set as (patch: Record<string, unknown>) => void)(snap2),
+    ).toThrow("set.hydration.registeredQInvalid");
   });
 
   it("HYDRATE-NEG-04 — diagnostics must be an array", () => {
@@ -1557,9 +1575,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     const diags: Array<{ code?: string }> = [];
     rehydrated.onDiagnostic((d) => diags.push(d));
 
-    expect(() => rehydrated.set(snap)).toThrow(
-      "set.hydration.diagnosticsInvalid",
-    );
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+    ).toThrow("set.hydration.diagnosticsInvalid");
     expect(
       diags.some((d) => d.code === "set.hydration.diagnosticsInvalid"),
     ).toBe(true);
@@ -1575,9 +1593,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     snap.diagnostics = [{ code: "" }];
 
     const rehydrated = createRuntime();
-    expect(() => rehydrated.set(snap)).toThrow(
-      "set.hydration.diagnosticsInvalid",
-    );
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+    ).toThrow("set.hydration.diagnosticsInvalid");
 
     const snap2 = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
@@ -1586,9 +1604,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     snap2.diagnostics = [{ msg: "x" }];
 
     const rehydrated2 = createRuntime();
-    expect(() => rehydrated2.set(snap2)).toThrow(
-      "set.hydration.diagnosticsInvalid",
-    );
+    expect(() =>
+      (rehydrated2.set as (patch: Record<string, unknown>) => void)(snap2),
+    ).toThrow("set.hydration.diagnosticsInvalid");
   });
 
   it("HYDRATE-NEG-BF-01 — backfillQ must be a record object", () => {
@@ -1604,9 +1622,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     const diags: Array<{ code?: string }> = [];
     rehydrated.onDiagnostic((d) => diags.push(d));
 
-    expect(() => rehydrated.set(snap)).toThrow(
-      "set.hydration.backfillQInvalid",
-    );
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+    ).toThrow("set.hydration.backfillQInvalid");
     expect(diags.some((d) => d.code === "set.hydration.backfillQInvalid")).toBe(
       true,
     );
@@ -1625,9 +1643,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     const diags: Array<{ code?: string }> = [];
     rehydrated.onDiagnostic((d) => diags.push(d));
 
-    expect(() => rehydrated.set(snap)).toThrow(
-      "set.hydration.backfillQInvalid",
-    );
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+    ).toThrow("set.hydration.backfillQInvalid");
     expect(diags.some((d) => d.code === "set.hydration.backfillQInvalid")).toBe(
       true,
     );
@@ -1649,9 +1667,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     const diags: Array<{ code?: string }> = [];
     rehydrated.onDiagnostic((d) => diags.push(d));
 
-    expect(() => rehydrated.set(snap)).toThrow(
-      "set.hydration.backfillQInvalid",
-    );
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+    ).toThrow("set.hydration.backfillQInvalid");
     expect(diags.some((d) => d.code === "set.hydration.backfillQInvalid")).toBe(
       true,
     );
@@ -1673,9 +1691,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     const diags: Array<{ code?: string }> = [];
     rehydrated.onDiagnostic((d) => diags.push(d));
 
-    expect(() => rehydrated.set(snap)).toThrow(
-      "set.hydration.backfillQInvalid",
-    );
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+    ).toThrow("set.hydration.backfillQInvalid");
     expect(diags.some((d) => d.code === "set.hydration.backfillQInvalid")).toBe(
       true,
     );
@@ -1692,7 +1710,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     snap.registeredById = 123;
 
     const rehydrated = createRuntime();
-    expect(() => rehydrated.set(snap)).not.toThrow();
+    expect(() =>
+      (rehydrated.set as (patch: Record<string, unknown>) => void)(snap),
+    ).not.toThrow();
   });
 
   it("SET-TRIM-BASELINE-03 — pristine hydration + trim must not double-apply removed applied entries into scopeProjectionBaseline", () => {
@@ -1731,7 +1751,7 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
       },
     };
 
-    run.set(h as never);
+    (run.set as (patch: Record<string, unknown>) => void)(h as never);
 
     const base = run.get("scopeProjectionBaseline", {
       as: "snapshot",
@@ -1777,7 +1797,7 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
       },
     };
 
-    run.set(h as never);
+    (run.set as (patch: Record<string, unknown>) => void)(h as never);
 
     const b1 = run.get("scopeProjectionBaseline", {
       as: "snapshot",
@@ -1792,7 +1812,7 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     >;
     delete (h2 as { scopeProjectionBaseline?: unknown })
       .scopeProjectionBaseline;
-    run.set(h2 as never);
+    (run.set as (patch: Record<string, unknown>) => void)(h2 as never);
 
     const b2 = run.get("scopeProjectionBaseline", {
       as: "snapshot",
@@ -1805,13 +1825,13 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
   it("SET-PATCH-TRIM-BASELINE-01 — patch+trim must not double-apply removed applied entries into scopeProjectionBaseline", () => {
     const run = createRuntime();
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: { config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY } },
     } as never);
     run.impulse({ addFlags: ["fa"], signals: ["a"] });
     run.impulse({ addFlags: ["fb"], signals: ["b"] });
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: { config: { retain: 0, maxBytes: 1 } },
     } as never);
 
@@ -1826,13 +1846,15 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
   it("SET-PATCH-TRIM-BASELINE-02 — repeating same patch does not grow baseline further", () => {
     const run = createRuntime();
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: { config: { retain: 0, maxBytes: Number.POSITIVE_INFINITY } },
     } as never);
     run.impulse({ addFlags: ["fa"], signals: ["a"] });
     run.impulse({ addFlags: ["fb"], signals: ["b"] });
 
-    run.set({ impulseQ: { config: { retain: 0, maxBytes: 1 } } } as never);
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: 0, maxBytes: 1 } },
+    } as never);
     const b1 = run.get("scopeProjectionBaseline", {
       as: "snapshot",
     }) as unknown as {
@@ -1840,7 +1862,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     };
     expect(b1.flags.list.sort()).toEqual(["fa", "fb"]);
 
-    run.set({ impulseQ: { config: { retain: 0, maxBytes: 1 } } } as never);
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: 0, maxBytes: 1 } },
+    } as never);
     const b2 = run.get("scopeProjectionBaseline", {
       as: "snapshot",
     }) as unknown as {

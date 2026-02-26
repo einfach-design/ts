@@ -589,10 +589,9 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({ impulseQ: { config: 123 } } as unknown as Record<
-        string,
-        unknown
-      >),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        impulseQ: { config: 123 },
+      } as unknown as Record<string, unknown>),
     ).toThrow("set.impulseQ.configInvalid");
     expect(codes).toContain("set.impulseQ.configInvalid");
   });
@@ -605,9 +604,11 @@ describe("conformance/diagnostic-codes", () => {
       codes.push(diagnostic.code);
     });
 
-    expect(() => run.set([] as unknown as Record<string, unknown>)).toThrow(
-      "set.patch.invalid",
-    );
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(
+        [] as unknown as Record<string, unknown>,
+      ),
+    ).toThrow("set.patch.invalid");
     expect(codes).toContain("set.patch.invalid");
   });
 
@@ -620,7 +621,9 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({ defaults: [] } as unknown as Record<string, unknown>),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        defaults: [],
+      } as unknown as Record<string, unknown>),
     ).toThrow("set.defaults.invalid");
     expect(codes).toContain("set.defaults.invalid");
   });
@@ -634,7 +637,7 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({
+      (run.set as (patch: Record<string, unknown>) => void)({
         defaults: { scope: { signal: { force: true } } },
       } as unknown as Record<string, unknown>),
     ).toThrow("set.defaults.invalid");
@@ -649,7 +652,7 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({
+      (run.set as (patch: Record<string, unknown>) => void)({
         defaults: { gate: { signal: { value: "banana" } } },
       } as unknown as Record<string, unknown>),
     ).toThrow("set.defaults.invalid");
@@ -670,7 +673,9 @@ describe("conformance/diagnostic-codes", () => {
     >;
     (snapshot as { defaults: unknown }).defaults = [];
 
-    expect(() => run.set(snapshot)).toThrow("set.defaults.invalid");
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(snapshot),
+    ).toThrow("set.defaults.invalid");
     expect(codes).toContain("set.defaults.invalid");
   });
 
@@ -683,10 +688,9 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({ flags: { list: ["a"], map: {} } } as unknown as Record<
-        string,
-        unknown
-      >),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        flags: { list: ["a"], map: {} },
+      } as unknown as Record<string, unknown>),
     ).toThrow("set.flags.invalid");
     expect(codes).toContain("set.flags.invalid");
   });
@@ -700,10 +704,9 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({ flags: { list: ["a"], map: [] } } as unknown as Record<
-        string,
-        unknown
-      >),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        flags: { list: ["a"], map: [] },
+      } as unknown as Record<string, unknown>),
     ).toThrow("set.flags.invalid");
     expect(codes).toContain("set.flags.invalid");
   });
@@ -717,7 +720,9 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({ impulseQ: [] } as unknown as Record<string, unknown>),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        impulseQ: [],
+      } as unknown as Record<string, unknown>),
     ).toThrow("set.impulseQ.invalid");
     expect(codes).toContain("set.impulseQ.invalid");
   });
@@ -731,10 +736,9 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({ impulseQ: { config: [] } } as unknown as Record<
-        string,
-        unknown
-      >),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        impulseQ: { config: [] },
+      } as unknown as Record<string, unknown>),
     ).toThrow("set.impulseQ.configInvalid");
     expect(codes).toContain("set.impulseQ.configInvalid");
   });
@@ -753,7 +757,9 @@ describe("conformance/diagnostic-codes", () => {
     >;
     (snapshot as { impulseQ: unknown }).impulseQ = null;
 
-    expect(() => run.set(snapshot)).toThrow("set.impulseQ.invalid");
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(snapshot),
+    ).toThrow("set.impulseQ.invalid");
     expect(codes).toContain("set.impulseQ.invalid");
   });
 
@@ -771,7 +777,9 @@ describe("conformance/diagnostic-codes", () => {
     >;
     (snapshot.impulseQ as { config: unknown }).config = null;
 
-    expect(() => run.set(snapshot)).toThrow("set.impulseQ.configInvalid");
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(snapshot),
+    ).toThrow("set.impulseQ.configInvalid");
     expect(codes).toContain("set.impulseQ.configInvalid");
   });
 
@@ -789,7 +797,9 @@ describe("conformance/diagnostic-codes", () => {
     >;
     (snapshot.impulseQ as { config: unknown }).config = [];
 
-    expect(() => run.set(snapshot)).toThrow("set.impulseQ.configInvalid");
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(snapshot),
+    ).toThrow("set.impulseQ.configInvalid");
     expect(codes).toContain("set.impulseQ.configInvalid");
   });
 
@@ -802,7 +812,9 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({ impulseQ: { config: { retain: Number.NaN } } }),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        impulseQ: { config: { retain: Number.NaN } },
+      }),
     ).toThrow("set.impulseQ.retainInvalid");
     expect(codes).toContain("set.impulseQ.retainInvalid");
   });
@@ -816,7 +828,9 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({ impulseQ: { config: { maxBytes: Number.NaN } } }),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        impulseQ: { config: { maxBytes: Number.NaN } },
+      }),
     ).toThrow("set.impulseQ.maxBytesInvalid");
     expect(codes).toContain("set.impulseQ.maxBytesInvalid");
   });
@@ -830,7 +844,9 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({ impulseQ: { config: { retain: Number.NEGATIVE_INFINITY } } }),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        impulseQ: { config: { retain: Number.NEGATIVE_INFINITY } },
+      }),
     ).toThrow("set.impulseQ.retainInvalid");
     expect(codes).toContain("set.impulseQ.retainInvalid");
   });
@@ -844,7 +860,9 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({ impulseQ: { config: { maxBytes: Number.NEGATIVE_INFINITY } } }),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        impulseQ: { config: { maxBytes: Number.NEGATIVE_INFINITY } },
+      }),
     ).toThrow("set.impulseQ.maxBytesInvalid");
     expect(codes).toContain("set.impulseQ.maxBytesInvalid");
   });
@@ -857,10 +875,9 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({ impulseQ: { config: { onTrim: 123 } } } as unknown as Record<
-        string,
-        unknown
-      >),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        impulseQ: { config: { onTrim: 123 } },
+      } as unknown as Record<string, unknown>),
     ).toThrow("set.impulseQ.onTrimInvalid");
     expect(codes).toContain("set.impulseQ.onTrimInvalid");
   });
@@ -874,7 +891,7 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({
+      (run.set as (patch: Record<string, unknown>) => void)({
         impulseQ: { config: { onError: "banana" } },
       } as unknown as Record<string, unknown>),
     ).toThrow("set.impulseQ.onErrorInvalid");
@@ -896,7 +913,9 @@ describe("conformance/diagnostic-codes", () => {
     const impulseQ = snapshot.impulseQ as { q: { cursor: number } };
     impulseQ.q.cursor = 999;
 
-    expect(() => run.set(snapshot)).toThrow("set.impulseQ.qInvalid");
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(snapshot),
+    ).toThrow("set.impulseQ.qInvalid");
     expect(codes).toContain("set.impulseQ.qInvalid");
   });
 
@@ -918,7 +937,9 @@ describe("conformance/diagnostic-codes", () => {
     impulseQ.q.entries = [{ signals: "nope" }];
     impulseQ.q.cursor = 1;
 
-    expect(() => run.set(snapshot)).toThrow("set.impulseQ.entryInvalid");
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(snapshot),
+    ).toThrow("set.impulseQ.entryInvalid");
     expect(codes).toContain("set.impulseQ.entryInvalid");
   });
 
@@ -937,9 +958,11 @@ describe("conformance/diagnostic-codes", () => {
     const incompleteHydration = { ...snapshot };
     delete incompleteHydration.flags;
 
-    expect(() => run.set(incompleteHydration)).toThrow(
-      "set.hydration.incomplete",
-    );
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(
+        incompleteHydration,
+      ),
+    ).toThrow("set.hydration.incomplete");
     expect(codes).toContain("set.hydration.incomplete");
   });
 
@@ -952,7 +975,9 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({ addFlags: 123 } as unknown as Record<string, unknown>),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        addFlags: 123,
+      } as unknown as Record<string, unknown>),
     ).toThrow("set.flags.deltaInvalid");
     expect(codes).toContain("set.flags.deltaInvalid");
   });
@@ -966,7 +991,9 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({ removeFlags: null } as unknown as Record<string, unknown>),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        removeFlags: null,
+      } as unknown as Record<string, unknown>),
     ).toThrow("set.flags.deltaInvalid");
     expect(codes).toContain("set.flags.deltaInvalid");
   });
@@ -985,7 +1012,9 @@ describe("conformance/diagnostic-codes", () => {
     >;
     s.flags = [];
 
-    expect(() => run.set(s)).toThrow("set.hydration.flagsViewInvalid");
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(s),
+    ).toThrow("set.hydration.flagsViewInvalid");
     expect(codes).toContain("set.hydration.flagsViewInvalid");
   });
 
@@ -1003,7 +1032,9 @@ describe("conformance/diagnostic-codes", () => {
     >;
     s.seenSignals = [];
 
-    expect(() => run.set(s)).toThrow("set.hydration.seenSignalsInvalid");
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(s),
+    ).toThrow("set.hydration.seenSignalsInvalid");
     expect(codes).toContain("set.hydration.seenSignalsInvalid");
   });
 
@@ -1023,7 +1054,9 @@ describe("conformance/diagnostic-codes", () => {
     };
     s.flags = { list: ["dup", "dup"], map: { dup: true } };
 
-    expect(() => run.set(s)).toThrow("set.hydration.flagsViewInvalid");
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(s),
+    ).toThrow("set.hydration.flagsViewInvalid");
     expect(codes).toContain("set.hydration.flagsViewInvalid");
   });
 
@@ -1043,7 +1076,9 @@ describe("conformance/diagnostic-codes", () => {
     };
     s.seenSignals = { list: ["dup", "dup"], map: { dup: true } };
 
-    expect(() => run.set(s)).toThrow("set.hydration.seenSignalsInvalid");
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(s),
+    ).toThrow("set.hydration.seenSignalsInvalid");
     expect(codes).toContain("set.hydration.seenSignalsInvalid");
   });
 
@@ -1061,7 +1096,9 @@ describe("conformance/diagnostic-codes", () => {
     >;
     s.signal = 123;
 
-    expect(() => run.set(s)).toThrow("set.hydration.signalInvalid");
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(s),
+    ).toThrow("set.hydration.signalInvalid");
     expect(codes).toContain("set.hydration.signalInvalid");
   });
 
@@ -1079,7 +1116,9 @@ describe("conformance/diagnostic-codes", () => {
     >;
     s.backfillQ = null;
 
-    expect(() => run.set(s)).toThrow("set.hydration.backfillQInvalid");
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(s),
+    ).toThrow("set.hydration.backfillQInvalid");
     expect(codes).toContain("set.hydration.backfillQInvalid");
   });
 
@@ -1092,10 +1131,9 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({ addFlags: { list: ["a"], map: {} } } as unknown as Record<
-        string,
-        unknown
-      >),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        addFlags: { list: ["a"], map: {} },
+      } as unknown as Record<string, unknown>),
     ).toThrow("set.flags.deltaInvalid");
     expect(codes).toContain("set.flags.deltaInvalid");
   });
@@ -1108,7 +1146,9 @@ describe("conformance/diagnostic-codes", () => {
     });
 
     expect(() =>
-      run.set({ flags: ["x"] as unknown as { list: string[] } }),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        flags: ["x"] as unknown as { list: string[] },
+      }),
     ).toThrow("set.flags.invalid");
     expect(codes).toContain("set.flags.invalid");
   });

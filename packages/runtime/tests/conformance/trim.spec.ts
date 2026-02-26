@@ -72,7 +72,7 @@ describe("conformance/trim", () => {
       }),
     };
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: {
         config: {
           retain: 1,

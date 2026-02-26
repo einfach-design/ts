@@ -28,7 +28,10 @@ describe("conformance/gate-ignore-dimension", () => {
       map: { "expr:ignore-flags": true },
     };
 
-    run.set({ ...snapshot, flags: createFlagsView([]) });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      ...snapshot,
+      flags: createFlagsView([]),
+    });
     run.impulse({ signals: ["sig:ok"] });
 
     expect(calls).toContain("backfill:signal");
@@ -59,7 +62,10 @@ describe("conformance/gate-ignore-dimension", () => {
       map: { "expr:ignore-signal": true },
     };
 
-    run.set({ ...snapshot, flags: createFlagsView(["must"]) });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      ...snapshot,
+      flags: createFlagsView(["must"]),
+    });
     run.impulse({ signals: ["sig:wrong"] });
 
     expect(calls).toContain("backfill:flags");
@@ -93,7 +99,9 @@ describe("conformance/gate-ignore-dimension", () => {
       ],
     });
 
-    run.set({ flags: createFlagsView([]) });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      flags: createFlagsView([]),
+    });
     run.impulse({ signals: ["sig:wrong"] });
 
     expect(calls).toEqual([]);

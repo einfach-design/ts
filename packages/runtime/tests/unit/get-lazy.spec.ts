@@ -26,7 +26,9 @@ describe("unit/get-lazy", () => {
     const signalSpy = vi.spyOn(signals, "projectSignal");
     const run = createRuntime();
 
-    run.set({ impulseQ: { config: { retain: true } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: true } },
+    });
     run.impulse({ signals: ["s1"], addFlags: ["f1"] });
     changedSpy.mockClear();
     signalSpy.mockClear();

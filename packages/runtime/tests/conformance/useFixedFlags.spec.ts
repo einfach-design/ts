@@ -10,7 +10,9 @@ describe("conformance/useFixedFlags", () => {
       liveFlags: readonly string[];
     }> = [];
 
-    run.set({ flags: createFlagsView(["a"]) });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      flags: createFlagsView(["a"]),
+    });
     run.add({
       id: "expr:freeze",
       targets: [
@@ -35,7 +37,9 @@ describe("conformance/useFixedFlags", () => {
     const run = createRuntime();
     const seenFlags: Array<readonly string[]> = [];
 
-    run.set({ flags: createFlagsView(["a"]) });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      flags: createFlagsView(["a"]),
+    });
     run.add({
       id: "expr:fixed",
       targets: [

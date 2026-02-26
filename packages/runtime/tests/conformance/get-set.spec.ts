@@ -55,7 +55,7 @@ describe("conformance/get-set", () => {
   it("A1b — set(addFlags) accepts FlagsView delta payloads (Spec §2.5, §4.2)", () => {
     const run = createRuntime();
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       addFlags: { list: ["a"], map: { a: true } },
     } as unknown as Record<string, unknown>);
 
@@ -65,13 +65,12 @@ describe("conformance/get-set", () => {
 
   it("A1c — set patch must be atomic when a later key is invalid", () => {
     const run = createRuntime();
-    run.set({ flags: { list: ["x"], map: { x: true } } } as unknown as Record<
-      string,
-      unknown
-    >);
+    (run.set as (patch: Record<string, unknown>) => void)({
+      flags: { list: ["x"], map: { x: true } },
+    } as unknown as Record<string, unknown>);
 
     expect(() =>
-      run.set({
+      (run.set as (patch: Record<string, unknown>) => void)({
         flags: { list: ["y"], map: { y: true } },
         impulseQ: null,
       } as unknown as Record<string, unknown>),
@@ -84,10 +83,9 @@ describe("conformance/get-set", () => {
 
   it("A1d — hydration set must be atomic when impulseQ is invalid", () => {
     const run = createRuntime();
-    run.set({ flags: { list: ["x"], map: { x: true } } } as unknown as Record<
-      string,
-      unknown
-    >);
+    (run.set as (patch: Record<string, unknown>) => void)({
+      flags: { list: ["x"], map: { x: true } },
+    } as unknown as Record<string, unknown>);
 
     const s = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
@@ -96,7 +94,9 @@ describe("conformance/get-set", () => {
     s.flags = { list: ["y"], map: { y: true } };
     s.impulseQ = null;
 
-    expect(() => run.set(s)).toThrow("set.impulseQ.invalid");
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(s),
+    ).toThrow("set.impulseQ.invalid");
     expect((run.get("flags") as unknown as { list: string[] }).list).toEqual([
       "x",
     ]);
@@ -106,24 +106,22 @@ describe("conformance/get-set", () => {
     const run = createRuntime();
 
     expect(() =>
-      run.set({ defaults: { scope: "banana" } } as unknown as Record<
-        string,
-        unknown
-      >),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        defaults: { scope: "banana" },
+      } as unknown as Record<string, unknown>),
     ).toThrow("set.defaults.invalid");
   });
   it("A1f — hydration defaults must not keep external references", () => {
     const run = createRuntime();
-    run.set({ defaults: { scope: "pendingOnly" } } as unknown as Record<
-      string,
-      unknown
-    >);
+    (run.set as (patch: Record<string, unknown>) => void)({
+      defaults: { scope: "pendingOnly" },
+    } as unknown as Record<string, unknown>);
     const s = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
       unknown
     >;
 
-    run.set(s);
+    (run.set as (patch: Record<string, unknown>) => void)(s);
     (
       s.defaults as {
         scope: { signal: { value: string } };
@@ -148,7 +146,9 @@ describe("conformance/get-set", () => {
 
   it("A1f — hydration flags.list must reject duplicates", () => {
     const run = createRuntime();
-    run.set({ flags: { list: ["x"], map: { x: true } } } as never);
+    (run.set as (patch: Record<string, unknown>) => void)({
+      flags: { list: ["x"], map: { x: true } },
+    } as never);
 
     const s = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
@@ -156,14 +156,16 @@ describe("conformance/get-set", () => {
     >;
     s.flags = { list: ["x", "x"], map: { x: true } };
 
-    expect(() => run.set(s)).toThrow("set.hydration.flagsViewInvalid");
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(s),
+    ).toThrow("set.hydration.flagsViewInvalid");
   });
 
   it("A1g — defaults.gate.value must be boolean (Patch)", () => {
     const run = createRuntime();
 
     expect(() =>
-      run.set({
+      (run.set as (patch: Record<string, unknown>) => void)({
         defaults: { gate: { signal: { value: "banana" } } },
       } as unknown as Record<string, unknown>),
     ).toThrow("set.defaults.invalid");
@@ -171,16 +173,17 @@ describe("conformance/get-set", () => {
 
   it("A1h — hydration impulseQ entries must not keep external references", () => {
     const run = createRuntime();
-    run.set({ impulseQ: { config: { retain: true } } } as Record<
-      string,
-      unknown
-    >);
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: true } },
+    } as Record<string, unknown>);
     run.impulse({ signals: ["a"] } as Record<string, unknown>);
     const s = run.get("*", { as: "snapshot" }) as unknown as {
       impulseQ: { q: { entries: Array<{ signals: string[] }> } };
     };
 
-    run.set(s as unknown as Record<string, unknown>);
+    (run.set as (patch: Record<string, unknown>) => void)(
+      s as unknown as Record<string, unknown>,
+    );
     s.impulseQ.q.entries[0]!.signals.push("MUT");
 
     expect(
@@ -194,10 +197,9 @@ describe("conformance/get-set", () => {
 
   it("A1i — run.impulse must not keep external references to input arrays", () => {
     const run = createRuntime();
-    run.set({ impulseQ: { config: { retain: true } } } as Record<
-      string,
-      unknown
-    >);
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: true } },
+    } as Record<string, unknown>);
     const signals = ["a"];
 
     run.impulse({ signals } as Record<string, unknown>);
@@ -214,10 +216,9 @@ describe("conformance/get-set", () => {
 
   it("A1j — get(snapshot) impulseQ entries must not keep external references", () => {
     const run = createRuntime();
-    run.set({ impulseQ: { config: { retain: true } } } as Record<
-      string,
-      unknown
-    >);
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: true } },
+    } as Record<string, unknown>);
     run.impulse({ signals: ["a"] } as Record<string, unknown>);
 
     const snap = run.get("impulseQ", {
@@ -241,10 +242,9 @@ describe("conformance/get-set", () => {
 
   it("A1l — snapshot must preserve non-plain object references (opaque payload)", () => {
     const run = createRuntime();
-    run.set({ impulseQ: { config: { retain: true } } } as Record<
-      string,
-      unknown
-    >);
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: true } },
+    } as Record<string, unknown>);
     const payload = new (class Payload {
       readonly value = 0;
     })();
@@ -263,7 +263,7 @@ describe("conformance/get-set", () => {
   it('A1m — defaults.methods is settable and visible via get("defaults")', () => {
     const run = createRuntime();
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       defaults: { methods: { on: { runs: { max: 2 } } } },
     } as unknown as Record<string, unknown>);
 
@@ -279,7 +279,7 @@ describe("conformance/get-set", () => {
 
   it("A1n — run.on overlays runs.max from defaults.methods.on", () => {
     const run = createRuntime();
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       defaults: { methods: { on: { runs: { max: 1 } } } },
     } as unknown as Record<string, unknown>);
 
@@ -314,7 +314,7 @@ describe("conformance/get-set", () => {
 
   it("A1o — run.when overlays backfill.signal.runs.max from defaults.methods.when", () => {
     const run = createRuntime();
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       defaults: {
         methods: {
           when: { backfill: { signal: { runs: { max: 3 } } } },
@@ -344,10 +344,9 @@ describe("conformance/get-set", () => {
 
   it("A1k — hydration must clear trimPendingMaxBytes (no post-hydration stack-exit trim)", () => {
     const run = createRuntime();
-    run.set({ impulseQ: { config: { retain: true } } } as Record<
-      string,
-      unknown
-    >);
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: true } },
+    } as Record<string, unknown>);
     run.impulse({ signals: ["a"] } as Record<string, unknown>);
     run.impulse({ signals: ["b"] } as Record<string, unknown>);
     run.impulse({ signals: ["c"] } as Record<string, unknown>);
@@ -366,10 +365,12 @@ describe("conformance/get-set", () => {
       };
       s.impulseQ.config.retain = 0;
       s.impulseQ.config.maxBytes = Number.POSITIVE_INFINITY;
-      run.set(s as unknown as Record<string, unknown>);
+      (run.set as (patch: Record<string, unknown>) => void)(
+        s as unknown as Record<string, unknown>,
+      );
     });
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: {
         config: {
           retain: 1,
@@ -390,7 +391,7 @@ describe("conformance/get-set", () => {
   it("A2 — scope projection: applied vs pending vs pendingOnly (Spec §4.1)", () => {
     const run = createRuntime();
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       defaults: run.get("defaults", {
         as: "snapshot",
       }) as unknown as Record<string, unknown>,
@@ -496,11 +497,13 @@ describe("conformance/get-set", () => {
     const run = createRuntime();
     const trims: Array<{ reason: string }> = [];
 
-    run.set({ impulseQ: { config: { retain: true } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: true } },
+    });
     run.impulse({ addFlags: ["a"] });
     run.impulse({ addFlags: ["b"] });
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: {
         config: {
           maxBytes: 0,
@@ -535,7 +538,7 @@ describe("conformance/get-set", () => {
   it("A2.1 — scope projection consistency for all RunGetKey at applied scope", () => {
     const run = createRuntime();
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       defaults: run.get("defaults", {
         as: "snapshot",
       }) as unknown as Record<string, unknown>,
@@ -594,7 +597,7 @@ describe("conformance/get-set", () => {
   it("A2.2 — scope projection consistency for all RunGetKey at pending scope", () => {
     const run = createRuntime();
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       defaults: run.get("defaults", {
         as: "snapshot",
       }) as unknown as Record<string, unknown>,
@@ -653,7 +656,7 @@ describe("conformance/get-set", () => {
   it("A2.3 — scope projection consistency for all RunGetKey at pendingOnly scope", () => {
     const run = createRuntime();
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       defaults: run.get("defaults", {
         as: "snapshot",
       }) as unknown as Record<string, unknown>,
@@ -733,7 +736,7 @@ describe("conformance/get-set", () => {
       },
     });
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       defaults: run.get("defaults", {
         as: "snapshot",
       }) as unknown as Record<string, unknown>,
@@ -774,7 +777,9 @@ describe("conformance/get-set", () => {
   it("A2.5 — scope applied projection preserves state across trim via baseline (Spec §2.11.3, §4.1)", () => {
     const run = createRuntime();
 
-    run.set({ impulseQ: { config: { retain: true } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: true } },
+    });
     run.impulse({ addFlags: ["a"] });
     run.impulse({ addFlags: ["b"] });
 
@@ -783,7 +788,7 @@ describe("conformance/get-set", () => {
       as: "snapshot",
     });
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: {
         config: {
           retain: 1,
@@ -830,7 +835,7 @@ describe("conformance/get-set", () => {
       useFixedFlags: false,
     };
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       defaults: run.get("defaults", {
         as: "snapshot",
       }) as unknown as Record<string, unknown>,
@@ -879,7 +884,7 @@ describe("conformance/get-set", () => {
       as: "snapshot",
     });
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: {
         config: {
           retain: 1,
@@ -963,7 +968,7 @@ describe("conformance/get-set", () => {
       useFixedFlags: false,
     };
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       defaults: run.get("defaults", {
         as: "snapshot",
       }) as unknown as Record<string, unknown>,
@@ -1009,7 +1014,7 @@ describe("conformance/get-set", () => {
       as: "snapshot",
     });
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: {
         config: {
           maxBytes,
@@ -1067,7 +1072,9 @@ describe("conformance/get-set", () => {
   });
   it("A3 — snapshot must tolerate opaque/cyclic livePayload values (Spec §4.1)", () => {
     const run = createRuntime();
-    run.set({ impulseQ: { config: { retain: true } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: true } },
+    });
     const livePayload: {
       fn: () => string;
       node?: unknown;
@@ -1113,12 +1120,12 @@ describe("conformance/get-set", () => {
     const run = createRuntime();
 
     // baseline flags
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       flags: { list: ["a"], map: { a: true } },
     } as Record<string, unknown>);
 
     // update flags truth without explicitly setting changedFlags
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       flags: { list: ["a", "b"], map: { a: true, b: true } },
     } as Record<string, unknown>);
 
@@ -1143,12 +1150,16 @@ describe("conformance/get-set", () => {
 
     // forbidden queue mutation (should throw per spec)
     expect(() =>
-      run.set({ impulseQ: { q: { entries: [] } } } as Record<string, unknown>),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        impulseQ: { q: { entries: [] } },
+      } as Record<string, unknown>),
     ).toThrow("set.impulseQ.qForbidden");
 
     // unknown keys must be rejected (should throw per spec)
     expect(() =>
-      run.set({ totallyUnknownKey: 123 } as Record<string, unknown>),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        totallyUnknownKey: 123,
+      } as Record<string, unknown>),
     ).toThrow("set.patch.forbidden");
   });
 
@@ -1178,7 +1189,9 @@ describe("conformance/get-set", () => {
     for (const key of requiredKeys) {
       const incomplete = { ...snapshot };
       delete incomplete[key as keyof typeof incomplete];
-      expect(() => run.set(incomplete)).toThrow("set.hydration.incomplete");
+      expect(() =>
+        (run.set as (patch: Record<string, unknown>) => void)(incomplete),
+      ).toThrow("set.hydration.incomplete");
     }
 
     expect(missingKeyCodes).toHaveLength(requiredKeys.length);
@@ -1188,14 +1201,16 @@ describe("conformance/get-set", () => {
     const run = createRuntime();
 
     expect(() =>
-      run.set({ changedFlags: { list: ["x"], map: { x: true } } }),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        changedFlags: { list: ["x"], map: { x: true } },
+      }),
     ).toThrow("set.patch.forbidden");
 
     const snapshot = run.get("*", {
       as: "snapshot",
     }) as unknown as Record<string, unknown>;
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       ...snapshot,
       changedFlags: { list: ["h"], map: { h: true } },
       backfillQ: { list: [], map: {} },
@@ -1212,7 +1227,7 @@ describe("conformance/get-set", () => {
 
     run.impulse({ addFlags: ["a"] });
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: {
         config: {
           retain: 0,
@@ -1231,14 +1246,18 @@ describe("conformance/get-set", () => {
     expect(impulseQ.q.cursor).toBe(0);
 
     expect(() =>
-      run.set({ impulseQ: { q: { entries: [] } } } as Record<string, unknown>),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        impulseQ: { q: { entries: [] } },
+      } as Record<string, unknown>),
     ).toThrow("set.impulseQ.qForbidden");
   });
 
   it("B5.1 — run.impulse applies retain trim after drain (default retain=0)", () => {
     const run = createRuntime();
 
-    run.set({ impulseQ: { config: { retain: 0 } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: 0 } },
+    });
     run.impulse({ signals: ["sig:x"], addFlags: ["a"] });
 
     const impulseQ = run.get("impulseQ", { as: "snapshot" }) as unknown as {
@@ -1253,35 +1272,43 @@ describe("conformance/get-set", () => {
   it("B5.2 — get('impulseQ') returns canonical config values", () => {
     const run = createRuntime();
 
-    run.set({ impulseQ: { config: { retain: true } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: true } },
+    });
     let impulseQ = run.get("impulseQ", { as: "snapshot" }) as unknown as {
       config: { retain: number; maxBytes: number };
     };
     expect(impulseQ.config.retain).toBe(Number.POSITIVE_INFINITY);
     expect(impulseQ.config.maxBytes).toBe(Number.POSITIVE_INFINITY);
 
-    run.set({ impulseQ: { config: { retain: false } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: false } },
+    });
     impulseQ = run.get("impulseQ", { as: "snapshot" }) as unknown as {
       config: { retain: number; maxBytes: number };
     };
     expect(impulseQ.config.retain).toBe(0);
     expect(impulseQ.config.maxBytes).toBe(Number.POSITIVE_INFINITY);
 
-    run.set({ impulseQ: { config: { retain: -3.9, maxBytes: -2.2 } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: -3.9, maxBytes: -2.2 } },
+    });
     impulseQ = run.get("impulseQ", { as: "snapshot" }) as unknown as {
       config: { retain: number; maxBytes: number };
     };
     expect(impulseQ.config.retain).toBe(0);
     expect(impulseQ.config.maxBytes).toBe(0);
 
-    run.set({ impulseQ: { config: { retain: 4.8, maxBytes: 7.9 } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: 4.8, maxBytes: 7.9 } },
+    });
     impulseQ = run.get("impulseQ", { as: "snapshot" }) as unknown as {
       config: { retain: number; maxBytes: number };
     };
     expect(impulseQ.config.retain).toBe(4);
     expect(impulseQ.config.maxBytes).toBe(7);
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: {
         config: {
           retain: Number.POSITIVE_INFINITY,
@@ -1305,7 +1332,9 @@ describe("conformance/get-set", () => {
       q: { cursor: number; entries: unknown[] };
     };
 
-    run.set({ signals: ["patch-1", "patch-2"] });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      signals: ["patch-1", "patch-2"],
+    });
 
     expect(run.get("signal")).toBe("patch-2");
     expect(run.get("seenSignals")).toEqual({
@@ -1330,7 +1359,9 @@ describe("conformance/get-set", () => {
     });
 
     expect(() =>
-      run.set({ signals: ["ok", 1] as unknown as string[] }),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        signals: ["ok", 1] as unknown as string[],
+      }),
     ).toThrow("set.signals.invalid");
     expect(codes).toContain("set.signals.invalid");
   });
@@ -1343,17 +1374,24 @@ describe("conformance/get-set", () => {
       codes.push(diagnostic.code);
     });
 
-    expect(() => run.set({ addFlags: ["x", "y"], removeFlags: ["y"] })).toThrow(
-      "set.flags.addRemoveConflict",
-    );
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)({
+        addFlags: ["x", "y"],
+        removeFlags: ["y"],
+      }),
+    ).toThrow("set.flags.addRemoveConflict");
     expect(codes).toContain("set.flags.addRemoveConflict");
   });
 
   it("B9 — seenFlags extends by removeFlags input even when truth no longer contains flag", () => {
     const run = createRuntime();
 
-    run.set({ flags: { list: ["a"], map: { a: true } } });
-    run.set({ removeFlags: ["a"] });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      flags: { list: ["a"], map: { a: true } },
+    });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      removeFlags: ["a"],
+    });
 
     expect(run.get("flags", { as: "snapshot" })).toEqual({
       list: [],
@@ -1368,9 +1406,13 @@ describe("conformance/get-set", () => {
   it("B10 — numeric-like flags remain stable with remove/re-add and delta ordering", () => {
     const run = createRuntime();
 
-    run.set({ addFlags: ["2", "1", "10"] });
-    run.set({ removeFlags: ["1"] });
-    run.set({ addFlags: ["1"] });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      addFlags: ["2", "1", "10"],
+    });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      removeFlags: ["1"],
+    });
+    (run.set as (patch: Record<string, unknown>) => void)({ addFlags: ["1"] });
 
     expect(run.get("flags", { as: "snapshot" })).toEqual({
       list: ["2", "10", "1"],
@@ -1381,7 +1423,7 @@ describe("conformance/get-set", () => {
   it("A2.trim — trimming applied keeps pending projections stable", () => {
     const run = createRuntime();
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       defaults: run.get("defaults", { as: "snapshot" }) as unknown as Record<
         string,
         unknown
@@ -1435,7 +1477,7 @@ describe("conformance/get-set", () => {
       as: "snapshot",
     });
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: {
         config: {
           maxBytes: JSON.stringify({
@@ -1492,9 +1534,11 @@ describe("conformance/get-set", () => {
       { signals: ["pending"], addFlags: ["b"], removeFlags: [] },
     ];
     hydration.impulseQ.q.cursor = 1;
-    run.set(hydration);
+    (run.set as (patch: Record<string, unknown>) => void)(hydration);
 
-    run.set({ impulseQ: { config: { retain: 0 } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: 0 } },
+    });
 
     expect(run.get("flags", { scope: "pendingOnly", as: "snapshot" })).toEqual({
       list: ["b"],
@@ -1509,7 +1553,7 @@ describe("conformance/get-set", () => {
     run.impulse({ signals: ["applied-b"], addFlags: ["b"] });
     run.impulse({ signals: ["pending-c"], addFlags: ["c"] });
 
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       impulseQ: {
         config: {
           maxBytes: JSON.stringify({
@@ -1528,7 +1572,7 @@ describe("conformance/get-set", () => {
     >;
 
     const rehydrated = createRuntime();
-    rehydrated.set(snapshot);
+    (rehydrated.set as (patch: Record<string, unknown>) => void)(snapshot);
 
     expect(
       rehydrated.get("flags", { scope: "applied", as: "snapshot" }),
@@ -1614,7 +1658,7 @@ describe("conformance/get-set", () => {
     >;
 
     const rehydrated = createRuntime();
-    rehydrated.set(snapshot);
+    (rehydrated.set as (patch: Record<string, unknown>) => void)(snapshot);
 
     const base2 = rehydrated.get("scopeProjectionBaseline", {
       as: "snapshot",
@@ -1657,7 +1701,7 @@ describe("conformance/get-set", () => {
     expect(h.backfillQ).toBeTruthy();
 
     const rehydrated = createRuntime();
-    rehydrated.set(h as never);
+    (rehydrated.set as (patch: Record<string, unknown>) => void)(h as never);
 
     const b1 = run.get("backfillQ", { as: "snapshot" }) as unknown as {
       list: string[];
@@ -1689,7 +1733,7 @@ describe("conformance/get-set", () => {
       unknown
     >;
     const rehydrated = createRuntime();
-    rehydrated.set(snapshot);
+    (rehydrated.set as (patch: Record<string, unknown>) => void)(snapshot);
 
     const q = rehydrated.get("registeredQ", {
       as: "snapshot",
@@ -1716,7 +1760,7 @@ describe("conformance/get-set", () => {
       diagnostics: Array<{ code: string; data?: unknown }>;
     };
     const rehydrated = createRuntime();
-    rehydrated.set(snap as never);
+    (rehydrated.set as (patch: Record<string, unknown>) => void)(snap as never);
 
     const d1 = snap.diagnostics[0]!;
     const d2 = (
@@ -1767,7 +1811,7 @@ describe("conformance/get-set", () => {
     snap.diagnostics = [];
 
     const rehydrated = createRuntime();
-    rehydrated.set(snap);
+    (rehydrated.set as (patch: Record<string, unknown>) => void)(snap);
 
     const r2 = rehydrated.get("diagnostics", {
       as: "reference",
@@ -1802,7 +1846,7 @@ describe("conformance/get-set", () => {
     };
 
     const rehydrated = createRuntime();
-    rehydrated.set(snap);
+    (rehydrated.set as (patch: Record<string, unknown>) => void)(snap);
 
     const r1 = rehydrated.get("diagnostics", {
       as: "reference",
@@ -1810,7 +1854,7 @@ describe("conformance/get-set", () => {
     expect(r1.length).toBe(snap.diagnostics.length);
     const old0 = r1[0];
 
-    rehydrated.set(snap);
+    (rehydrated.set as (patch: Record<string, unknown>) => void)(snap);
 
     const r2 = rehydrated.get("diagnostics", {
       as: "reference",
@@ -1836,7 +1880,7 @@ describe("conformance/get-set", () => {
     snap.registeredById = new Map([["__bad__", { id: "__bad__" }]]);
 
     const rehydrated = createRuntime();
-    rehydrated.set(snap);
+    (rehydrated.set as (patch: Record<string, unknown>) => void)(snap);
 
     const q = rehydrated.get("registeredQ", {
       as: "snapshot",
@@ -1894,7 +1938,7 @@ describe("conformance/get-set", () => {
       void error;
     }
 
-    rehydrated.set(snap);
+    (rehydrated.set as (patch: Record<string, unknown>) => void)(snap);
 
     const d = rehydrated.get("diagnostics", {
       as: "snapshot",
@@ -1912,7 +1956,9 @@ describe("conformance/get-set", () => {
   it("REF-READONLY-01 — reference prevents nested array/object mutations", () => {
     const run = createRuntime();
 
-    run.set({ flags: { list: ["a"], map: { a: true } } } as never);
+    (run.set as (patch: Record<string, unknown>) => void)({
+      flags: { list: ["a"], map: { a: true } },
+    } as never);
 
     const ref = run.get("flags", { as: "reference" }) as unknown as {
       list: string[];
@@ -1935,7 +1981,9 @@ describe("conformance/get-set", () => {
     const events: Array<{ code: string }> = [];
     run.onDiagnostic((d) => events.push({ code: d.code }));
 
-    run.set({ flags: { list: ["a"], map: { a: true } } } as never);
+    (run.set as (patch: Record<string, unknown>) => void)({
+      flags: { list: ["a"], map: { a: true } },
+    } as never);
 
     const ref = run.get("flags", { as: "reference" }) as unknown as {
       list: string[];
@@ -2004,7 +2052,9 @@ describe("conformance/get-set", () => {
       }),
     );
 
-    run.set({ flags: { list: [], map: {} } } as never);
+    (run.set as (patch: Record<string, unknown>) => void)({
+      flags: { list: [], map: {} },
+    } as never);
 
     const inner = { x: 1 };
     const flagsAlias = run.get("flags", { as: "unsafeAlias" }) as unknown as {
@@ -2296,7 +2346,9 @@ describe("conformance/get-set", () => {
     const events: Array<{ code: string }> = [];
     run.onDiagnostic((d) => events.push({ code: d.code }));
 
-    run.set({ flags: { list: ["a"], map: { a: true } } } as never);
+    (run.set as (patch: Record<string, unknown>) => void)({
+      flags: { list: ["a"], map: { a: true } },
+    } as never);
 
     const alias = run.get("flags", { as: "unsafeAlias" }) as unknown as {
       list: string[];
@@ -2331,7 +2383,7 @@ describe("conformance/get-set", () => {
 
   it("A11 — hydration reports unresolved backfill ids and drops them", () => {
     const run = createRuntime();
-    run.set({
+    (run.set as (patch: Record<string, unknown>) => void)({
       defaults: run.get("defaults", { as: "snapshot" }) as unknown as Record<
         string,
         unknown
@@ -2383,7 +2435,9 @@ describe("conformance/get-set", () => {
 
     run.impulse({ signals: ["sig:1"], addFlags: ["1", "2", "10"] });
     run.impulse({ signals: ["sig:2"], removeFlags: ["2"], addFlags: ["2"] });
-    run.set({ impulseQ: { config: { retain: 1 } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: 1 } },
+    });
 
     const snapshotA = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
@@ -2415,7 +2469,7 @@ describe("conformance/get-set", () => {
       as: "snapshot",
     });
 
-    run.set(snapshotA);
+    (run.set as (patch: Record<string, unknown>) => void)(snapshotA);
 
     const snapshotB = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
@@ -2443,10 +2497,9 @@ describe("conformance/get-set", () => {
     const run = createRuntime();
 
     expect(() =>
-      run.set({ flags: { list: [1], map: { "1": true } } } as unknown as Record<
-        string,
-        unknown
-      >),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        flags: { list: [1], map: { "1": true } },
+      } as unknown as Record<string, unknown>),
     ).toThrow("set.flags.invalid");
   });
 
@@ -2462,7 +2515,9 @@ describe("conformance/get-set", () => {
     };
     snap.backfillQ = { list: [1], map: { "1": true } };
 
-    expect(() => run.set(snap)).toThrow("set.hydration.backfillQInvalid");
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(snap),
+    ).toThrow("set.hydration.backfillQInvalid");
   });
 
   it("hydration backfillQ duplicates emit backfillQInvalid", () => {
@@ -2479,7 +2534,9 @@ describe("conformance/get-set", () => {
     };
     snap.backfillQ = { list: ["e1", "e1"], map: { e1: true } };
 
-    expect(() => run.set(snap)).toThrow("set.hydration.backfillQInvalid");
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(snap),
+    ).toThrow("set.hydration.backfillQInvalid");
     expect(diagnostics).toContain("set.hydration.backfillQInvalid");
     expect(diagnostics).not.toContain("set.hydration.seenSignalsInvalid");
   });
@@ -2531,7 +2588,7 @@ describe("conformance/get-set/scope-projection", () => {
         ],
       },
     };
-    run.set(s);
+    (run.set as (patch: Record<string, unknown>) => void)(s);
 
     const pending = run.get("impulseQ", {
       scope: "pending",
@@ -2577,7 +2634,7 @@ describe("conformance/get-set/scope-projection", () => {
         ],
       },
     };
-    run.set(s);
+    (run.set as (patch: Record<string, unknown>) => void)(s);
 
     const applied = run.get("flags", {
       scope: "applied",
@@ -2657,7 +2714,7 @@ describe("conformance/get-set/impulseQ-trim-maxBytes", () => {
       },
     };
 
-    run.set(s);
+    (run.set as (patch: Record<string, unknown>) => void)(s);
 
     run.impulse();
 
@@ -2702,7 +2759,7 @@ describe("conformance/get-set/impulseQ-trim-maxBytes", () => {
       },
     };
 
-    run.set(s);
+    (run.set as (patch: Record<string, unknown>) => void)(s);
 
     run.impulse();
 
@@ -2756,7 +2813,7 @@ describe("conformance/get-set/impulseQ-trim-maxBytes", () => {
       },
     };
 
-    run.set(s);
+    (run.set as (patch: Record<string, unknown>) => void)(s);
 
     run.impulse();
 
@@ -2824,7 +2881,9 @@ describe("conformance/get-set/impulseQ-trim-maxBytes", () => {
       },
     };
 
-    run.set(s as unknown as Record<string, unknown>);
+    (run.set as (patch: Record<string, unknown>) => void)(
+      s as unknown as Record<string, unknown>,
+    );
 
     run.impulse();
 
@@ -2881,7 +2940,7 @@ describe("conformance/get-set/scope-projection-baseline-after-set", () => {
       },
     };
 
-    run.set(s);
+    (run.set as (patch: Record<string, unknown>) => void)(s);
 
     const applied = run.get("flags", {
       scope: "applied",
@@ -2923,7 +2982,7 @@ describe("conformance/get-set/scope-projection-baseline-after-set", () => {
       q: { cursor: 0, entries: [] },
     };
 
-    run.set(s);
+    (run.set as (patch: Record<string, unknown>) => void)(s);
 
     const applied = run.get("flags", {
       scope: "applied",
@@ -2986,7 +3045,7 @@ describe("conformance/get-set/scope-projection-signal-seenSignals", () => {
       },
     };
 
-    run.set(s);
+    (run.set as (patch: Record<string, unknown>) => void)(s);
 
     expect(run.get("signal", { scope: "applied", as: "snapshot" })).toBe("a2");
     expect(run.get("signal", { scope: "pending", as: "snapshot" })).toBe("b1");
@@ -3030,7 +3089,7 @@ describe("conformance/get-set/scope-projection-signal-seenSignals", () => {
       },
     };
 
-    run.set(s);
+    (run.set as (patch: Record<string, unknown>) => void)(s);
 
     expect(run.get("signal", { scope: "applied", as: "snapshot" })).toBe(
       "base",
@@ -3074,7 +3133,7 @@ describe("conformance/get-set/scope-projection-signal-seenSignals", () => {
       },
     };
 
-    run.set(s);
+    (run.set as (patch: Record<string, unknown>) => void)(s);
 
     const applied = run.get("seenSignals", {
       scope: "applied",
@@ -3124,7 +3183,7 @@ describe("conformance/get-set/scope-projection-signal-seenSignals", () => {
       },
     };
 
-    run.set(s);
+    (run.set as (patch: Record<string, unknown>) => void)(s);
 
     expect(run.get("signal", { scope: "pendingOnly", as: "snapshot" })).toBe(
       undefined,

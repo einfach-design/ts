@@ -28,6 +28,7 @@ export type {
   RunGetAllReturn,
   RunGetKey,
   RunGetReturnMap,
+  RunSetInput,
   RunScope,
   RunTime,
   ScopeProjectionBaseline,

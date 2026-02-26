@@ -50,7 +50,7 @@ describe("failure-modes/invariants", () => {
       },
     ];
     hydration.impulseQ.q.cursor = 1;
-    run.set(hydration);
+    (run.set as (patch: Record<string, unknown>) => void)(hydration);
 
     const appliedFlags = flagsFrom(run.get("flags", { scope: "applied" }));
     const pendingFlags = flagsFrom(run.get("flags", { scope: "pending" }));
@@ -105,12 +105,14 @@ describe("failure-modes/invariants", () => {
       },
     ];
     hydration.impulseQ.q.cursor = 1;
-    run.set(hydration);
+    (run.set as (patch: Record<string, unknown>) => void)(hydration);
 
     const pendingBeforeTrim = flagsFrom(run.get("flags", { scope: "pending" }));
     expect(pendingBeforeTrim).toEqual(["a", "b"]);
 
-    run.set({ impulseQ: { config: { retain: 0 } } });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: 0 } },
+    });
 
     const pendingAfterTrim = flagsFrom(run.get("flags", { scope: "pending" }));
     const pendingOnlyAfterTrim = flagsFrom(

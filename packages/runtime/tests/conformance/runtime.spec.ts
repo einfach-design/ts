@@ -19,7 +19,9 @@ describe("conformance/runtime", () => {
     const run = createRuntime();
 
     // establish a base flag
-    run.set({ addFlags: ["x"] } as Record<string, unknown>);
+    (run.set as (patch: Record<string, unknown>) => void)({
+      addFlags: ["x"],
+    } as Record<string, unknown>);
 
     // add and remove the same flag in the same impulse => remove wins => absent
     run.impulse({
@@ -91,7 +93,9 @@ describe("conformance/runtime", () => {
   it("E2 — runs per occurrence carry signal/payload and flag deltas", () => {
     const run = createRuntime();
 
-    run.set({ addFlags: ["existing"] } as Record<string, unknown>);
+    (run.set as (patch: Record<string, unknown>) => void)({
+      addFlags: ["existing"],
+    } as Record<string, unknown>);
 
     const payload = { event: "go" };
     const calls: Array<Record<string, unknown>> = [];
@@ -426,7 +430,9 @@ describe("conformance/runtime", () => {
     run.impulse({ livePayload: 1n as unknown as number, addFlags: ["a"] });
 
     expect(() =>
-      run.set({ impulseQ: { config: { maxBytes: 1 } } }),
+      (run.set as (patch: Record<string, unknown>) => void)({
+        impulseQ: { config: { maxBytes: 1 } },
+      }),
     ).not.toThrow();
   });
 });

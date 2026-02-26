@@ -111,7 +111,10 @@ describe("conformance/backfill-telemetry-gate-integration", () => {
       },
     };
 
-    run.set({ ...snapshot, flags: createFlagsView([]) });
+    (run.set as (patch: Record<string, unknown>) => void)({
+      ...snapshot,
+      flags: createFlagsView([]),
+    });
 
     run.impulse({ signals: ["sig:need"], addFlags: ["flag:up"] });
 

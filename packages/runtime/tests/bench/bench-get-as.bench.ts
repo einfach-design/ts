@@ -523,7 +523,7 @@ function buildScenario(name: ScenarioName, payloadMode: PayloadMode) {
     flagsList.map((key) => [key, true]),
   ) as Record<string, true>;
 
-  run.set({
+  (run.set as (patch: Record<string, unknown>) => void)({
     flags: {
       list: flagsList,
       map: flagsMap,
