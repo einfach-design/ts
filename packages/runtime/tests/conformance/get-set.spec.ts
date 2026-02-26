@@ -2399,8 +2399,11 @@ describe("conformance/get-set", () => {
       (event) => event.code === "runtime.get.unsafeAlias.used",
     );
     expect(unsafeAliasEvents).toHaveLength(1);
-    expect(unsafeAliasEvents[0]?.data?.key).toBe("flags");
-    expect(unsafeAliasEvents[0]?.data?.scope).toBe("s1");
+    const event = unsafeAliasEvents[0]!;
+    expect(event.data?.key).toBe("flags");
+    expect(event.data?.scope).toBe("s1");
+    expect(typeof event.data).toBe("object");
+    expect(Object.keys(event.data ?? {}).sort()).toEqual(["key", "scope"]);
   });
 
   it("UA-TELEMETRY-02 — unsafeAlias.forbidden emits with key+scope and throws (dev)", () => {
@@ -2415,16 +2418,22 @@ describe("conformance/get-set", () => {
       (event) => event.code === "get.as.unsafeAlias.forbidden",
     );
     expect(forbiddenEvents).toHaveLength(1);
-    expect(forbiddenEvents[0]?.severity).toBe("error");
-    expect(forbiddenEvents[0]?.data?.key).toBe("flags");
-    expect(forbiddenEvents[0]?.data?.scope).toBe("s2");
+    const event = forbiddenEvents[0]!;
+    expect(event.severity).toBe("error");
+    expect(event.data?.key).toBe("flags");
+    expect(event.data?.scope).toBe("s2");
+    expect(typeof event.data).toBe("object");
+    expect(Object.keys(event.data ?? {}).sort()).toEqual(["key", "scope"]);
   });
 
   it("REF-TELEMETRY-01 — reference top-level fallback emits key+scope+valueKind", () => {
     const run = createRuntime({ allowUnsafeAlias: true });
     const events = collectDiagnostics(run);
 
-    const alias = run.get("flags", { as: "unsafeAlias" }) as unknown as {
+    const alias = run.get("flags", {
+      as: "unsafeAlias",
+      scope: "s3",
+    } as never) as unknown as {
       map: Record<string, unknown>;
     };
     alias.map = {};
@@ -2432,7 +2441,8 @@ describe("conformance/get-set", () => {
 
     const ref = run.get("flags", {
       as: "reference",
-    }) as unknown as {
+      scope: "s3",
+    } as never) as unknown as {
       map: { __opaqueDate: Date };
     };
     expect(() => ref.map.__opaqueDate.setUTCFullYear(2021)).toThrow(
@@ -2447,7 +2457,7 @@ describe("conformance/get-set", () => {
     expect(fallbackEvents).toHaveLength(1);
     const event = fallbackEvents[0]!;
     expect(event.data?.key).toBe("flags");
-    expect(event.data?.scope).toBeUndefined();
+    expect(event.data?.scope).toBe("s3");
     expect(event.data?.valueKind).toBe("Date");
     expect(
       typeof event.data?.valueKind === "string" &&
@@ -2456,14 +2466,17 @@ describe("conformance/get-set", () => {
     expect(typeof event.data).toBe("object");
     expect(
       Object.keys((event.data ?? {}) as Record<string, unknown>).sort(),
-    ).toEqual(["key", "valueKind"]);
+    ).toEqual(["key", "scope", "valueKind"]);
   });
 
   it("REF-TELEMETRY-02 — reference nested fallback includes key+scope and dedups", () => {
     const run = createRuntime({ allowUnsafeAlias: true });
     const events = collectDiagnostics(run);
 
-    const alias = run.get("flags", { as: "unsafeAlias" }) as unknown as {
+    const alias = run.get("flags", {
+      as: "unsafeAlias",
+      scope: "s4",
+    } as never) as unknown as {
       map: Record<string, unknown>;
     };
     alias.map = {};
@@ -2471,7 +2484,8 @@ describe("conformance/get-set", () => {
 
     const ref = run.get("flags", {
       as: "reference",
-    }) as unknown as {
+      scope: "s4",
+    } as never) as unknown as {
       map: { fn: (...args: unknown[]) => unknown };
     };
 
@@ -2486,12 +2500,12 @@ describe("conformance/get-set", () => {
     expect(fallbackEvents).toHaveLength(1);
     const event = fallbackEvents[0]!;
     expect(event.data?.key).toBe("flags");
-    expect(event.data?.scope).toBeUndefined();
+    expect(event.data?.scope).toBe("s4");
     expect(event.data?.valueKind).toBe("Function");
     expect(typeof event.data).toBe("object");
     expect(
       Object.keys((event.data ?? {}) as Record<string, unknown>).sort(),
-    ).toEqual(["key", "valueKind"]);
+    ).toEqual(["key", "scope", "valueKind"]);
   });
 
   it("A11 — hydration reports unresolved backfill ids and drops them", () => {
