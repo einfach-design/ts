@@ -1346,7 +1346,10 @@ export function runSet(
       }
 
       try {
-        nextDefaults = setDefaults(nextDefaults, patchRecord.defaults as SetDefaults);
+        nextDefaults = setDefaults(
+          nextDefaults,
+          patchRecord.defaults as SetDefaults,
+        );
       } catch {
         throwSetDefaultsInvalid(diagnostics, "defaults", patchRecord.defaults);
       }
