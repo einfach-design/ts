@@ -850,7 +850,7 @@ export function runSet(
 
     if (isHydration) {
       for (const key of hydrationRequiredKeys) {
-        if (!hasOwn(patch, key)) {
+        if (!hasOwn(patchRecord, key)) {
           diagnostics.emit({
             code: "set.hydration.incomplete",
             message: "Hydration patch is missing required keys.",
@@ -860,7 +860,7 @@ export function runSet(
         }
       }
 
-      const hydration = patch as Record<string, unknown>;
+      const hydration = patchRecord;
 
       assertValidDefaultsSnapshot(diagnostics, hydration.defaults);
       const hydrationDefaults = hydration.defaults as Defaults;
@@ -1130,7 +1130,7 @@ export function runSet(
       return;
     }
 
-    for (const key of Object.keys(patch)) {
+    for (const key of Object.keys(patchRecord)) {
       if (!(allowedPatchKeys as readonly string[]).includes(key)) {
         diagnostics.emit({
           code: "set.patch.forbidden",
@@ -1142,12 +1142,12 @@ export function runSet(
     }
 
     if (
-      hasOwn(patch, "changedFlags") ||
-      hasOwn(patch, "seenFlags") ||
-      hasOwn(patch, "signal") ||
-      hasOwn(patch, "seenSignals") ||
-      hasOwn(patch, "backfillQ") ||
-      hasOwn(patch, "registeredQ")
+      hasOwn(patchRecord, "changedFlags") ||
+      hasOwn(patchRecord, "seenFlags") ||
+      hasOwn(patchRecord, "signal") ||
+      hasOwn(patchRecord, "seenSignals") ||
+      hasOwn(patchRecord, "backfillQ") ||
+      hasOwn(patchRecord, "registeredQ")
     ) {
       diagnostics.emit({
         code: "set.patch.forbidden",
@@ -1158,7 +1158,7 @@ export function runSet(
     }
 
     if (
-      hasOwn(patch, "flags") &&
+      hasOwn(patchRecord, "flags") &&
       (hasOwn(patchRecord, "addFlags") || hasOwn(patchRecord, "removeFlags"))
     ) {
       diagnostics.emit({
@@ -1188,8 +1188,8 @@ export function runSet(
     let trimOnTrimError: Error | undefined;
     let trimRemovedAppliedEntries: ImpulseQEntryCanonical[] | undefined;
 
-    if (hasOwn(patch, "flags")) {
-      const incoming = patch.flags;
+    if (hasOwn(patchRecord, "flags")) {
+      const incoming = patchRecord.flags;
       const hasList =
         isRecordObject(incoming) &&
         hasOwn(incoming, "list") &&
