@@ -802,8 +802,8 @@ export function createRuntime(opts?: { allowUnsafeAlias?: boolean }): RunTime {
     return effective as AddOpts;
   };
 
-  const runtime: RunTime = {
-    add(opts) {
+  const runtime = {
+    add(opts: AddOpts) {
       const addDeps = {
         expressionRegistry: deps.expressionRegistry as unknown as Parameters<
           typeof runAdd
@@ -824,19 +824,25 @@ export function createRuntime(opts?: { allowUnsafeAlias?: boolean }): RunTime {
       };
     },
 
-    on(opts) {
+    on(opts: AddOpts) {
       return runtime.add(buildEffectiveAddOpts("on", opts));
     },
 
-    when(opts) {
+    when(opts: AddOpts) {
       return runtime.add(buildEffectiveAddOpts("when", opts));
     },
 
-    impulse(opts) {
+    impulse(opts?: Parameters<RunTime["impulse"]>[0]) {
       runImpulse(store, deps, opts);
     },
 
-    get(key, opts) {
+    get(
+      key?: RunGetKey,
+      opts?: {
+        as?: "snapshot" | "reference" | "unsafeAlias";
+        scope?: RunScope;
+      },
+    ) {
       return runGet(
         store,
         {
@@ -849,18 +855,18 @@ export function createRuntime(opts?: { allowUnsafeAlias?: boolean }): RunTime {
       );
     },
 
-    set(patch) {
+    set(patch: Parameters<RunTime["set"]>[0]) {
       runSet(store, deps, patch);
     },
 
-    matchExpression(input) {
+    matchExpression(input: MatchExpressionOpts) {
       return runMatchExpressionApi(store, deps, input);
     },
 
-    onDiagnostic(handler) {
+    onDiagnostic(handler: (diagnostic: RuntimeDiagnostic) => void) {
       return runOnDiagnostic(store, deps, handler);
     },
   };
 
-  return runtime;
+  return runtime as RunTime;
 }

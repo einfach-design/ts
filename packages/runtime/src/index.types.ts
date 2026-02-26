@@ -13,6 +13,8 @@ import type {
   MatchExpressionInput,
 } from "./match/matchExpression.js";
 import type { RuntimeTarget } from "./runs/coreRun.js";
+import type { BackfillQSnapshot } from "./state/backfillQ.js";
+import type { Defaults } from "./state/defaults.js";
 
 export type RunScope = "applied" | "pending" | "pendingOnly";
 
@@ -85,6 +87,23 @@ export type RunGetKey =
 
 export type RunSetInput = Readonly<Record<string, unknown>>;
 
+export type RunGetReturnMap = {
+  defaults: Defaults;
+  flags: unknown;
+  changedFlags: unknown;
+  seenFlags: unknown;
+  signal: unknown;
+  seenSignals: unknown;
+  scopeProjectionBaseline: unknown;
+  impulseQ: unknown;
+  backfillQ: BackfillQSnapshot;
+  registeredQ: unknown;
+  registeredById: unknown;
+  diagnostics: unknown;
+};
+
+export type RunGetAllReturn = RunGetReturnMap & { "*": never };
+
 export type MatchFlagSpecValue = FlagSpecValue;
 
 export type MatchFlagSpec = FlagSpec;
@@ -117,13 +136,35 @@ export type RunTime = Readonly<{
   on: (opts: AddOpts) => () => void;
   when: (opts: AddOpts) => () => void;
   impulse: (opts?: ImpulseOpts) => void;
-  get: (
-    key?: RunGetKey,
+  get(): RunGetAllReturn;
+  get(
+    key: "*",
     opts?: {
       as?: "snapshot" | "reference" | "unsafeAlias";
       scope?: RunScope;
     },
-  ) => unknown;
+  ): RunGetAllReturn;
+  get<K extends Exclude<RunGetKey, "*">>(
+    key: K,
+    opts?: {
+      as?: "snapshot" | "reference" | "unsafeAlias";
+      scope?: RunScope;
+    },
+  ): RunGetReturnMap[K];
+  get(
+    key: RunGetKey | undefined,
+    opts?: {
+      as?: "snapshot" | "reference" | "unsafeAlias";
+      scope?: RunScope;
+    },
+  ): RunGetAllReturn | RunGetReturnMap[Exclude<RunGetKey, "*">];
+  get(
+    key: undefined,
+    opts?: {
+      as?: "snapshot" | "reference" | "unsafeAlias";
+      scope?: RunScope;
+    },
+  ): RunGetAllReturn;
   set: (patch: RunSetInput) => void;
   matchExpression: (opts: MatchExpressionOpts) => boolean;
   onDiagnostic: (handler: (diagnostic: Diagnostic) => void) => () => void;

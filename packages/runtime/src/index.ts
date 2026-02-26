@@ -21,7 +21,9 @@ export type {
   AddOpts,
   ImpulseOpts,
   MatchExpressionOpts,
+  RunGetAllReturn,
   RunGetKey,
+  RunGetReturnMap,
   RunScope,
   RunTime,
 } from "./index.types.js";
