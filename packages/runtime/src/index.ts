@@ -19,11 +19,19 @@ export { createRuntime } from "./runtime/index.js";
 
 export type {
   AddOpts,
+  BackfillQSnapshot,
+  FlagsView,
+  ImpulseQEntryCanonical,
   ImpulseOpts,
+  RegisteredExpression,
+  RegistryExpression,
   MatchExpressionOpts,
   RunGetAllReturn,
   RunGetKey,
   RunGetReturnMap,
   RunScope,
   RunTime,
+  ScopeProjectionBaseline,
+  SeenSignals,
+  Signal,
 } from "./index.types.js";

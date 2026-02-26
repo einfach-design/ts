@@ -20,6 +20,14 @@ import type { FlagsView } from "./state/flagsView.js";
 import type { RegistryExpression } from "./state/registry.js";
 import type { Signal, SeenSignals } from "./state/signals.js";
 
+export type { FlagsView } from "./state/flagsView.js";
+export type { Signal, SeenSignals } from "./state/signals.js";
+export type { BackfillQSnapshot } from "./state/backfillQ.js";
+export type { RegisteredExpression } from "./runs/coreRun.js";
+export type { ScopeProjectionBaseline } from "./runtime/store.js";
+export type { ImpulseQEntryCanonical } from "./canon/impulseEntry.js";
+export type { RegistryExpression } from "./state/registry.js";
+
 export type RunScope = "applied" | "pending" | "pendingOnly";
 
 export type Diagnostic = Readonly<{
