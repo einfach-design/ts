@@ -337,6 +337,7 @@ Patch darf:
 - `flags` **oder** (`addFlags`/`removeFlags`) setzen (Konflikte => throw)
 - defaults patchen (stateful)
 - `impulseQ.config` patchen (stateful; kann trim auslösen)
+- bei `addFlags`/`removeFlags`: nur String-Items akzeptieren (keine Coercion), trimmen und non-empty erzwingen
 
 Patch darf NICHT (own properties):
 
@@ -365,6 +366,9 @@ Guardrails:
 - Trims dürfen keine Impulsverarbeitung auslösen (kein drain, keine occurrences, keine targets).
 - Trim darf enqueue (durch User-Code in `onTrim`) erlauben, aber **niemals** selbst einen Drain starten oder eine laufende Drain verschachteln.
 
+Warum: Die trim-basierte Kanonisierung verhindert Phantom-Tokens (z. B. `"a"` vs `" a "`) und damit stille Matching-Bugs.
+Zusätzlich verhindert der String-only-Contract Coercion-Pfade, die in JS/TS sonst zu Laufzeitfehlern (z. B. `Symbol` → `TypeError`) führen können.
+
 ---
 
 ## 7) run.add (Registrierung)
@@ -382,7 +386,12 @@ Guardrails:
 ### 8.1 Entry-Kanonisierung (vor Enqueue)
 
 - Container-defaults: fehlende own props → `[]`/`false`
-- keine Dedupe/Netting auf Entry-Level
+- Token-Canon für `signals`/`addFlags`/`removeFlags` erfolgt deterministisch in dieser Reihenfolge:
+  1. Array-Form validieren
+  2. jedes Item als String validieren (keine Coercion)
+  3. `token = item.trim()` bilden und non-empty erzwingen
+  4. auf kanonischem Token dedupe/trim-collision prüfen
+  5. im kanonischen Entry nur getrimmte Tokens speichern
 - invalid payload => kein enqueue
 
 ### 8.2 Enqueue-Contract
