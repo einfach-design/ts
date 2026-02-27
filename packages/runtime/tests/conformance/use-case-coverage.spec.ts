@@ -2267,20 +2267,20 @@ describe("conformance/use-case-coverage/string-input-policy", () => {
     );
   });
 
-  it("MIN-STR-02 — whitespace is NOT trimmed (exact match semantics)", () => {
+  it("MIN-STR-02 — impulse signal input is canonicalized via trim", () => {
     const run = createRuntime();
     let calls = 0;
 
     run.when({
       id: "uc:MIN-STR-02",
-      signal: "  a ",
+      signal: "a",
       targets: [() => calls++],
     } as never);
 
     run.impulse({ signals: ["a"] });
-    expect(calls).toBe(0);
+    expect(calls).toBe(1);
 
     run.impulse({ signals: ["  a "] });
-    expect(calls).toBe(1);
+    expect(calls).toBe(2);
   });
 });
