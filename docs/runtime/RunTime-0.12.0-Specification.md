@@ -70,6 +70,9 @@ Ein Signal ist ein benanntes „es ist passiert“: eine Occurrence, die in RunT
 - **Signal definiert** eine Occurrence (ein passiertes, benanntes Ereignis).
 - **Träger:** `signals` in `ImpulseOpts` und `signal` in Expressions tragen Signal.
 - **Annotation:** Signal-Name (string).
+- Für Signal/Flag gilt derselbe Token-Vertrag: Ein Token ist ein String-Identifier.
+- Ein Token MUSS nach `trim()` eine Länge `> 0` haben.
+- Die kanonische Token-Form MUSS der getrimmte String sein.
 - Ein Signal MUSS als Occurrence interpretiert werden.
 - Pro actImpulse-Occurrence MUSS es höchstens ein Signal geben.
 - RunTime MUSS `seenSignals` als monotone Dokumentationssicht führen.
@@ -208,6 +211,8 @@ Norm
   - `signals`: fehlt `signals` als own property, MUSS `signals` als `[]` kanonisiert werden; ist `signals` als own property vorhanden und `Array.isArray(signals) !== true` gilt, MUSS RunTime den `run.impulse(opts)`-Aufruf als invalid behandeln und MUSS gemäß §8.2 (OnError Control Flow) mit Phase `"impulse/canon"` verfahren.
   - `addFlags`: fehlt `addFlags` als own property, MUSS `addFlags` als `[]` kanonisiert werden; ist `addFlags` als own property vorhanden und `Array.isArray(addFlags) !== true` gilt, MUSS RunTime den `run.impulse(opts)`-Aufruf als invalid behandeln und MUSS gemäß §8.2 (OnError Control Flow) mit Phase `"impulse/canon"` verfahren.
   - `removeFlags`: fehlt `removeFlags` als own property, MUSS `removeFlags` als `[]` kanonisiert werden; ist `removeFlags` als own property vorhanden und `Array.isArray(removeFlags) !== true` gilt, MUSS RunTime den `run.impulse(opts)`-Aufruf als invalid behandeln und MUSS gemäß §8.2 (OnError Control Flow) mit Phase `"impulse/canon"` verfahren.
+  - Für `signals`, `addFlags`, `removeFlags` gilt: Jedes Element MUSS ein String sein; RunTime MUSS jedes Element via `trim()` kanonisieren; ein getrimmtes Token mit Länge `0` MUSS als invalid behandelt werden.
+  - Trim-Collisions sind invalid: Wenn zwei verschiedene Input-Elemente nach `trim()` denselben kanonischen Token ergeben (z. B. `"a"` und `" a "`), MUSS RunTime den `run.impulse(opts)`-Aufruf als invalid behandeln.
   - `useFixedFlags`: fehlt `useFixedFlags` als own property, MUSS `useFixedFlags` als `false` kanonisiert werden; ist `useFixedFlags` als own property vorhanden und `useFixedFlags !== false` gilt, MUSS RunTime `useFixedFlags` als `FlagsView` gemäß dessen normierter Definition validieren; wenn die Validierung fehlschlägt, MUSS RunTime den `run.impulse(opts)`-Aufruf als invalid behandeln und MUSS gemäß §8.2 (OnError Control Flow) mit Phase `"impulse/canon"` verfahren.
   - Wenn ein `run.impulse(opts)`-Aufruf gemäß diesem Abschnitt als invalid behandelt wird, DARF RunTime keinen Queue-Entry in `impulseQ.q.entries` enqueuen.
   - Iterations-Order MUSS erhalten bleiben: die Reihenfolge der Elemente in `signals`, `addFlags`, `removeFlags` MUSS der Input-Iteration-Order entsprechen.
@@ -957,6 +962,8 @@ Norm
 - Wenn `flags` im Payload vorhanden ist, MUSS `run.set(opts)` den Flags-State auf `flags` setzen.
 - Wenn `addFlags` im Payload vorhanden ist, MUSS RunTime `addFlags` als `FlagsView` **oder** als `readonly Flag[]` akzeptieren und MUSS daraus eine stabile-unique Flag-Liste gemäß §3.2 ableiten.
 - Wenn `removeFlags` im Payload vorhanden ist, MUSS RunTime `removeFlags` als `FlagsView` **oder** als `readonly Flag[]` akzeptieren und MUSS daraus eine stabile-unique Flag-Liste gemäß §3.2 ableiten.
+- Wenn `addFlags` oder `removeFlags` als Array-Input (`readonly Flag[]`) verarbeitet wird, MUSS jedes Element ein String sein; String-Coercion DARF NICHT erfolgen.
+- Wenn `addFlags` oder `removeFlags` als Array-Input (`readonly Flag[]`) verarbeitet wird, MUSS RunTime jedes Element trimmen; nur non-empty Tokens (nach Trim) sind gültig.
 - Wenn `addFlags` im Payload vorhanden ist, MUSS `run.set(opts)` alle Flags aus `addFlags` zum Flags-State hinzufügen.
 - Wenn `removeFlags` im Payload vorhanden ist, MUSS `run.set(opts)` alle Flags aus `removeFlags` aus dem Flags-State entfernen.
 - Wenn `flags` im Payload vorhanden ist und `seenFlags` nicht als own property im Payload vorhanden ist, MUSS `run.set(opts)` `seenFlags` um alle Flags aus `flags` erweitern.
