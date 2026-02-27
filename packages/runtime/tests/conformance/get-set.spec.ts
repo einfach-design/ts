@@ -99,6 +99,59 @@ describe("conformance/get-set", () => {
     ).toHaveLength(1);
   });
 
+  it("SET-TOKEN-01 — set(addFlags) canonicalizes tokens via trim", () => {
+    const run = createRuntime();
+
+    run.set({ addFlags: ["  a  ", "b"] } as never);
+
+    const flags = run.get("flags", { as: "snapshot" }) as unknown as {
+      list: string[];
+    };
+    expect(flags.list).toContain("a");
+    expect(flags.list).toContain("b");
+    expect(flags.list).not.toContain("  a  ");
+  });
+
+  it("SET-TOKEN-02 — set(removeFlags) canonicalizes tokens via trim", () => {
+    const run = createRuntime();
+
+    run.set({ addFlags: ["a", "b"] } as never);
+    run.set({ removeFlags: ["  a  "] } as never);
+
+    const flags = run.get("flags", { as: "snapshot" }) as unknown as {
+      list: string[];
+    };
+    expect(flags.list).not.toContain("a");
+    expect(flags.list).toContain("b");
+  });
+
+  it("SET-TOKEN-03 — set(flags.list) canonicalizes tokens via trim", () => {
+    const run = createRuntime();
+
+    run.set({
+      flags: { list: ["a", "b"], map: { a: true, b: true } },
+    } as never);
+
+    const flags = run.get("flags", { as: "snapshot" }) as unknown as {
+      list: string[];
+    };
+    expect(flags.list).toContain("a");
+    expect(flags.list).toContain("b");
+    expect(flags.list).not.toContain("  a  ");
+  });
+
+  it("SET-TOKEN-04 — set(addFlags) does not reject trim-collisions (dedup)", () => {
+    const run = createRuntime();
+
+    expect(() => run.set({ addFlags: ["a", " a "] } as never)).not.toThrow();
+
+    const flags = run.get("flags", { as: "snapshot" }) as unknown as {
+      list: string[];
+    };
+    const occurrences = flags.list.filter((x) => x === "a").length;
+    expect(occurrences).toBe(1);
+  });
+
   it("A1b — set(addFlags) accepts FlagsView delta payloads (Spec §2.5, §4.2)", () => {
     const run = createRuntime();
 
