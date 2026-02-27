@@ -53,6 +53,26 @@ export type OnError =
   | "swallow"
   | ((error: unknown, ctx: RuntimeErrorContext) => void);
 
+export type RuntimeOnError = OnError;
+
+export type ImpulseQOnTrim = (info: {
+  entries: readonly ImpulseQEntryCanonical[];
+  stats: { reason: "retain" | "maxBytes"; bytesFreed?: number };
+}) => void;
+
+export type ImpulseQSnapshot = Readonly<{
+  q: Readonly<{
+    entries: ReadonlyArray<ImpulseQEntryCanonical>;
+    cursor: number;
+  }>;
+  config: Readonly<{
+    retain: number | boolean;
+    maxBytes: number;
+    onTrim?: ImpulseQOnTrim;
+    onError?: RuntimeOnError;
+  }>;
+}>;
+
 export type AddOpts = Readonly<{
   id?: string;
   signal?: string;
@@ -96,7 +116,51 @@ export type RunGetKey =
   | "registeredById"
   | "diagnostics";
 
-export type RunSetInput = ScopeProjectionBaseline;
+export type RunSetPatch = Readonly<{
+  flags?: FlagsView;
+  addFlags?: FlagsView | readonly string[];
+  removeFlags?: FlagsView | readonly string[];
+  signals?: readonly string[];
+  defaults?: {
+    scope?:
+      | RunScope
+      | {
+          signal?: RunScope | { value: RunScope; force?: true };
+          flags?: RunScope | { value: RunScope; force?: true };
+        };
+    gate?:
+      | boolean
+      | {
+          signal?: boolean | { value: boolean; force?: true };
+          flags?: boolean | { value: boolean; force?: true };
+        };
+  };
+  impulseQ?: {
+    config?: {
+      retain?: number | boolean;
+      maxBytes?: number;
+      onTrim?: ImpulseQOnTrim;
+      onError?: RuntimeOnError;
+    };
+  };
+}>;
+
+export type RunHydrationSnapshot = Readonly<{
+  defaults: Defaults;
+  flags: FlagsView;
+  changedFlags: FlagsView | undefined;
+  seenFlags: FlagsView;
+  signal: Signal | undefined;
+  seenSignals: SeenSignals;
+  scopeProjectionBaseline: ScopeProjectionBaseline;
+  impulseQ: ImpulseQSnapshot;
+  backfillQ: BackfillQSnapshot;
+  registeredQ?: ReadonlyArray<RegisteredExpression>;
+  registeredById: ReadonlyMap<string, RegisteredExpression>;
+  diagnostics?: ReadonlyArray<Diagnostic>;
+}>;
+
+export type RunSetInput = RunSetPatch | RunHydrationSnapshot;
 
 export type RunGetReturnMap = {
   defaults: Defaults;
@@ -106,14 +170,14 @@ export type RunGetReturnMap = {
   signal: Signal | undefined;
   seenSignals: SeenSignals;
   scopeProjectionBaseline: ScopeProjectionBaseline;
-  impulseQ: ReadonlyArray<ImpulseQEntryCanonical>;
+  impulseQ: ImpulseQSnapshot;
   backfillQ: BackfillQSnapshot;
   registeredQ: ReadonlyArray<RegisteredExpression>;
   registeredById: ReadonlyMap<string, RegisteredExpression>;
   diagnostics: ReadonlyArray<Diagnostic>;
 };
 
-export type RunGetAllReturn = RunGetReturnMap & { "*": never };
+export type RunGetAllReturn = RunGetReturnMap;
 
 export type MatchFlagSpecValue = FlagSpecValue;
 

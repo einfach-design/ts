@@ -756,24 +756,38 @@ Norm
 
 ```ts
 export type RunGetKey =
+  | "*"
+  | "defaults"
   | "flags"
   | "changedFlags"
   | "seenFlags"
   | "signal"
   | "seenSignals"
+  | "scopeProjectionBaseline"
   | "impulseQ"
-  | "defaults";
+  | "backfillQ"
+  | "registeredQ"
+  | "registeredById"
+  | "diagnostics";
 
 export type ImpulseQEntryCanonical = ImpulseOptsCanonical;
 
-export type ImpulseQSnapshot = Readonly<{
-  cursor: number;
+export type ImpulseQOnTrim = (info: {
   entries: readonly ImpulseQEntryCanonical[];
-}>;
+  stats: { reason: "retain" | "maxBytes"; bytesFreed?: number };
+}) => void;
 
-export type ImpulseQSnapshotView = Readonly<{
-  config: ImpulseQConfigCanonical;
-  q: ImpulseQSnapshot;
+export type ImpulseQSnapshot = Readonly<{
+  q: Readonly<{
+    entries: readonly ImpulseQEntryCanonical[];
+    cursor: number;
+  }>;
+  config: Readonly<{
+    retain: number | boolean;
+    maxBytes: number;
+    onTrim?: ImpulseQOnTrim;
+    onError?: RuntimeOnError;
+  }>;
 }>;
 
 /**
@@ -793,21 +807,29 @@ export type RunGetMap = {
   seenFlags: FlagsView;
   signal: Signal | undefined;
   seenSignals: { list: readonly Signal[]; map: Readonly<Record<Signal, true>> };
-  impulseQ: ImpulseQSnapshotView;
+  scopeProjectionBaseline: ScopeProjectionBaseline;
+  impulseQ: ImpulseQSnapshot;
+  backfillQ: BackfillQSnapshot;
+  registeredQ: readonly RegisteredExpression[];
+  registeredById: ReadonlyMap<string, RegisteredExpression>;
+  diagnostics: readonly Diagnostic[];
   defaults: Defaults;
 };
 
 export type RunGetFullSnapshot = Readonly<{
+  defaults: Defaults;
   flags: FlagsView;
   changedFlags: FlagsView | undefined;
   seenFlags: FlagsView;
   signal: Signal | undefined;
   seenSignals: { list: readonly Signal[]; map: Readonly<Record<Signal, true>> };
-  impulseQ: ImpulseQSnapshotView;
+  scopeProjectionBaseline: ScopeProjectionBaseline;
+  impulseQ: ImpulseQSnapshot;
   backfillQ: BackfillQSnapshot;
-  defaults: Defaults;
-}> &
-  Readonly<Record<string, unknown>>;
+  registeredQ: readonly RegisteredExpression[];
+  registeredById: ReadonlyMap<string, RegisteredExpression>;
+  diagnostics: readonly Diagnostic[];
+}>;
 
 export type RunGetOpts = Readonly<{
   scope?: Scope;
@@ -899,7 +921,7 @@ Norm
 - `run.get("*")` MUSS applied+pending liefern.
 - `run.get("*")` MUSS `RunGetOpts.scope` akzeptieren.
 - `run.get("*")` DARF NICHT `RunGetOpts.scope` auswerten.
-- `run.get("*")` MUSS mindestens die Keys `flags`, `changedFlags`, `seenFlags`, `signal`, `seenSignals`, `impulseQ`, `backfillQ` und `defaults` liefern.
+- `run.get("*")` MUSS mindestens die Keys `defaults`, `flags`, `changedFlags`, `seenFlags`, `signal`, `seenSignals`, `scopeProjectionBaseline`, `impulseQ`, `backfillQ`, `registeredQ`, `registeredById` und `diagnostics` liefern.
 - Wenn `s = run.get("*", { as: "snapshot" })` ist, MUSS `run.set(s)` bewirken, dass ein unmittelbar folgendes `run.get("*", { as: "snapshot" })` deep-equal zu `s` ist.
 - Ein Zustand MUSS als determinismusrelevant gelten, wenn sein Fehlen in `run.get("*", { as: "snapshot" })` bewirkt, dass die unmittelbar folgende Roundtrip-Bedingung nicht erfüllt ist.
 - `run.get("*")` MUSS alle determinismusrelevanten Zustände liefern.
@@ -946,7 +968,8 @@ Norm
 
 - Ein Hydration-Snapshot MUSS vollständig sein.
 - Für JS/TS MUSS ein Hydration-Snapshot alle own enumerable keys enthalten, die `run.get("*", { as: "snapshot" })` liefert.
-- Wenn ein Hydration-Snapshot nicht vollständig ist, MUSS `run.set(opts)` throwen.
+- Für JS/TS MUSS ein Hydration-Snapshot die own property `scopeProjectionBaseline` enthalten.
+- Wenn ein Hydration-Snapshot nicht vollständig ist, MUSS `run.set(opts)` den Diagnostic-Code `set.hydration.incomplete` emittieren und throwen.
 
 - Ein Payload DARF NICHT konkurrierende Schreibformen für dieselbe Domain enthalten.
 - Ein Payload MUSS als invalid gelten, wenn er konkurrierende Schreibformen für dieselbe Domain enthält.

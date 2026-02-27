@@ -40,6 +40,7 @@ const hydrationRequiredKeys = [
   "seenFlags",
   "signal",
   "seenSignals",
+  "scopeProjectionBaseline",
   "impulseQ",
   "backfillQ",
 ] as const;
@@ -1104,12 +1105,9 @@ export function runSet(
       }
 
       const nextScopeProjectionBaseline =
-        hasOwn(hydration, "scopeProjectionBaseline") &&
-        hydration.scopeProjectionBaseline !== undefined
-          ? assertHydrationScopeProjectionBaseline(
-              hydration.scopeProjectionBaseline,
-            )
-          : store.scopeProjectionBaseline;
+        assertHydrationScopeProjectionBaseline(
+          hydration.scopeProjectionBaseline,
+        );
 
       store.defaults = nextDefaults;
       store.flagsTruth = nextFlagsTruth;

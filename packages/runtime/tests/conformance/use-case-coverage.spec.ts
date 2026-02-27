@@ -1289,7 +1289,7 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     expect(baseline.list.sort()).toEqual(["fa", "fb"]);
   });
 
-  it("SET-BASELINE-02 — hydration without scopeProjectionBaseline preserves existing baseline on non-pristine runtime", () => {
+  it("SET-BASELINE-02 — hydration without scopeProjectionBaseline throws incomplete", () => {
     const run = createRuntime();
 
     const h0 = run.get("*", { as: "snapshot" }) as unknown as {
@@ -1333,15 +1333,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
       },
     };
 
-    (run.set as (patch: Record<string, unknown>) => void)(h1 as never);
-
-    const baseline = run.get("scopeProjectionBaseline", {
-      as: "snapshot",
-    }) as unknown as {
-      flags: { list: string[]; map: Record<string, true> };
-    };
-    expect(baseline.flags.list).toEqual(["BASE"]);
-    expect(baseline.flags.map).toEqual({ BASE: true });
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(h1 as never),
+    ).toThrow("set.hydration.incomplete");
   });
 
   it('HYDRATE-STAR-01 — set(get("*",{as:"snapshot"})) never throws hydration.incomplete', () => {
@@ -1715,7 +1709,7 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     ).not.toThrow();
   });
 
-  it("SET-TRIM-BASELINE-03 — pristine hydration + trim must not double-apply removed applied entries into scopeProjectionBaseline", () => {
+  it("SET-TRIM-BASELINE-03 — pristine hydration without scopeProjectionBaseline throws incomplete", () => {
     const run = createRuntime();
 
     const h = run.get("*", { as: "snapshot" }) as unknown as Record<
@@ -1751,17 +1745,12 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
       },
     };
 
-    (run.set as (patch: Record<string, unknown>) => void)(h as never);
-
-    const base = run.get("scopeProjectionBaseline", {
-      as: "snapshot",
-    }) as unknown as {
-      flags: { list: string[] };
-    };
-    expect(base.flags.list.sort()).toEqual(["fa", "fb"]);
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(h as never),
+    ).toThrow("set.hydration.incomplete");
   });
 
-  it("SET-TRIM-BASELINE-04 — repeating same hydration does not grow baseline further", () => {
+  it("SET-TRIM-BASELINE-04 — repeating hydration without scopeProjectionBaseline throws incomplete", () => {
     const run = createRuntime();
 
     const h = run.get("*", { as: "snapshot" }) as unknown as Record<
@@ -1797,14 +1786,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
       },
     };
 
-    (run.set as (patch: Record<string, unknown>) => void)(h as never);
-
-    const b1 = run.get("scopeProjectionBaseline", {
-      as: "snapshot",
-    }) as unknown as {
-      flags: { list: string[] };
-    };
-    expect(b1.flags.list.sort()).toEqual(["fa", "fb"]);
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(h as never),
+    ).toThrow("set.hydration.incomplete");
 
     const h2 = run.get("*", { as: "snapshot" }) as unknown as Record<
       string,
@@ -1812,14 +1796,9 @@ describe("conformance/use-case-coverage/trim-onTrim-enqueue", () => {
     >;
     delete (h2 as { scopeProjectionBaseline?: unknown })
       .scopeProjectionBaseline;
-    (run.set as (patch: Record<string, unknown>) => void)(h2 as never);
-
-    const b2 = run.get("scopeProjectionBaseline", {
-      as: "snapshot",
-    }) as unknown as {
-      flags: { list: string[] };
-    };
-    expect(b2.flags.list.sort()).toEqual(["fa", "fb"]);
+    expect(() =>
+      (run.set as (patch: Record<string, unknown>) => void)(h2 as never),
+    ).toThrow("set.hydration.incomplete");
   });
 
   it("SET-PATCH-TRIM-BASELINE-01 — patch+trim must not double-apply removed applied entries into scopeProjectionBaseline", () => {
