@@ -60,6 +60,33 @@ describe("conformance/get-set", () => {
     expect(snap2.list).toEqual(["a"]);
   });
 
+  it('A2a — get("impulseQ") snapshot shape is stable', () => {
+    const run = createRuntime();
+
+    const impulseQ = run.get("impulseQ") as {
+      q: { entries: unknown[]; cursor: number };
+      config: { retain: number | boolean; maxBytes: number };
+    };
+
+    expect(typeof impulseQ).toBe("object");
+    expect(impulseQ).not.toBeNull();
+    expect(Array.isArray(impulseQ.q.entries)).toBe(true);
+    expect(typeof impulseQ.q.cursor).toBe("number");
+    expect(
+      typeof impulseQ.config.retain === "number" ||
+        typeof impulseQ.config.retain === "boolean",
+    ).toBe(true);
+    expect(typeof impulseQ.config.maxBytes).toBe("number");
+  });
+
+  it("A2b — Hydration requires scopeProjectionBaseline (missing -> incomplete)", () => {
+    const run = createRuntime();
+    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    delete s.scopeProjectionBaseline;
+
+    expect(() => run.set(s)).toThrow("set.hydration.incomplete");
+  });
+
   it("SET-FLAGDELTA-01 — set rejects non-string entries (symbol/number) with set.flags.deltaInvalid", () => {
     const run = createRuntime();
     const diagnostics = collectDiagnostics(run);
@@ -1283,6 +1310,7 @@ describe("conformance/get-set", () => {
       "seenFlags",
       "signal",
       "seenSignals",
+      "scopeProjectionBaseline",
       "impulseQ",
     ];
 
@@ -1700,6 +1728,7 @@ describe("conformance/get-set", () => {
       "seenFlags",
       "signal",
       "seenSignals",
+      "scopeProjectionBaseline",
       "impulseQ",
       "backfillQ",
       "scopeProjectionBaseline",
@@ -2620,6 +2649,9 @@ describe("conformance/get-set", () => {
       >,
       signal: run.get("signal", { as: "snapshot" }),
       seenSignals: run.get("seenSignals", {
+        as: "snapshot",
+      }) as unknown as Record<string, unknown>,
+      scopeProjectionBaseline: run.get("scopeProjectionBaseline", {
         as: "snapshot",
       }) as unknown as Record<string, unknown>,
       impulseQ: run.get("impulseQ", { as: "snapshot" }) as unknown as Record<

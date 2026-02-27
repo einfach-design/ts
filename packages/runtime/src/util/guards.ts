@@ -22,22 +22,3 @@ export function isCallable(
 
 // Re-export for backwards-compatible import paths (many modules import from util/guards.js).
 export { hasOwn };
-
-// Placeholder deepEqual; replace with spec-appropriate semantics if needed.
-export function deepEqual(a: unknown, b: unknown): boolean {
-  if (Object.is(a, b)) return true;
-  if (!isObjectNonNull(a) || !isObjectNonNull(b)) return false;
-
-  const aRec: Record<string, unknown> = a;
-  const bRec: Record<string, unknown> = b;
-
-  const aKeys = Object.keys(aRec);
-  const bKeys = Object.keys(bRec);
-  if (aKeys.length !== bKeys.length) return false;
-
-  for (const k of aKeys) {
-    if (!hasOwn(bRec, k)) return false;
-    if (!deepEqual(aRec[k], bRec[k])) return false;
-  }
-  return true;
-}

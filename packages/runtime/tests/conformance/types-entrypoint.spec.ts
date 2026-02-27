@@ -43,4 +43,30 @@ describe("conformance: public contract (types entrypoint)", () => {
     );
     expect(tsupConfig).toMatch(/dts:\s*true/);
   });
+
+  it("RunGetKey union contains runtime get keys", () => {
+    const source = readFileSync(
+      fromRuntimePkgRoot("src/index.types.ts"),
+      "utf8",
+    );
+
+    const expectedKeys = [
+      '"defaults"',
+      '"flags"',
+      '"changedFlags"',
+      '"seenFlags"',
+      '"signal"',
+      '"seenSignals"',
+      '"scopeProjectionBaseline"',
+      '"impulseQ"',
+      '"backfillQ"',
+      '"registeredQ"',
+      '"registeredById"',
+      '"diagnostics"',
+    ];
+
+    for (const key of expectedKeys) {
+      expect(source.includes(key)).toBe(true);
+    }
+  });
 });

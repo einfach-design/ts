@@ -15,6 +15,20 @@ import { createRuntime } from "../../src/index.js";
 import { RUNTIME_PKG_ROOT, fromRuntimePkgRoot } from "../_utils/paths.js";
 
 describe("conformance/diagnostic-codes", () => {
+  it("smoke — set.hydration.incomplete is emitted when scopeProjectionBaseline is missing", () => {
+    const run = createRuntime();
+    const emitted: Array<{ code?: string }> = [];
+    run.onDiagnostic((d) => emitted.push(d));
+    const s = run.get("*", { as: "snapshot" }) as Record<string, unknown>;
+    delete s.scopeProjectionBaseline;
+
+    expect(() => run.set(s)).toThrow("set.hydration.incomplete");
+    expect(
+      emitted.some(
+        (diagnostic) => diagnostic.code === "set.hydration.incomplete",
+      ),
+    ).toBe(true);
+  });
   it("all DIAGNOSTIC_CODES use dot-separated non-empty segments", () => {
     for (const code of Object.keys(DIAGNOSTIC_CODES)) {
       const segments = code.split(".");
