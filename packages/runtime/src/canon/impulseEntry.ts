@@ -39,7 +39,11 @@ export type ImpulseEntryCanonicalization = Readonly<{
 
 const readStringList = (
   value: unknown,
-  options?: { dedupeOnTrim?: boolean; normalizeOutput?: boolean },
+  options?: {
+    dedupeOnTrim?: boolean;
+    normalizeOutput?: boolean;
+    rejectTrimCollisions?: boolean;
+  },
 ): readonly string[] | undefined => {
   if (!Array.isArray(value)) {
     return undefined;
@@ -47,7 +51,10 @@ const readStringList = (
 
   const dedupeOnTrim = options?.dedupeOnTrim === true;
   const normalizeOutput = options?.normalizeOutput === true;
+  const rejectTrimCollisions = options?.rejectTrimCollisions === true;
   const seen = new Set<string>();
+  const seenCanonical = new Set<string>();
+  const seenTrimVariant = new Set<string>();
   const out: string[] = [];
 
   for (const item of value) {
@@ -65,6 +72,20 @@ const readStringList = (
         return undefined;
       }
       seen.add(token);
+    }
+
+    if (rejectTrimCollisions) {
+      if (item === token) {
+        if (seenTrimVariant.has(token)) {
+          return undefined;
+        }
+        seenCanonical.add(token);
+      } else {
+        if (seenCanonical.has(token) || seenTrimVariant.has(token)) {
+          return undefined;
+        }
+        seenTrimVariant.add(token);
+      }
     }
 
     out.push(normalizeOutput ? token : item);
@@ -180,6 +201,7 @@ export function canonImpulseEntry(
 
   const signals = readStringList(
     hasOwn(source, "signals") ? source.signals : [],
+    { rejectTrimCollisions: true },
   );
   if (signals === undefined) {
     return { entry: undefined, onError };
@@ -187,6 +209,7 @@ export function canonImpulseEntry(
 
   const addFlags = readStringList(
     hasOwn(source, "addFlags") ? source.addFlags : [],
+    { rejectTrimCollisions: true },
   );
   if (addFlags === undefined) {
     return { entry: undefined, onError };
@@ -194,6 +217,7 @@ export function canonImpulseEntry(
 
   const removeFlags = readStringList(
     hasOwn(source, "removeFlags") ? source.removeFlags : [],
+    { rejectTrimCollisions: true },
   );
   if (removeFlags === undefined) {
     return { entry: undefined, onError };
