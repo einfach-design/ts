@@ -50,7 +50,7 @@ const readStringList = (
   }
 
   const dedupeOnTrim = options?.dedupeOnTrim === true;
-  const normalizeOutput = options?.normalizeOutput === true;
+  const normalizeOutput = options?.normalizeOutput !== false;
   const rejectTrimCollisions = options?.rejectTrimCollisions === true;
   const seen = new Set<string>();
   const seenCanonical = new Set<string>();
@@ -109,6 +109,7 @@ const isFlagsView = (value: unknown): value is FlagsView => {
   const normalizedList = readStringList(list, {
     dedupeOnTrim: true,
     normalizeOutput: true,
+    rejectTrimCollisions: true,
   });
   if (normalizedList === undefined) {
     return false;

@@ -2826,6 +2826,59 @@ describe("conformance/get-set/scope-projection", () => {
   });
 });
 
+describe("conformance/get-set/impulse-canonicalization", () => {
+  it("IMP-CANON-01 — impulse canonicalizes tokens as trimmed strings", () => {
+    const run = createRuntime({ allowUnsafeAlias: true });
+
+    (run.set as (patch: Record<string, unknown>) => void)({
+      impulseQ: { config: { retain: true } },
+    });
+
+    run.impulse({
+      signals: [" a "],
+      addFlags: ["  x"],
+      removeFlags: ["y  "],
+    });
+
+    const impulseQ = run.get("impulseQ", { as: "snapshot" }) as unknown as {
+      q: {
+        entries: Array<{
+          signals: string[];
+          addFlags: string[];
+          removeFlags: string[];
+        }>;
+      };
+    };
+    const entry = impulseQ.q.entries[impulseQ.q.entries.length - 1];
+
+    expect(entry?.signals[0]).toBe("a");
+    expect(entry?.addFlags[0]).toBe("x");
+    expect(entry?.removeFlags[0]).toBe("y");
+  });
+
+  it('IMP-CANON-02 — impulse rejects trim-collisions (a vs " a ")', () => {
+    const run = createRuntime();
+
+    expect(() =>
+      run.impulse({ signals: ["a", " a "], onError: "throw" }),
+    ).toThrow("impulse.input.invalid");
+  });
+
+  it("IMP-CANON-03 — impulse rejects empty/whitespace tokens", () => {
+    const run = createRuntime();
+
+    expect(() => run.impulse({ signals: ["   "], onError: "throw" })).toThrow(
+      "impulse.input.invalid",
+    );
+    expect(() => run.impulse({ addFlags: [""], onError: "throw" })).toThrow(
+      "impulse.input.invalid",
+    );
+    expect(() =>
+      run.impulse({ removeFlags: ["  "], onError: "throw" }),
+    ).toThrow("impulse.input.invalid");
+  });
+});
+
 describe("conformance/get-set/impulseQ-trim-maxBytes", () => {
   type ImpulseQTrimEntry = {
     signals?: string[];
