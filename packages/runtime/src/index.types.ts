@@ -16,7 +16,7 @@ import type { ImpulseQEntryCanonical } from "./canon/impulseEntry.js";
 import type { RuntimeTarget, RegisteredExpression } from "./runs/coreRun.js";
 import type { ScopeProjectionBaseline } from "./runtime/store.js";
 import type { BackfillQSnapshot } from "./state/backfillQ.js";
-import type { Defaults } from "./state/defaults.js";
+import type { Defaults, SetDefaults } from "./state/defaults.js";
 import type { FlagsView } from "./state/flagsView.js";
 import type { Signal, SeenSignals } from "./state/signals.js";
 
@@ -121,20 +121,7 @@ export type RunSetPatch = Readonly<{
   addFlags?: FlagsView | readonly string[];
   removeFlags?: FlagsView | readonly string[];
   signals?: readonly string[];
-  defaults?: {
-    scope?:
-      | RunScope
-      | {
-          signal?: RunScope | { value: RunScope; force?: true };
-          flags?: RunScope | { value: RunScope; force?: true };
-        };
-    gate?:
-      | boolean
-      | {
-          signal?: boolean | { value: boolean; force?: true };
-          flags?: boolean | { value: boolean; force?: true };
-        };
-  };
+  defaults?: SetDefaults;
   impulseQ?: {
     config?: {
       retain?: number | boolean;
